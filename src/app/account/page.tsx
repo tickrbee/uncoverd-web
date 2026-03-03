@@ -37,18 +37,15 @@ export default async function AccountPage() {
       <MainNav />
       <main className="page">
         <section className="panel stack">
-          <h1>Account</h1>
+          <h1>Subscription account</h1>
           <p>Signed in as {user.email}</p>
           <p>Profile name: {profile?.user_name ?? "Not set"}</p>
           <p>Current plan: {toDisplayPlan(profile?.subscription_tier)}</p>
           <p>{renewsAt ? `Renews on ${renewsAt}` : "No active renewal date yet."}</p>
+          <p>This account is for billing management for the uncoverd mobile app.</p>
           <AccountActions />
-        </section>
-
-        <section className="panel stack" style={{ marginTop: "18px" }}>
-          <h2>Need legal details?</h2>
           <p>
-            View the <Link href="/legal/terms">Terms</Link> and <Link href="/legal/privacy">Privacy Policy</Link>.
+            Legal: <Link href="/legal/terms">Terms</Link> and <Link href="/legal/privacy">Privacy Policy</Link>.
           </p>
         </section>
       </main>

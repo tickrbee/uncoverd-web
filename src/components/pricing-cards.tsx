@@ -72,7 +72,7 @@ export function PricingCards() {
 
           {plan.tier === "free" ? (
             <button className="btn btn--ghost" onClick={() => router.push("/login")}>
-              Start for free
+              Log in
             </button>
           ) : (
             <button
@@ -80,7 +80,7 @@ export function PricingCards() {
               onClick={() => startCheckout(plan.tier as "plus" | "gold")}
               disabled={statusByPlan[plan.tier] === "busy"}
             >
-              {statusByPlan[plan.tier] === "busy" ? "Redirecting..." : `Choose ${plan.name}`}
+              {statusByPlan[plan.tier] === "busy" ? "Redirecting..." : `Subscribe to ${plan.name}`}
             </button>
           )}
         </article>

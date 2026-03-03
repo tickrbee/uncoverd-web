@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MainNav } from "@/components/main-nav";
+import { BILLING_PURPOSE_LINE } from "@/lib/branding";
 
 export default function HomePage() {
   return (
@@ -7,26 +8,23 @@ export default function HomePage() {
       <MainNav />
       <main className="page">
         <section className="hero">
-          <h1>See what matters. Pay only when you are ready.</h1>
-          <p>
-            uncoverd is the front door for your account, secure login, and subscription management. Sign in
-            with email or Google, pick your plan, and manage billing from one account.
-          </p>
+          <p className="hero__eyebrow">Subscription Portal</p>
+          <h1>Manage your uncoverd subscription for the mobile app.</h1>
+          <p>{BILLING_PURPOSE_LINE}</p>
 
           <div className="hero__actions">
-            <Link href="/pricing" className="btn">
-              View plans
-            </Link>
-            <Link href="/login" className="btn btn--ghost">
+            <Link href="/login" className="btn">
               Log in
+            </Link>
+            <Link href="/pricing" className="btn btn--ghost">
+              View plans
             </Link>
           </div>
 
-          <div className="hero__meta" aria-label="Core highlights">
-            <span className="tag">Hosted on Vercel</span>
-            <span className="tag">Auth via Supabase</span>
-            <span className="tag">Billing powered by Stripe</span>
-          </div>
+          <p className="hero__fineprint">
+            Billing is processed securely through Stripe. uncoverd provides account clarity and risk-aware product
+            access, not investment advice.
+          </p>
         </section>
       </main>
     </>

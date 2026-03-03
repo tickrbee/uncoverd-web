@@ -14,8 +14,8 @@ const headingFont = Syne({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} | Landing, Login, and Billing`,
-  description: "uncoverd official site for onboarding, login, and subscription management.",
+  title: `${APP_NAME} | Subscription Billing`,
+  description: "uncoverd subscription login, checkout, and billing portal for the mobile app.",
 };
 
 export default function RootLayout({

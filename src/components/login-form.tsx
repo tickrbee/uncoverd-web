@@ -20,10 +20,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const nextPath = useMemo(
-    () => sanitizeNextPath(searchParams.get("next")),
-    [searchParams],
-  );
+  const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
 
   async function signInWithEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +43,7 @@ export function LoginForm() {
       return;
     }
 
-    setNotice("Check your inbox for the secure login link.");
+    setNotice("Check your inbox for a secure login link.");
     setBusy(false);
   }
 
@@ -75,8 +72,8 @@ export function LoginForm() {
 
   return (
     <section className="panel login-panel">
-      <h1>Login to uncoverd</h1>
-      <p>Continue with magic link or Google to manage your plan.</p>
+      <h1>Access your subscription account</h1>
+      <p>Sign in with email or Google to manage your uncoverd mobile app subscription.</p>
 
       <button type="button" className="btn btn--ghost" onClick={signInWithGoogle} disabled={busy}>
         Continue with Google
@@ -101,7 +98,7 @@ export function LoginForm() {
         />
 
         <button type="submit" className="btn" disabled={busy}>
-          Send magic link
+          Send secure login link
         </button>
       </form>
 

@@ -7,16 +7,16 @@ export default function TermsPage() {
       <main className="page legal">
         <h1>Terms of Service</h1>
         <p>
-          These terms govern access to uncoverd and your subscription usage. By creating an account, you agree to
-          provide accurate account information and to use the service in compliance with applicable law.
+          These terms govern your use of the uncoverd web portal for account access and subscription billing for the
+          mobile app.
         </p>
         <p>
-          Paid plans renew automatically unless canceled through the billing portal. Feature access depends on your
-          active subscription tier and can change when a payment fails or a subscription is canceled.
+          Paid plans renew automatically unless canceled in the billing portal. Subscription status determines access
+          level in the mobile app.
         </p>
         <p>
-          We may update these terms when product, legal, or compliance requirements change. Material updates will be
-          published on this page.
+          uncoverd provides software tools and account services. Nothing on this website constitutes investment advice
+          or a promise of financial outcome.
         </p>
       </main>
     </>

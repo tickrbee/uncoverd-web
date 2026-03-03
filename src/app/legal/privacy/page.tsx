@@ -7,16 +7,16 @@ export default function PrivacyPage() {
       <main className="page legal">
         <h1>Privacy Policy</h1>
         <p>
-          uncoverd uses Supabase for authentication and Stripe for billing. We process the minimum required account and
-          payment metadata needed to provide secure access and subscription management.
+          uncoverd uses Supabase for authentication and Stripe for billing. We process only account and subscription
+          data required to provide secure login and billing management.
         </p>
         <p>
-          Billing events update your account tier and renewal status. We do not store raw payment card numbers on
-          uncoverd servers.
+          Payment card data is handled by Stripe. uncoverd does not store raw payment card numbers on its own
+          servers.
         </p>
         <p>
-          You can request account deletion and data-related support through official support channels. Policy updates
-          are posted on this page.
+          You can contact support to request account assistance or deletion. Policy updates are published on this
+          page.
         </p>
       </main>
     </>

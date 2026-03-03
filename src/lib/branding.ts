@@ -1,5 +1,8 @@
 export const APP_NAME = "uncoverd";
 
+export const BILLING_PURPOSE_LINE =
+  "The uncoverd web portal is for subscription checkout and account billing for the mobile app.";
+
 export type TierCode = "free" | "plus" | "gold";
 export type PlanDisplay = "Free" | "Plus" | "Pro";
 
@@ -22,22 +25,22 @@ export const plans: Plan[] = [
     tier: "free",
     name: "Free",
     monthlyPrice: "EUR 0",
-    description: "Get a feel for uncoverd with basic access and account sync.",
-    features: ["Email + Google login", "Starter account profile", "Upgrade any time"],
+    description: "Secure account access for the mobile app.",
+    features: ["Email + Google sign-in", "Account and renewal visibility", "Upgrade at any time"],
   },
   {
     tier: "plus",
     name: "Plus",
     monthlyPrice: "EUR 14.99 / month",
-    description: "For users who want deeper tracking and faster decisions.",
-    features: ["Everything in Free", "Priority product updates", "Full subscription support"],
+    description: "Paid mobile app subscription with expanded access.",
+    features: ["Everything in Free", "Expanded app access", "Self-serve billing portal"],
   },
   {
     tier: "gold",
     name: "Pro",
     monthlyPrice: "EUR 24.99 / month",
-    description: "Advanced tier for serious workflows and premium support.",
-    features: ["Everything in Plus", "Highest feature tier", "Faster support turnaround"],
+    description: "Highest subscription tier for maximum app access.",
+    features: ["Everything in Plus", "Highest tier access", "Priority subscription support"],
   },
 ];
 
