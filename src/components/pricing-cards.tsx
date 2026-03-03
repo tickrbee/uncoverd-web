@@ -80,7 +80,7 @@ export function PricingCards() {
               onClick={() => startCheckout(plan.tier as "plus" | "gold")}
               disabled={statusByPlan[plan.tier] === "busy"}
             >
-              {statusByPlan[plan.tier] === "busy" ? "Redirecting..." : `Subscribe to ${plan.name}`}
+              {statusByPlan[plan.tier] === "busy" ? "Redirecting..." : `Choose ${plan.name}`}
             </button>
           )}
         </article>

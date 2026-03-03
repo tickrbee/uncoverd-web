@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type UserProfile = {
-  user_name: string | null;
   subscription_tier: "free" | "plus" | "gold" | null;
   plus_ends_at: string | null;
 };
@@ -26,7 +25,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("user_name, subscription_tier, plus_ends_at")
+    .select("subscription_tier, plus_ends_at")
     .eq("id", user.id)
     .maybeSingle<UserProfile>();
 
@@ -39,7 +38,6 @@ export default async function AccountPage() {
         <section className="panel stack">
           <h1>Subscription account</h1>
           <p>Signed in as {user.email}</p>
-          <p>Profile name: {profile?.user_name ?? "Not set"}</p>
           <p>Current plan: {toDisplayPlan(profile?.subscription_tier)}</p>
           <p>{renewsAt ? `Renews on ${renewsAt}` : "No active renewal date yet."}</p>
           <p>This account is for billing management for the uncoverd mobile app.</p>

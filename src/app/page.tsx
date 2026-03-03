@@ -8,8 +8,7 @@ export default function HomePage() {
       <MainNav />
       <main className="page">
         <section className="hero">
-          <p className="hero__eyebrow">Subscription Portal</p>
-          <h1>Manage your uncoverd subscription for the mobile app.</h1>
+          <h1>Subscription access for the uncoverd mobile app.</h1>
           <p>{BILLING_PURPOSE_LINE}</p>
 
           <div className="hero__actions">
@@ -22,8 +21,7 @@ export default function HomePage() {
           </div>
 
           <p className="hero__fineprint">
-            Billing is processed securely through Stripe. uncoverd provides account clarity and risk-aware product
-            access, not investment advice.
+            Use this site only for account login, subscription checkout, and billing management.
           </p>
         </section>
       </main>
