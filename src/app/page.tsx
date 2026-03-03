@@ -113,8 +113,8 @@ const storySections: StorySection[] = [
     ],
     ctaLine:
       "For thoughtful investors. For curious beginners. For anyone who wants a better entry point into the market.",
-    ctaLabel: "Join uncoverd",
-    ctaHref: "/login?next=%2Fpricing",
+    ctaLabel: "Choose plan",
+    ctaHref: "/pricing",
   },
   {
     id: "name",
@@ -142,7 +142,7 @@ const storySections: StorySection[] = [
       "Better tools for forming judgment",
       "Less chaos and more conviction",
     ],
-    ctaLabel: "Get early access",
+    ctaLabel: "Log in",
     ctaHref: "/login?next=%2Fpricing",
   },
 ];
@@ -171,7 +171,7 @@ export default function HomePage() {
 
           <div className="hero__actions">
             <Link href="/login?next=%2Fpricing" className="btn">
-              Join the waitlist
+              Log in
             </Link>
             <Link href="#core-idea" className="btn btn--ghost">
               See how it works
@@ -235,11 +235,11 @@ export default function HomePage() {
 
           <div className="hero__actions">
             <Link href="/login?next=%2Fpricing" className="btn">
-              Join the waitlist
+              Log in
             </Link>
-            <a href="mailto:hello@uncoverd.org" className="btn btn--ghost">
-              Contact us
-            </a>
+            <Link href="/pricing" className="btn btn--ghost">
+              View plans
+            </Link>
           </div>
 
           <p className="story-section__closing">uncoverd — discover with clarity. invest with conviction.</p>
