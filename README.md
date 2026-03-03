@@ -29,6 +29,8 @@ Required values:
 
 Example local values are in `.env.example`.
 
+Note: the app includes fallback values for Supabase URL and publishable anon key so deployments do not crash if those two vars are temporarily missing. Vercel env vars are still recommended for explicit configuration.
+
 ## Local Development
 
 ```bash
@@ -61,4 +63,3 @@ The user-facing plan map is:
 4. In Supabase Auth settings, configure:
    - Site URL: `https://uncoverd.org`
    - Redirect URLs for local + preview + production callback paths.
-

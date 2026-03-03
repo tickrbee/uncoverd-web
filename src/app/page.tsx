@@ -8,8 +8,14 @@ export default function HomePage() {
       <MainNav />
       <main className="page">
         <section className="hero">
-          <h1>Subscription access for the uncoverd mobile app.</h1>
+          <p className="hero__eyebrow">Mobile investing app</p>
+          <h1>Subscribe to uncoverd and manage your account in one place.</h1>
           <p>{BILLING_PURPOSE_LINE}</p>
+          <ul className="hero__summary" aria-label="What uncoverd gives you inside the mobile app">
+            <li>Clear key points and key risks for each company.</li>
+            <li>Portfolio impact previews before position changes.</li>
+            <li>Weekly risk check-ins and billing control from one account.</li>
+          </ul>
 
           <div className="hero__actions">
             <Link href="/login" className="btn">
@@ -21,7 +27,7 @@ export default function HomePage() {
           </div>
 
           <p className="hero__fineprint">
-            Use this site only for account login, subscription checkout, and billing management.
+            Product usage happens in the uncoverd mobile app. This site is only for login and subscription management.
           </p>
         </section>
       </main>

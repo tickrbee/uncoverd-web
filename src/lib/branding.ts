@@ -1,7 +1,7 @@
 export const APP_NAME = "uncoverd";
 
 export const BILLING_PURPOSE_LINE =
-  "Use uncoverd web for subscription checkout and account billing. The product experience lives in the mobile app.";
+  "uncoverd is a mobile investing app focused on risk clarity. Use this site for login, checkout, and billing.";
 
 export type TierCode = "free" | "plus" | "gold";
 export type PlanDisplay = "Free" | "Plus" | "Pro";
@@ -25,22 +25,22 @@ export const plans: Plan[] = [
     tier: "free",
     name: "Free",
     monthlyPrice: "EUR 0",
-    description: "Account access for the mobile app.",
-    features: ["Email and Google sign-in", "Plan visibility", "Upgrade anytime"],
+    description: "Secure account access for the mobile app.",
+    features: ["Email and Google sign-in", "Plan and renewal visibility", "Upgrade anytime"],
   },
   {
     tier: "plus",
     name: "Plus",
     monthlyPrice: "EUR 14.99 / month",
-    description: "Paid subscription with expanded app access.",
-    features: ["Everything in Free", "Expanded access", "Billing portal"],
+    description: "Risk-focused subscription for daily decision support.",
+    features: ["Decision assistant and impact preview", "Extra daily analysis pack", "Weekly risk check-in"],
   },
   {
     tier: "gold",
     name: "Pro",
     monthlyPrice: "EUR 24.99 / month",
-    description: "Highest subscription tier for full app access.",
-    features: ["Everything in Plus", "Highest tier access", "Priority support"],
+    description: "Full subscription tier for advanced portfolio clarity.",
+    features: ["Everything in Plus", "Advanced analytics", "Priority support"],
   },
 ];
 

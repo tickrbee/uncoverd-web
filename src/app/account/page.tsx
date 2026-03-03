@@ -40,7 +40,7 @@ export default async function AccountPage() {
           <p>Signed in as {user.email}</p>
           <p>Current plan: {toDisplayPlan(profile?.subscription_tier)}</p>
           <p>{renewsAt ? `Renews on ${renewsAt}` : "No active renewal date yet."}</p>
-          <p>This account is for billing management for the uncoverd mobile app.</p>
+          <p>Your plan unlocks uncoverd features in the mobile app. Manage billing here.</p>
           <AccountActions />
           <p>
             Legal: <Link href="/legal/terms">Terms</Link> and <Link href="/legal/privacy">Privacy Policy</Link>.

@@ -73,7 +73,10 @@ export function LoginForm() {
   return (
     <section className="panel login-panel">
       <h1>Access your subscription account</h1>
-      <p>Sign in with email or Google to manage your uncoverd mobile app subscription.</p>
+      <p>
+        Sign in with email or Google to manage your uncoverd plan. uncoverd helps you evaluate opportunities with
+        clearer risk context inside the mobile app.
+      </p>
 
       <button type="button" className="btn btn--ghost" onClick={signInWithGoogle} disabled={busy}>
         Continue with Google

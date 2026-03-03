@@ -10,6 +10,7 @@ export default function PricingPage() {
         <section className="panel stack">
           <h1>Choose your subscription</h1>
           <p>{BILLING_PURPOSE_LINE}</p>
+          <p>All plan features apply to the uncoverd mobile app. Checkout and billing are managed here on web.</p>
         </section>
 
         <PricingCards />
