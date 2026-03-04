@@ -59,7 +59,7 @@ export default function HomePage() {
         {/* Hero Section */}
         <section id="hero" className="hero">
           <p className="hero__eyebrow">Discover • Analyze • Invest</p>
-          <h1>Best Investment Ideas & Stock Picks, Powered by AI</h1>
+          <h1>Investing, uncoverd.</h1>
           <p>
             Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with
             intelligent insights on top stock picks, track performance, and make smarter investing decisions. AI in
