@@ -1,10 +1,23 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { MainNav } from "@/components/main-nav";
 import { LoginForm } from "@/components/login-form";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Redirect to account page if already logged in
+  if (user) {
+    redirect("/account");
+  }
+
   return (
     <>
       <MainNav />

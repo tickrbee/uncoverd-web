@@ -1,244 +1,211 @@
 import Link from "next/link";
 import { MainNav } from "@/components/main-nav";
-
-type StorySection = {
-  id: string;
-  eyebrow: string;
-  headline: string;
-  body: string[];
-  bullets?: string[];
-  ctaLine?: string;
-  ctaLabel?: string;
-  ctaHref?: string;
-  emphasis?: string;
-};
-
-const storySections: StorySection[] = [
-  {
-    id: "problem",
-    eyebrow: "The problem",
-    headline: "Modern investing feels broken.",
-    body: [
-      "What should be an act of curiosity, judgment, and conviction has turned into something else: an exhausting stream of hot takes, endless dashboards, breaking news, shallow commentary, and products designed to keep users active rather than thoughtful.",
-      "People are not excluded from investing because they are incapable of learning. They are excluded because the experience has been designed badly.",
-      "It is cluttered when it should be clear. Intimidating when it should be empowering. Reactive when it should be reflective.",
-      "The result is a generation of users with more access than ever before and less clarity than ever before.",
-    ],
-    ctaLine: "There is a better way. uncoverd is built to make investing feel intelligible again.",
-    ctaLabel: "Learn more",
-    ctaHref: "#core-idea",
-  },
-  {
-    id: "core-idea",
-    eyebrow: "Why uncoverd exists",
-    headline: "Discovery comes before decision.",
-    body: [
-      "Before anyone can build a portfolio, they first need to encounter ideas in the right way.",
-      "Not as a spreadsheet. Not as a wall of tickers. Not as a terminal built only for insiders. Not as a social feed optimized for distraction.",
-      "Most people begin investing with fragments: a company they vaguely know, a sector they are curious about, a trend they keep hearing about, or an intuition they cannot yet articulate.",
-      "That early stage matters. It is where curiosity either becomes conviction or collapses into confusion.",
-      "uncoverd is designed around that moment. We help users discover companies and opportunities in a way that feels natural, focused, and intelligent.",
-    ],
-    bullets: [
-      "Discover opportunities with clarity",
-      "Understand what you are looking at",
-      "Build conviction before taking action",
-    ],
-    ctaLabel: "Start discovering",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "philosophy",
-    eyebrow: "Our philosophy",
-    headline: "We are not building another finance app.",
-    body: [
-      "We are building a better interface for thinking.",
-      "At uncoverd, we believe the future of investing is not just more data. It is better judgment.",
-      "That means creating a product that helps users focus attention, understand businesses more clearly, distinguish signal from noise, build coherent investment views, and act with more intention.",
-      "We do not believe in overwhelming people to make a product look powerful. We believe true sophistication often looks like clarity.",
-    ],
-    emphasis: "Simplicity is not the absence of intelligence. It is intelligence made usable.",
-  },
-  {
-    id: "attention",
-    eyebrow: "Attention matters",
-    headline: "The best investing decisions begin with focus.",
-    body: [
-      "In finance, everyone talks about capital. Far fewer people talk about attention. But attention is where every portfolio begins.",
-      "What users notice shapes what they study. What they study shapes what they understand. What they understand shapes what they own.",
-      "Most financial products compete to fragment attention with noise, urgency, and constant stimulation. uncoverd is designed to do the opposite.",
-      "We help users focus on what deserves consideration, not just what is loudest.",
-    ],
-    bullets: ["Less noise", "Better framing", "Clearer choices", "More thoughtful decisions"],
-    ctaLabel: "See the difference",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "conviction",
-    eyebrow: "Built for conviction",
-    headline: "Activity is not the same as progress.",
-    body: [
-      "The financial world often rewards motion: buy, sell, rotate, react, refresh.",
-      "But constant activity is rarely a sign of real understanding. More often, it is a sign of uncertainty.",
-      "uncoverd is built around a different principle: helping users move from scattered interest to focused curiosity, from curiosity to understanding, and from understanding to conviction.",
-      "Because when someone truly understands why they own something, they make better decisions. They are less likely to chase noise, panic, or imitate others without understanding the reasoning.",
-    ],
-    emphasis: "Conviction is not certainty. It is the ability to say: I understand what I own, and I know why I own it.",
-    ctaLabel: "Build with intention",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "education",
-    eyebrow: "Learning by doing",
-    headline: "Education should be part of the product, not separate from it.",
-    body: [
-      "Most financial education fails because it is disconnected from real decisions.",
-      "People read generic articles, abstract lessons, and endless explanations, then feel lost again when they face an actual investment choice.",
-      "We believe learning works better in context, at the exact moment curiosity appears: when comparing companies, evaluating risks, or deciding whether an idea belongs in a portfolio.",
-      "At uncoverd, education is not a side feature. It is embedded into the experience.",
-    ],
-    bullets: ["Learn in context", "Understand faster", "Improve judgment over time"],
-    ctaLabel: "Learn while you invest",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "different",
-    eyebrow: "Why it feels different",
-    headline: "A product designed for clarity, not overload.",
-    body: [
-      "Every product teaches users how to behave.",
-      "Some platforms teach compulsion. Some teach passivity. Some teach performance.",
-      "We want uncoverd to teach curiosity over conformity, understanding over impulse, focus over fragmentation, depth over superficiality, and long-term thinking over performative urgency.",
-      "This is not just a design decision. It is a product philosophy. We believe technology should expand judgment, not replace it.",
-    ],
-    ctaLine:
-      "For thoughtful investors. For curious beginners. For anyone who wants a better entry point into the market.",
-    ctaLabel: "Choose plan",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "name",
-    eyebrow: "Why uncoverd",
-    headline: "Because good investing starts when something becomes visible.",
-    body: [
-      "To uncover is to reveal what is hidden. To bring clarity to what once felt opaque. To make something intelligible that was buried beneath noise.",
-      "That is what we want this product to do: uncover opportunities worth understanding, uncover the narratives behind companies, uncover the assumptions behind decisions, and uncover the difference between signal and distraction.",
-      "Ultimately, we want to help users uncover their own judgment.",
-    ],
-    ctaLabel: "Discover what matters",
-    ctaHref: "/pricing",
-  },
-  {
-    id: "who-for",
-    eyebrow: "Who we build for",
-    headline: "For people who want more than hype.",
-    body: [
-      "uncoverd is built for people who want to engage with markets in a more thoughtful way.",
-      "For the ambitious beginner. For the curious learner. For the investor in formation. For people who sense there must be a better way than endless noise and overwhelming complexity.",
-    ],
-    bullets: [
-      "A clearer starting point",
-      "A more elegant investing experience",
-      "Better tools for forming judgment",
-      "Less chaos and more conviction",
-    ],
-    ctaLabel: "Log in",
-    ctaHref: "/login?next=%2Fpricing",
-  },
-];
+import { AppScreenshot } from "@/components/app-screenshot";
+import { SiteFooter } from "@/components/site-footer";
+import { AppStoreLinks } from "@/components/app-store-links";
 
 export default function HomePage() {
   return (
     <>
       <MainNav />
       <main className="page">
-        <section className="hero">
-          <p className="hero__eyebrow">Hero Section</p>
+        {/* Hero Section */}
+        <section id="hero" className="hero">
+          <p className="hero__eyebrow">Discover • Analyze • Invest</p>
           <h1>Investing, uncoverd.</h1>
           <p>
-            A new way to discover stocks, build conviction, and make better investing decisions without the noise,
-            clutter, and chaos of traditional finance products.
+            Swipe through stocks, build your portfolio, and get AI-powered insights to make smarter investing decisions.
+            All in one elegant mobile app.
           </p>
           <p>
-            Most investing platforms overwhelm people with information, pressure, and complexity. uncoverd is built
-            differently. We believe investing should begin with discovery, not confusion. With curiosity, not anxiety.
-            With clear thinking, not noise.
-          </p>
-          <p>
-            uncoverd helps users explore opportunities, understand what matters, and build portfolios with greater
-            focus and intention.
+            uncoverd transforms how you discover and evaluate investment opportunities. Swipe right on stocks you like,
+            swipe left to pass, and watch your portfolio grow with intelligent, AI-driven analysis.
           </p>
 
           <div className="hero__actions">
             <Link href="/login?next=%2Fpricing" className="btn">
-              Log in
+              Get Started
             </Link>
-            <Link href="#core-idea" className="btn btn--ghost">
-              See how it works
+            <Link href="#features" className="btn btn--ghost">
+              See Features
             </Link>
           </div>
+
+          <AppStoreLinks />
         </section>
 
-        <div className="story-grid">
-          {storySections.map((section) => (
-            <section key={section.id} id={section.id} className="story-section">
-              <p className="story-section__eyebrow">{section.eyebrow}</p>
-              <h2>{section.headline}</h2>
-
-              <div className="story-section__body">
-                {section.body.map((paragraph, index) => (
-                  <p key={`${section.id}-p-${index}`}>{paragraph}</p>
-                ))}
-              </div>
-
-              {section.bullets ? (
-                <ul className="story-section__bullets">
-                  {section.bullets.map((bullet, index) => (
-                    <li key={`${section.id}-b-${index}`}>{bullet}</li>
-                  ))}
-                </ul>
-              ) : null}
-
-              {section.emphasis ? <blockquote className="story-section__quote">{section.emphasis}</blockquote> : null}
-
-              {section.ctaLine ? <p className="story-section__cta-line">{section.ctaLine}</p> : null}
-
-              {section.ctaLabel && section.ctaHref ? (
-                <Link href={section.ctaHref} className="btn btn--ghost story-section__cta">
-                  {section.ctaLabel}
-                </Link>
-              ) : null}
-            </section>
-          ))}
-        </div>
-
-        <section className="story-section feature-strip">
-          <h2>What uncoverd helps you do</h2>
-          <ul className="story-section__bullets">
-            <li>Discover intelligently: Explore companies and opportunities in a more focused way.</li>
-            <li>Understand clearly: Get context that helps you evaluate what actually matters.</li>
-            <li>Build conviction: Move from curiosity to confident, intentional decisions.</li>
-            <li>Invest thoughtfully: Create a more coherent relationship with the market.</li>
-          </ul>
+        {/* App Showcase - Swipe & Portfolio */}
+        <section id="app-showcase" className="story-section story-section--split">
+          <div className="story-section__content">
+            <p className="story-section__eyebrow">The App</p>
+            <h2>Swipe stocks. Build your portfolio.</h2>
+            <div className="story-section__body">
+              <p>
+                Discover stocks the modern way. Swipe through companies like you're browsing opportunities, not staring at
+                spreadsheets. Each card shows you what matters: key points, risks, performance, and insights.
+              </p>
+              <p>
+                Build your portfolio naturally as you discover companies you believe in. Track your holdings, monitor
+                performance, and make decisions with confidence.
+              </p>
+            </div>
+            <ul className="story-section__bullets">
+              <li>Intuitive swipe interface for discovering stocks</li>
+              <li>Build and manage your portfolio in real-time</li>
+              <li>See key points and risks at a glance</li>
+              <li>Track performance with beautiful visualizations</li>
+            </ul>
+            <Link href="/pricing" className="btn btn--ghost story-section__cta">
+              Start Swiping
+            </Link>
+          </div>
+          <AppScreenshot
+            src="/screenshots/discover-swipe.PNG"
+            alt="uncoverd app showing stock discovery interface with swipe cards"
+          />
         </section>
 
+        {/* AI-Powered Features */}
+        <section id="ai-features" className="story-section story-section--split story-section--reverse">
+          <div className="story-section__content">
+            <p className="story-section__eyebrow">Powered by AI</p>
+            <h2>Get intelligent analysis and insights.</h2>
+            <div className="story-section__body">
+              <p>
+                Every stock, every insight, every summary is powered by advanced AI. Get financial and market analysis,
+                company insights, and portfolio summaries that help you understand what you're investing in.
+              </p>
+              <p>
+                Our AI doesn't just give you data—it gives you understanding. Analyze market trends, evaluate company
+                fundamentals, and get personalized insights tailored to your portfolio.
+              </p>
+            </div>
+            <ul className="story-section__bullets">
+              <li>AI-powered financial and market analysis</li>
+              <li>Deep company insights and risk assessment</li>
+              <li>Personalized portfolio summaries</li>
+              <li>Intelligent recommendations based on your preferences</li>
+            </ul>
+            <Link href="/pricing" className="btn btn--ghost story-section__cta">
+              Explore AI Features
+            </Link>
+          </div>
+          <AppScreenshot
+            src="/screenshots/ai-insights.png"
+            alt="uncoverd app showing AI-powered company insights and analysis"
+          />
+        </section>
+
+        {/* Competition & Rankings */}
+        <section id="competition" className="story-section story-section--split">
+          <div className="story-section__content">
+            <p className="story-section__eyebrow">Compete & Rank</p>
+            <h2>Compete against others to become the best investor.</h2>
+            <div className="story-section__body">
+              <p>
+                See how you stack up against other investors. Climb the global rankings based on portfolio performance,
+                win rate, and total returns. Compete to become the #1 investor.
+              </p>
+              <p>
+                Track your rank, compare your performance, and see where you stand. The leaderboard updates in real-time
+                as portfolios change and markets move.
+              </p>
+            </div>
+            <ul className="story-section__bullets">
+              <li>Global investor rankings and leaderboards</li>
+              <li>Compare your performance against others</li>
+              <li>Track your rank and climb to the top</li>
+              <li>See top performers and learn from the best</li>
+            </ul>
+            <Link href="/pricing" className="btn btn--ghost story-section__cta">
+              Join the Competition
+            </Link>
+          </div>
+          <AppScreenshot
+            src="/screenshots/rankings.png"
+            alt="uncoverd app showing global investor rankings and leaderboard"
+          />
+        </section>
+
+        {/* Performance Tracking */}
+        <section id="performance" className="story-section story-section--split story-section--reverse">
+          <div className="story-section__content">
+            <p className="story-section__eyebrow">Track & Analyze</p>
+            <h2>Track your performance and discover your investor profile.</h2>
+            <div className="story-section__body">
+              <p>
+                Understand your investing style. See how your portfolio performs over time, compare it to market averages,
+                and discover your unique investor profile.
+              </p>
+              <p>
+                Get detailed analytics on your trading patterns, portfolio composition, and performance metrics. Learn
+                what kind of investor you are and how to improve.
+              </p>
+            </div>
+            <ul className="story-section__bullets">
+              <li>Track portfolio performance over time</li>
+              <li>Compare your returns against market averages</li>
+              <li>Discover your unique investor profile</li>
+              <li>Analyze your trading style and patterns</li>
+            </ul>
+            <Link href="/pricing" className="btn btn--ghost story-section__cta">
+              View Your Profile
+            </Link>
+          </div>
+          <AppScreenshot
+            src="/screenshots/performance.png"
+            alt="uncoverd app showing performance tracking and investor profile analytics"
+          />
+        </section>
+
+        {/* Crowd Wisdom Top Picks */}
+        <section id="top-picks" className="story-section story-section--split">
+          <div className="story-section__content">
+            <p className="story-section__eyebrow">Crowd Wisdom</p>
+            <h2>Get top stock picks based on crowd wisdom.</h2>
+            <div className="story-section__body">
+              <p>
+                See what the community is discovering. Get top stock picks curated from thousands of investors swiping,
+                analyzing, and building portfolios.
+              </p>
+              <p>
+                Crowd wisdom surfaces the best opportunities. When many investors discover and like a stock, it appears in
+                Top Picks—your shortcut to the most promising opportunities.
+              </p>
+            </div>
+            <ul className="story-section__bullets">
+              <li>Top picks based on community discovery</li>
+              <li>See what other investors are finding</li>
+              <li>Get curated recommendations from crowd wisdom</li>
+              <li>Discover trending stocks and opportunities</li>
+            </ul>
+            <Link href="/pricing" className="btn btn--ghost story-section__cta">
+              See Top Picks
+            </Link>
+          </div>
+          <AppScreenshot
+            src="/screenshots/top-picks.png"
+            alt="uncoverd app showing top stock picks based on crowd wisdom"
+          />
+        </section>
+
+        {/* Final CTA */}
         <section className="story-section story-section--final">
-          <h2>A better investing experience starts here.</h2>
+          <h2>Start your investing journey today.</h2>
           <div className="story-section__body">
-            <p>Investing does not have to feel intimidating, chaotic, or shallow.</p>
             <p>
-              It can be clear. It can be thoughtful. It can be elegant. It can help people become more capable over
-              time.
+              Join uncoverd and discover a better way to invest. Swipe stocks, build your portfolio, get AI insights,
+              compete with others, and track your performance—all in one beautiful app.
             </p>
-            <p>That is what uncoverd is built to do.</p>
+            <p>Investing doesn't have to be complicated. It can be clear, intelligent, and even fun.</p>
           </div>
 
           <div className="hero__actions">
             <Link href="/login?next=%2Fpricing" className="btn">
-              Log in
+              Get Started
             </Link>
             <Link href="/pricing" className="btn btn--ghost">
-              View plans
+              View Plans
             </Link>
           </div>
 
@@ -250,6 +217,7 @@ export default function HomePage() {
           Designed for a generation that wants better tools, not more noise.
         </p>
       </main>
+      <SiteFooter />
     </>
   );
 }
