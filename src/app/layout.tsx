@@ -14,8 +14,36 @@ const headingFont = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} | Subscription Billing`,
-  description: "uncoverd subscription login, checkout, and billing portal for the mobile investing app.",
+  title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+  description:
+    "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights, track performance, and compete with other investors. AI in finance made simple.",
+  keywords: [
+    "investment ideas",
+    "best stocks",
+    "portfolio",
+    "AI in finance",
+    "stock analysis",
+    "investment app",
+    "portfolio management",
+    "AI stock recommendations",
+    "investment opportunities",
+    "stock picks",
+    "financial AI",
+    "investment platform",
+  ],
+  openGraph: {
+    title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    description:
+      "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights and track performance.",
+    type: "website",
+    url: "https://uncoverd.org",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    description:
+      "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights.",
+  },
 };
 
 export default function RootLayout({
