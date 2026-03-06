@@ -11,3 +11,4 @@ Place your app screenshots in this directory with the following filenames:
 Recommended dimensions: 400x800px (mobile portrait) or similar aspect ratio.
 Formats: PNG, JPG, or WebP
 
+

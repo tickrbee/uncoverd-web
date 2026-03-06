@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting to uncoverd...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #0a0a0a;
+            color: #e4e4e7;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 400px;
+        }
+        .spinner {
+            border: 4px solid rgba(52, 211, 153, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #34d399;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 0.5rem;
+            color: #f4f4f5;
+        }
+        p {
+            color: #a1a1aa;
+            margin: 0;
+        }
+        .brand {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #71717a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Redirecting to uncoverd...</h1>
+        <p>Please wait...</p>
+        <p class="brand">uncoverd — discover with clarity. invest with conviction.</p>
+    </div>
+
+    <script>
+        (function() {
+            // Get all URL parameters (both query string and hash)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            
+            // Combine all parameters
+            const params = new URLSearchParams();
+            
+            // Add query params
+            for (const [key, value] of urlParams.entries()) {
+                params.append(key, value);
+            }
+            
+            // Add hash params (these take precedence)
+            for (const [key, value] of hashParams.entries()) {
+                params.set(key, value);
+            }
+            
+            // Build the deep link URL
+            const deepLinkUrl = 'swipefolio://auth/callback?' + params.toString();
+            
+            // Try to redirect to deep link
+            window.location.href = deepLinkUrl;
+            
+            // Fallback: if deep link doesn't work, try to open the app store or show message
+            setTimeout(function() {
+                // If we're still here after 2 seconds, the deep link didn't work
+                const message = document.querySelector('p');
+                if (message) {
+                    message.textContent = 'If the app doesn\'t open automatically, please return to the uncoverd app manually.';
+                }
+                
+                // Try alternative methods
+                // On Android, try intent:// URL
+                if (/Android/i.test(navigator.userAgent)) {
+                    const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=swipefolio;package=com.swipefolio.app;end';
+                    window.location.href = intentUrl;
+                }
+            }, 2000);
+        })();
+    </script>
+</body>
+</html>
+
