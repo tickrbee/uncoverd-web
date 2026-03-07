@@ -15,31 +15,42 @@ export function ResetPasswordForm() {
   const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
-    // Check if we have an access_token in the hash
-    const hash = window.location.hash.substring(1);
-    const hashParams = new URLSearchParams(hash);
-    const accessToken = hashParams.get("access_token");
-    const type = hashParams.get("type");
-    const refreshToken = hashParams.get("refresh_token");
+    const supabase = createClient();
+    
+    // Check if we have a session (from the verify endpoint)
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (session) {
+        console.log("✅ Session found, user can reset password");
+        setHasToken(true);
+      } else {
+        // Check if we have an access_token in the hash (fallback)
+        const hash = window.location.hash.substring(1);
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get("access_token");
+        const type = hashParams.get("type");
+        const refreshToken = hashParams.get("refresh_token");
 
-    if (accessToken && type === "recovery") {
-      setHasToken(true);
-      // Exchange the token for a session
-      const supabase = createClient();
-      supabase.auth
-        .setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || "",
-        })
-        .then(({ error: sessionError }) => {
-          if (sessionError) {
-            setError("Invalid or expired password reset token. Please request a new password reset link.");
-            setHasToken(false);
-          }
-        });
-    } else {
-      setError("Invalid or missing password reset token. Please request a new password reset link.");
-    }
+        if (accessToken && type === "recovery") {
+          console.log("🔐 Access token found in hash, setting session...");
+          setHasToken(true);
+          supabase.auth
+            .setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || "",
+            })
+            .then(({ error: setSessionError }) => {
+              if (setSessionError) {
+                console.error("❌ Failed to set session:", setSessionError);
+                setError("Invalid or expired password reset token. Please request a new password reset link.");
+                setHasToken(false);
+              }
+            });
+        } else {
+          console.error("❌ No session and no token in hash");
+          setError("Invalid or missing password reset token. Please request a new password reset link.");
+        }
+      }
+    });
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

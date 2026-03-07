@@ -61,7 +61,7 @@ export function LoginForm() {
     const supabase = createClient();
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${getAppUrl()}/auth/password-reset`,
+      redirectTo: `${getAppUrl()}/auth/verify`,
     });
 
     if (resetError) {
