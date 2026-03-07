@@ -17,38 +17,56 @@ export function ResetPasswordForm() {
   useEffect(() => {
     const supabase = createClient();
     
-    // Check if we have a session (from the verify endpoint)
+    // Check for session first (Supabase sets this in cookies after verification)
     supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      console.log("🔍 Checking for session...", { hasSession: !!session, error: sessionError });
+      
       if (session) {
         console.log("✅ Session found, user can reset password");
         setHasToken(true);
-      } else {
-        // Check if we have an access_token in the hash (fallback)
-        const hash = window.location.hash.substring(1);
-        const hashParams = new URLSearchParams(hash);
-        const accessToken = hashParams.get("access_token");
-        const type = hashParams.get("type");
-        const refreshToken = hashParams.get("refresh_token");
+        return;
+      }
 
-        if (accessToken && type === "recovery") {
-          console.log("🔐 Access token found in hash, setting session...");
-          setHasToken(true);
-          supabase.auth
-            .setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || "",
-            })
-            .then(({ error: setSessionError }) => {
-              if (setSessionError) {
-                console.error("❌ Failed to set session:", setSessionError);
-                setError("Invalid or expired password reset token. Please request a new password reset link.");
-                setHasToken(false);
-              }
-            });
-        } else {
-          console.error("❌ No session and no token in hash");
-          setError("Invalid or missing password reset token. Please request a new password reset link.");
+      // Check if we have an access_token in the hash (fallback for direct links)
+      const hash = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get("access_token");
+      const type = hashParams.get("type");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && type === "recovery") {
+        console.log("🔐 Access token found in hash, setting session...");
+        setHasToken(true);
+        supabase.auth
+          .setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || "",
+          })
+          .then(({ error: setSessionError }) => {
+            if (setSessionError) {
+              console.error("❌ Failed to set session:", setSessionError);
+              setError("Invalid or expired password reset token. Please request a new password reset link.");
+              setHasToken(false);
+            } else {
+              console.log("✅ Session set from hash token");
+            }
+          });
+      } else {
+        // No session and no token - might need to wait for Supabase redirect
+        // Check URL for token parameter (from Supabase verify endpoint)
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("token");
+        const urlType = urlParams.get("type");
+        
+        if (token && urlType === "recovery") {
+          console.log("🔐 Token found in URL, redirecting to verify endpoint...");
+          // Redirect to our verify endpoint to process the token
+          window.location.href = `/auth/verify?token=${token}&type=${urlType}`;
+          return;
         }
+        
+        console.error("❌ No session, no token in hash, and no token in URL");
+        setError("Invalid or missing password reset token. Please request a new password reset link.");
       }
     });
   }, []);

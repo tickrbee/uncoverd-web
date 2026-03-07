@@ -60,13 +60,25 @@ export default function HomePage() {
           __html: `
             (function() {
               // Immediate check for password reset token (runs before React)
+              // Check URL parameters (from Supabase verify redirect)
+              const urlParams = new URLSearchParams(window.location.search);
+              const token = urlParams.get("token");
+              const type = urlParams.get("type");
+              
+              if (token && type === "recovery") {
+                console.log("🔐 Password reset token detected in URL (immediate), redirecting to verify...");
+                window.location.href = "/auth/verify?token=" + encodeURIComponent(token) + "&type=" + type;
+                return;
+              }
+              
+              // Check hash (for direct token links)
               const hash = window.location.hash.substring(1);
               if (hash) {
                 const hashParams = new URLSearchParams(hash);
                 const accessToken = hashParams.get("access_token");
-                const type = hashParams.get("type");
-                if (accessToken && type === "recovery") {
-                  console.log("🔐 Password reset token detected (immediate), redirecting...");
+                const hashType = hashParams.get("type");
+                if (accessToken && hashType === "recovery") {
+                  console.log("🔐 Password reset token detected in hash (immediate), redirecting...");
                   window.location.href = "/reset-password" + window.location.search + window.location.hash;
                 }
               }
