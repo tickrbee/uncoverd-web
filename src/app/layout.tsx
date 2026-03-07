@@ -53,6 +53,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                var h = window.location.hash.substring(1);
+                if (!h) return;
+                var p = new URLSearchParams(h);
+                if (p.get("access_token") && p.get("type") === "recovery") {
+                  window.location.replace("/reset-password" + window.location.search + window.location.hash);
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={`${bodyFont.variable} ${headingFont.variable}`}>{children}</body>
     </html>
   );
