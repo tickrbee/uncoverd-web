@@ -55,6 +55,25 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              // Immediate check for password reset token (runs before React)
+              const hash = window.location.hash.substring(1);
+              if (hash) {
+                const hashParams = new URLSearchParams(hash);
+                const accessToken = hashParams.get("access_token");
+                const type = hashParams.get("type");
+                if (accessToken && type === "recovery") {
+                  console.log("🔐 Password reset token detected (immediate), redirecting...");
+                  window.location.href = "/reset-password" + window.location.search + window.location.hash;
+                }
+              }
+            })();
+          `,
+        }}
+      />
       <PasswordResetDetector />
       <MainNav />
       <main className="page">
