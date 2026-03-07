@@ -59,29 +59,54 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{
           __html: `
             (function() {
-              // Immediate check for password reset token (runs before React)
-              // Check URL parameters (from Supabase verify redirect)
-              const urlParams = new URLSearchParams(window.location.search);
-              const token = urlParams.get("token");
-              const type = urlParams.get("type");
+              function checkAndRedirect() {
+                // Check hash first (most common for Supabase redirects)
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                  try {
+                    const hashParams = new URLSearchParams(hash);
+                    const accessToken = hashParams.get("access_token");
+                    const hashType = hashParams.get("type");
+                    
+                    if (accessToken && hashType === "recovery") {
+                      console.log("🔐 Password reset token detected in hash, redirecting to reset page...");
+                      console.log("📍 Current URL:", window.location.href);
+                      window.location.replace("/reset-password" + window.location.search + window.location.hash);
+                      return true;
+                    }
+                  } catch (e) {
+                    console.error("Error parsing hash:", e);
+                  }
+                }
+                
+                // Check URL parameters (from Supabase verify redirect)
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get("token");
+                const type = urlParams.get("type");
+                
+                if (token && type === "recovery") {
+                  console.log("🔐 Password reset token detected in URL, redirecting to verify...");
+                  window.location.replace("/auth/verify?token=" + encodeURIComponent(token) + "&type=" + type);
+                  return true;
+                }
+                
+                return false;
+              }
               
-              if (token && type === "recovery") {
-                console.log("🔐 Password reset token detected in URL (immediate), redirecting to verify...");
-                window.location.href = "/auth/verify?token=" + encodeURIComponent(token) + "&type=" + type;
+              // Run immediately
+              if (checkAndRedirect()) {
                 return;
               }
               
-              // Check hash (for direct token links)
-              const hash = window.location.hash.substring(1);
-              if (hash) {
-                const hashParams = new URLSearchParams(hash);
-                const accessToken = hashParams.get("access_token");
-                const hashType = hashParams.get("type");
-                if (accessToken && hashType === "recovery") {
-                  console.log("🔐 Password reset token detected in hash (immediate), redirecting...");
-                  window.location.href = "/reset-password" + window.location.search + window.location.hash;
-                }
-              }
+              // Also run on hashchange (in case hash is added after page load)
+              window.addEventListener("hashchange", function() {
+                checkAndRedirect();
+              });
+              
+              // Run again after a short delay (in case hash is set asynchronously)
+              setTimeout(function() {
+                checkAndRedirect();
+              }, 100);
             })();
           `,
         }}
