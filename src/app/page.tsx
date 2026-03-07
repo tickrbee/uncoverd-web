@@ -4,6 +4,7 @@ import { MainNav } from "@/components/main-nav";
 import { AppScreenshot } from "@/components/app-screenshot";
 import { SiteFooter } from "@/components/site-footer";
 import { AppStoreLinks } from "@/components/app-store-links";
+import { PasswordResetDetector } from "@/components/password-reset-detector";
 
 export const metadata: Metadata = {
   title: "Best Investment Ideas & Stock Picks | AI-Powered Portfolio Analysis | uncoverd",
@@ -54,6 +55,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
+      <PasswordResetDetector />
       <MainNav />
       <main className="page">
         {/* Hero Section */}
