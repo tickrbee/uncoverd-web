@@ -47,6 +47,33 @@ export function LoginForm() {
     setBusy(false);
   }
 
+  async function requestPasswordReset(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if (!email) {
+      setError("Please enter your email address first");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+
+    const supabase = createClient();
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${getAppUrl()}/auth/password-reset`,
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+      setBusy(false);
+      return;
+    }
+
+    setNotice("Password reset email sent! Check your inbox for instructions.");
+    setBusy(false);
+  }
+
   async function signInWithOAuth(provider: "google" | "twitter" | "facebook" | "linkedin") {
     setBusy(true);
     setError(null);
@@ -160,6 +187,18 @@ export function LoginForm() {
           Send secure login link
         </button>
       </form>
+
+      <p style={{ textAlign: "center", marginTop: "1rem", fontSize: "0.9rem" }}>
+        <a
+          href="#"
+          onClick={requestPasswordReset}
+          style={{ color: "var(--text-secondary)", textDecoration: "none" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}}
+        >
+          Forgot your password?
+        </a>
+      </p>
 
       {notice ? <p className="notice notice--ok">{notice}</p> : null}
       {error ? <p className="notice notice--error">{error}</p> : null}
