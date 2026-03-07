@@ -61,7 +61,7 @@ export function LoginForm() {
     const supabase = createClient();
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${getAppUrl()}/reset-password`,
+      redirectTo: `${getAppUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
     });
 
     if (resetError) {
@@ -194,7 +194,7 @@ export function LoginForm() {
           onClick={requestPasswordReset}
           style={{ color: "var(--text-secondary)", textDecoration: "none" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
         >
           Forgot your password?
         </a>
