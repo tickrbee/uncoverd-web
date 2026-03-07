@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { MainNav } from "@/components/main-nav";
 import { ResetPasswordForm } from "@/components/reset-password-form";
 
@@ -12,7 +13,9 @@ export default function ResetPasswordPage() {
     <>
       <MainNav />
       <main className="page">
-        <ResetPasswordForm />
+        <Suspense>
+          <ResetPasswordForm />
+        </Suspense>
       </main>
     </>
   );
