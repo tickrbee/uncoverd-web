@@ -25,5 +25,8 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(new URL(next, requestUrl.origin));
+  // For password reset, if next is /reset-password, redirect there
+  // The hash fragment will be preserved by the browser automatically
+  const redirectUrl = new URL(next, requestUrl.origin);
+  return NextResponse.redirect(redirectUrl);
 }
