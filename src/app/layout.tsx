@@ -14,7 +14,11 @@ const headingFont = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+  metadataBase: new URL("https://uncoverd.org"),
+  title: {
+    default: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    template: `%s | ${APP_NAME}`,
+  },
   description:
     "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights, track performance, and compete with other investors. AI in finance made simple.",
   keywords: [
@@ -31,18 +35,34 @@ export const metadata: Metadata = {
     "financial AI",
     "investment platform",
   ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
     description:
       "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights and track performance.",
     type: "website",
     url: "https://uncoverd.org",
+    siteName: APP_NAME,
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
     description:
       "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 

@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import { MainNav } from "@/components/main-nav";
 import { ContactForm } from "@/components/contact-form";
+
+export const metadata: Metadata = {
+  title: "Contact Us",
+  description:
+    "Get in touch with the uncoverd team. Have a question about our AI-powered investment app or need support? We'd love to hear from you.",
+  alternates: {
+    canonical: "/contact",
+  },
+};
 
 export default function ContactPage() {
   return (
