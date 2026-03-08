@@ -38,6 +38,7 @@ const structuredData = {
   aggregateRating: {
     "@type": "AggregateRating",
     ratingValue: "4.5",
+    ratingCount: "12",
   },
   featureList: [
     "AI-powered stock analysis",
