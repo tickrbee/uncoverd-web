@@ -91,6 +91,10 @@ export default function RootLayout({
         />
       </head>
       <body className={`${bodyFont.variable} ${headingFont.variable}`}>
+        <div className="global-background-effect">
+          <div className="global-bg-blur global-bg-blur--1"></div>
+          <div className="global-bg-blur global-bg-blur--2"></div>
+        </div>
         <SessionRestorer />
         {children}
       </body>

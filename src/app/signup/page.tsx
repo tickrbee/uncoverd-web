@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { MainNav } from "@/components/main-nav";
 import { SignupForm } from "@/components/signup-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,6 +20,7 @@ export default async function SignupPage() {
 
   return (
     <>
+      <MainNav />
       <SignupForm />
       <p style={{ 
         position: "fixed", 

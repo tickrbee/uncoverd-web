@@ -45,6 +45,52 @@ body {
   color: var(--text-primary);
   font-family: var(--font-body), sans-serif;
   background: radial-gradient(circle at 50% -24%, rgba(52, 211, 153, 0.08), transparent 44%), var(--background-gradient);
+  position: relative;
+}
+
+/* Global background effect for all pages */
+.global-background-effect {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.global-bg-blur {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.15;
+  animation: pulse 4s ease-in-out infinite;
+}
+
+.global-bg-blur--1 {
+  top: -10%;
+  left: -10%;
+  width: 60%;
+  height: 60%;
+  background: #1e40af;
+  animation-duration: 4s;
+}
+
+.global-bg-blur--2 {
+  bottom: -10%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: #1e293b;
+  animation-duration: 5s;
+  animation-delay: 1s;
+}
+
+/* Ensure content is above background effect */
+.page,
+main,
+header,
+nav {
+  position: relative;
+  z-index: 1;
 }
 
 a {
