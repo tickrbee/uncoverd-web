@@ -22,11 +22,18 @@ export type Plan = {
 
 export const plans: Plan[] = [
   {
-    tier: "free",
-    name: "Free",
-    monthlyPrice: "EUR 0",
-    description: "Get started with basic access to the uncoverd app.",
-    features: ["Regular ads", "Less AI insights", "Limited amount of swipes", "Limited portfolio"],
+    tier: "gold",
+    name: "Pro",
+    monthlyPrice: "EUR 24.99 / month",
+    description: "Complete access with unlimited features and priority support.",
+    features: [
+      "Everything in Plus",
+      "Unlimited swipes",
+      "All top picks",
+      "Priority functions",
+      "Privileged access to new features",
+      "More powerful models for AI analytics",
+    ],
   },
   {
     tier: "plus",
@@ -43,18 +50,11 @@ export const plans: Plan[] = [
     ],
   },
   {
-    tier: "gold",
-    name: "Pro",
-    monthlyPrice: "EUR 24.99 / month",
-    description: "Complete access with unlimited features and priority support.",
-    features: [
-      "Everything in Plus",
-      "Unlimited swipes",
-      "All top picks",
-      "Priority functions",
-      "Privileged access to new features",
-      "More powerful models for AI analytics",
-    ],
+    tier: "free",
+    name: "Free",
+    monthlyPrice: "EUR 0",
+    description: "Get started with basic access to the uncoverd app.",
+    features: ["Regular ads", "Less AI insights", "Limited amount of swipes", "Limited portfolio"],
   },
 ];
 
