@@ -589,9 +589,20 @@ a {
   border-color: #e5e7eb;
 }
 
-.btn:disabled {
-  opacity: 0.64;
+.btn:disabled,
+.btn--disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+  background: var(--card-muted);
+  border-color: var(--border-subtle);
+  color: var(--text-disabled);
+  pointer-events: none;
+}
+
+.btn--ghost.btn--disabled {
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-disabled);
 }
 
 .btn--ghost {

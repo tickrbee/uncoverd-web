@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { plans, type TierCode } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
@@ -8,14 +8,46 @@ import { getSupabaseUrl } from "@/lib/env";
 
 type CheckoutStatus = "idle" | "busy";
 
+type UserProfile = {
+  subscription_tier: TierCode | null;
+};
+
 export function PricingCards() {
   const [error, setError] = useState<string | null>(null);
+  const [currentTier, setCurrentTier] = useState<TierCode | null>(null);
+  const [isLoadingTier, setIsLoadingTier] = useState(true);
   const [statusByPlan, setStatusByPlan] = useState<Record<TierCode, CheckoutStatus>>({
     free: "idle",
     plus: "idle",
     gold: "idle",
   });
   const router = useRouter();
+
+  // Fetch current user's subscription tier
+  useEffect(() => {
+    async function fetchCurrentTier() {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setIsLoadingTier(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("subscription_tier")
+        .eq("id", session.user.id)
+        .maybeSingle<UserProfile>();
+
+      setCurrentTier(profile?.subscription_tier || "free");
+      setIsLoadingTier(false);
+    }
+
+    fetchCurrentTier();
+  }, []);
 
   const paidPlans = useMemo(() => plans.filter((plan) => plan.tier !== "free"), []);
 
@@ -70,19 +102,69 @@ export function PricingCards() {
             ))}
           </ul>
 
-          {plan.tier === "free" ? (
-            <button className="btn btn--ghost" onClick={() => router.push("/login")}>
-              Log in
-            </button>
-          ) : (
-            <button
-              className="btn"
-              onClick={() => startCheckout(plan.tier as "plus" | "gold")}
-              disabled={statusByPlan[plan.tier] === "busy"}
-            >
-              {statusByPlan[plan.tier] === "busy" ? "Redirecting..." : `Choose ${plan.name}`}
-            </button>
-          )}
+          {(() => {
+            const isCurrentPlan = !isLoadingTier && currentTier === plan.tier;
+            const isLoggedIn = currentTier !== null;
+
+            if (plan.tier === "free") {
+              if (!isLoggedIn) {
+                return (
+                  <button className="btn btn--ghost" onClick={() => router.push("/login")}>
+                    Log in
+                  </button>
+                );
+              } else {
+                return (
+                  <button className="btn btn--ghost btn--disabled" disabled>
+                    Current Plan
+                  </button>
+                );
+              }
+            } else {
+              if (isCurrentPlan) {
+                return (
+                  <button className="btn btn--disabled" disabled>
+                    Current Plan
+                  </button>
+                );
+              } else {
+                // Determine button text based on current tier and target tier
+                const getButtonText = () => {
+                  if (statusByPlan[plan.tier] === "busy") return "Redirecting...";
+                  
+                  if (!currentTier || currentTier === "free") {
+                    return `Choose ${plan.name}`;
+                  }
+                  
+                  // User has a paid plan
+                  if (plan.tier === "free") {
+                    return "Downgrade";
+                  }
+                  
+                  // Comparing paid plans
+                  const tierOrder: TierCode[] = ["free", "plus", "gold"];
+                  const currentIndex = tierOrder.indexOf(currentTier);
+                  const targetIndex = tierOrder.indexOf(plan.tier);
+                  
+                  if (targetIndex > currentIndex) {
+                    return `Upgrade to ${plan.name}`;
+                  } else {
+                    return `Downgrade to ${plan.name}`;
+                  }
+                };
+
+                return (
+                  <button
+                    className="btn"
+                    onClick={() => startCheckout(plan.tier as "plus" | "gold")}
+                    disabled={statusByPlan[plan.tier] === "busy"}
+                  >
+                    {getButtonText()}
+                  </button>
+                );
+              }
+            }
+          })()}
         </article>
       ))}
 
