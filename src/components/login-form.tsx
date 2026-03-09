@@ -150,7 +150,7 @@ export function LoginForm() {
         </div>
 
         <div className="login-card">
-          <h2 className="login-card-title">Sign In</h2>
+          <h2 className="login-card-title">Log In</h2>
 
           <form onSubmit={signInWithPassword} className="login-form">
             <div className="login-input-group">
