@@ -4,8 +4,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; }
-    #container-bd62a88d7d0adb18b2fe5fdd8e76a6c9 { width: 100%; height: 100%; }
+    body {
+      background: #18181b;
+      overflow: hidden;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #container-bd62a88d7d0adb18b2fe5fdd8e76a6c9 {
+      width: 100%;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Force Adsterra widget to fill available space */
+    #container-bd62a88d7d0adb18b2fe5fdd8e76a6c9 > * {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
   </style>
 </head>
 <body>
