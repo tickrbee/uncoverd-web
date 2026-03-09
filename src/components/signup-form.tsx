@@ -28,67 +28,53 @@ const GoogleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export function LoginForm() {
+export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   const nextPath = useMemo(() => sanitizeNextPath(searchParams.get("next")), [searchParams]);
 
-  async function signInWithPassword(event: FormEvent<HTMLFormElement>) {
+  async function signUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     setNotice(null);
 
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setBusy(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setBusy(false);
+      return;
+    }
+
     const supabase = createClient();
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${getAppUrl()}/auth/email-confirmed`,
+      },
     });
 
-    if (signInError) {
-      setError(signInError.message);
+    if (signUpError) {
+      setError(signUpError.message);
       setBusy(false);
       return;
     }
 
-    // Success - redirect to next path or account
-    router.push(nextPath);
-    router.refresh();
-  }
-
-  async function requestPasswordReset(event: React.MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
-    if (!email) {
-      setError("Please enter your email address first");
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-
-    const supabase = createClient();
-
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${getAppUrl()}/reset-password`,
-    });
-
-    if (resetError) {
-      setError(resetError.message);
-      setBusy(false);
-      return;
-    }
-
-    setResetEmailSent(true);
-    setNotice("Password reset email sent! Check your inbox for instructions.");
+    setNotice("Account created! Please check your email to confirm your account.");
     setBusy(false);
   }
 
@@ -150,9 +136,9 @@ export function LoginForm() {
         </div>
 
         <div className="login-card">
-          <h2 className="login-card-title">Sign In</h2>
+          <h2 className="login-card-title">Create Account</h2>
 
-          <form onSubmit={signInWithPassword} className="login-form">
+          <form onSubmit={signUp} className="login-form">
             <div className="login-input-group">
               <label htmlFor="email" className="login-label">Email</label>
               <input
@@ -172,26 +158,33 @@ export function LoginForm() {
               <input
                 id="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Enter your password"
+                placeholder="Create a password (min. 6 characters)"
                 className="login-input"
                 required
                 minLength={6}
               />
-              <a
-                href="#"
-                onClick={requestPasswordReset}
-                className="login-forgot-link"
-                disabled={busy}
-              >
-                {resetEmailSent ? "Check your inbox!" : "Forgot password?"}
-              </a>
+            </div>
+
+            <div className="login-input-group">
+              <label htmlFor="confirmPassword" className="login-label">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Confirm your password"
+                className="login-input"
+                required
+                minLength={6}
+              />
             </div>
 
             <button type="submit" className="btn btn--primary login-submit" disabled={busy}>
-              {busy ? "Signing in..." : "Enter uncoverd"}
+              {busy ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
@@ -207,7 +200,7 @@ export function LoginForm() {
               className="btn btn--oauth"
               onClick={() => signInWithOAuth("google")}
               disabled={busy}
-              aria-label="Sign in with Google"
+              aria-label="Sign up with Google"
             >
               <GoogleIcon className="login-oauth-icon" />
             </button>
@@ -216,7 +209,7 @@ export function LoginForm() {
               className="btn btn--oauth"
               onClick={() => signInWithOAuth("facebook")}
               disabled={busy}
-              aria-label="Sign in with Facebook"
+              aria-label="Sign up with Facebook"
             >
               <svg className="login-oauth-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
@@ -227,7 +220,7 @@ export function LoginForm() {
               className="btn btn--oauth"
               onClick={() => signInWithOAuth("linkedin_oidc")}
               disabled={busy}
-              aria-label="Sign in with LinkedIn"
+              aria-label="Sign up with LinkedIn"
             >
               <svg className="login-oauth-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" fill="#0A66C2"/>
@@ -238,7 +231,7 @@ export function LoginForm() {
               className="btn btn--oauth"
               onClick={() => signInWithOAuth("x")}
               disabled={busy}
-              aria-label="Sign in with X"
+              aria-label="Sign up with X"
             >
               <svg className="login-oauth-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="#000000"/>
@@ -247,9 +240,9 @@ export function LoginForm() {
           </div>
 
           <p className="login-signup-link">
-            Don't have an account?{" "}
-            <a href="/signup" className="login-signup-link-a">
-              Sign up
+            Already have an account?{" "}
+            <a href="/login" className="login-signup-link-a">
+              Sign in
             </a>
           </p>
         </div>
@@ -260,3 +253,4 @@ export function LoginForm() {
     </div>
   );
 }
+
