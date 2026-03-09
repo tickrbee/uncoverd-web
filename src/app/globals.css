@@ -633,7 +633,8 @@ a {
   line-height: 1.6;
 }
 
-.login-form {
+/* Legacy login-form styles - keeping for backward compatibility but new forms use .login-form inside .login-card */
+.panel .login-form {
   margin-top: 1.5rem;
   display: grid;
   gap: 1rem;

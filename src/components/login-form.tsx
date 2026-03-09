@@ -182,9 +182,12 @@ export function LoginForm() {
               />
               <a
                 href="#"
-                onClick={requestPasswordReset}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!busy) requestPasswordReset(e);
+                }}
                 className="login-forgot-link"
-                disabled={busy}
+                style={{ opacity: busy ? 0.5 : 1, pointerEvents: busy ? "none" : "auto" }}
               >
                 {resetEmailSent ? "Check your inbox!" : "Forgot password?"}
               </a>
