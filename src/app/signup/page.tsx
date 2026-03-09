@@ -21,20 +21,21 @@ export default async function SignupPage() {
   return (
     <>
       <MainNav />
-      <SignupForm />
-      <p style={{ 
-        position: "fixed", 
-        bottom: "1rem", 
-        left: "50%", 
-        transform: "translateX(-50%)",
-        textAlign: "center", 
-        fontSize: "0.875rem",
-        color: "var(--text-secondary)",
-        zIndex: 20
-      }}>
-        By continuing, you agree to our <Link href="/legal/terms" style={{ color: "#60a5fa" }}>Terms</Link> and{" "}
-        <Link href="/legal/privacy" style={{ color: "#60a5fa" }}>Privacy Policy</Link>.
-      </p>
+      <div style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <SignupForm />
+        <p style={{ 
+          marginTop: "auto",
+          paddingBottom: "1rem",
+          textAlign: "center", 
+          fontSize: "0.875rem",
+          color: "var(--text-secondary)",
+          zIndex: 20,
+          position: "relative"
+        }}>
+          By continuing, you agree to our <Link href="/legal/terms" style={{ color: "#60a5fa" }}>Terms</Link> and{" "}
+          <Link href="/legal/privacy" style={{ color: "#60a5fa" }}>Privacy Policy</Link>.
+        </p>
+      </div>
     </>
   );
 }

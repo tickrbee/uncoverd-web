@@ -136,7 +136,7 @@ export function SignupForm() {
         </div>
 
         <div className="login-card">
-          <h2 className="login-card-title">Create Account</h2>
+          <h2 className="login-card-title">Sign Up</h2>
 
           <form onSubmit={signUp} className="login-form">
             <div className="login-input-group">
