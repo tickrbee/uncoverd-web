@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { MainNav } from "@/components/main-nav";
 import { SignupForm } from "@/components/signup-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,14 +19,20 @@ export default async function SignupPage() {
 
   return (
     <>
-      <MainNav />
-      <main className="page">
-        <SignupForm />
-        <p style={{ textAlign: "center", marginTop: "14px" }}>
-          By continuing, you agree to our <Link href="/legal/terms">Terms</Link> and{" "}
-          <Link href="/legal/privacy">Privacy Policy</Link>.
-        </p>
-      </main>
+      <SignupForm />
+      <p style={{ 
+        position: "fixed", 
+        bottom: "1rem", 
+        left: "50%", 
+        transform: "translateX(-50%)",
+        textAlign: "center", 
+        fontSize: "0.875rem",
+        color: "var(--text-secondary)",
+        zIndex: 20
+      }}>
+        By continuing, you agree to our <Link href="/legal/terms" style={{ color: "#60a5fa" }}>Terms</Link> and{" "}
+        <Link href="/legal/privacy" style={{ color: "#60a5fa" }}>Privacy Policy</Link>.
+      </p>
     </>
   );
 }
