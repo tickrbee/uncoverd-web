@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Outfit } from "next/font/google";
 import { APP_NAME } from "@/lib/branding";
+import { SessionRestorer } from "@/components/session-restorer";
 import "./globals.css";
 
 const bodyFont = DM_Sans({
@@ -89,7 +90,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${bodyFont.variable} ${headingFont.variable}`}>{children}</body>
+      <body className={`${bodyFont.variable} ${headingFont.variable}`}>
+        <SessionRestorer />
+        {children}
+      </body>
     </html>
   );
 }

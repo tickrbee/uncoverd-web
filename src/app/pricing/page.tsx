@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { MainNav } from "@/components/main-nav";
 import { PricingCards } from "@/components/pricing-cards";
+import { SessionRestorer } from "@/components/session-restorer";
 import { BILLING_PURPOSE_LINE } from "@/lib/branding";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <>
+      <SessionRestorer />
       <MainNav />
       <main className="page">
         <section className="panel stack">
