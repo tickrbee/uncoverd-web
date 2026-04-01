@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting to uncoverd...</title>
+    <title>uncoverd - Redirecting...</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -37,8 +37,8 @@
 <body>
     <div class="container">
         <div class="spinner"></div>
-        <h1>Redirecting to uncoverd...</h1>
-        <p>Please wait...</p>
+        <h1>uncoverd</h1>
+        <p>Redirecting to app...</p>
     </div>
 
     <script>
@@ -71,15 +71,22 @@
             }
             
             // Build the deep link URL
-            const deepLinkUrl = 'swipefolio://auth/callback?' + params.toString();
+            const deepLinkUrl = 'uncoverd://auth/callback?' + params.toString();
             console.log('🔗 Deep link URL:', deepLinkUrl.substring(0, 100) + '...');
             
-            // Try to redirect to deep link immediately
+            // Try to redirect to deep link immediately (no delay)
+            // Use replace to avoid showing Supabase URL in history
             try {
-                window.location.href = deepLinkUrl;
+                // Use replaceState to change URL without adding to history
+                window.history.replaceState(null, '', '/auth/callback.html');
+                
+                // Redirect immediately
+                window.location.replace(deepLinkUrl);
                 console.log('✅ Redirected to deep link');
             } catch (e) {
                 console.error('❌ Failed to redirect:', e);
+                // Fallback to regular redirect
+                window.location.href = deepLinkUrl;
             }
             
             // Fallback: if deep link doesn't work, try to open the app store or show message
@@ -95,7 +102,7 @@
                 // On Android, try intent:// URL
                 if (/Android/i.test(navigator.userAgent)) {
                     console.log('🤖 Trying Android intent URL...');
-                    const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=swipefolio;package=com.swipefolio.app;end';
+                    const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=uncoverd;package=org.uncoverd.app;end';
                     try {
                         window.location.href = intentUrl;
                     } catch (e) {
