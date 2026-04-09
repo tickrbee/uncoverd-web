@@ -70,13 +70,15 @@
                 console.log(`➕ Added hash param: ${key} = ${value.substring(0, 20)}...`);
             }
             
-            // Build the deep link URL
-            const deepLinkUrl = 'uncoverd://auth/callback?' + params.toString();
-            console.log('🔗 Deep link URL:', deepLinkUrl.substring(0, 100) + '...');
-
             const isAndroid = /Android/i.test(navigator.userAgent);
             const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
             console.log('📱 Platform - Android:', isAndroid, 'iOS:', isIOS);
+
+            // Android app package is com.swipefolio.app and uses swipefolio:// scheme.
+            // iOS app uses uncoverd:// scheme.
+            const scheme = isAndroid ? 'swipefolio' : 'uncoverd';
+            const deepLinkUrl = scheme + '://auth/callback?' + params.toString();
+            console.log('🔗 Deep link URL:', deepLinkUrl.substring(0, 100) + '...');
 
             // iOS/Safari requires replaceState + location.replace for deep links to work correctly.
             // Android handles window.location.href more reliably — replaceState interferes with
@@ -87,7 +89,7 @@
                     window.history.replaceState(null, '', '/auth/callback.html');
                     window.location.replace(deepLinkUrl);
                 } else {
-                    // Android / desktop: plain href works best
+                    // Android: plain href works best
                     window.location.href = deepLinkUrl;
                 }
                 console.log('✅ Redirected to deep link');
@@ -108,7 +110,7 @@
                 // On Android, try intent:// URL as a second attempt
                 if (isAndroid) {
                     console.log('🤖 Trying Android intent URL...');
-                    const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=uncoverd;package=org.uncoverd.app;end';
+                    const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=swipefolio;package=com.swipefolio.app;end';
                     try {
                         window.location.href = intentUrl;
                     } catch (e) {
