@@ -73,22 +73,29 @@
             // Build the deep link URL
             const deepLinkUrl = 'uncoverd://auth/callback?' + params.toString();
             console.log('🔗 Deep link URL:', deepLinkUrl.substring(0, 100) + '...');
-            
-            // Try to redirect to deep link immediately (no delay)
-            // Use replace to avoid showing Supabase URL in history
+
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            console.log('📱 Platform - Android:', isAndroid, 'iOS:', isIOS);
+
+            // iOS/Safari requires replaceState + location.replace for deep links to work correctly.
+            // Android handles window.location.href more reliably — replaceState interferes with
+            // Chrome's intent resolution on Android.
             try {
-                // Use replaceState to change URL without adding to history
-                window.history.replaceState(null, '', '/auth/callback.html');
-                
-                // Redirect immediately
-                window.location.replace(deepLinkUrl);
+                if (isIOS) {
+                    // Safari-specific: clear Supabase URL from history before redirecting
+                    window.history.replaceState(null, '', '/auth/callback.html');
+                    window.location.replace(deepLinkUrl);
+                } else {
+                    // Android / desktop: plain href works best
+                    window.location.href = deepLinkUrl;
+                }
                 console.log('✅ Redirected to deep link');
             } catch (e) {
                 console.error('❌ Failed to redirect:', e);
-                // Fallback to regular redirect
                 window.location.href = deepLinkUrl;
             }
-            
+
             // Fallback: if deep link doesn't work, try to open the app store or show message
             setTimeout(function() {
                 // If we're still here after 2 seconds, the deep link didn't work
@@ -97,10 +104,9 @@
                 if (message) {
                     message.textContent = 'If the app doesn\'t open automatically, please return to the uncoverd app manually.';
                 }
-                
-                // Try alternative methods
-                // On Android, try intent:// URL
-                if (/Android/i.test(navigator.userAgent)) {
+
+                // On Android, try intent:// URL as a second attempt
+                if (isAndroid) {
                     console.log('🤖 Trying Android intent URL...');
                     const intentUrl = 'intent://auth/callback?' + params.toString() + '#Intent;scheme=uncoverd;package=org.uncoverd.app;end';
                     try {
