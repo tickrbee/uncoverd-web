@@ -1,6 +1,12 @@
 User-agent: *
 Allow: /
 
+# Don't crawl auth callbacks, account pages, or paywalled-only redirects
+Disallow: /auth/
+Disallow: /api/
+Disallow: /account
+Disallow: /reset-password
+Disallow: /signup
+Disallow: /login
+
 Sitemap: https://uncoverd.org/sitemap.xml
-
-

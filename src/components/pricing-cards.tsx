@@ -86,10 +86,15 @@ export function PricingCards() {
     window.location.assign(payload.url);
   }
 
+  // Hide the "Pro" / gold tier from public pricing for now — the AI mobile
+  // app suite isn't shipping yet. Existing gold subscribers retain access via
+  // their stored tier; the card just isn't offered as an upgrade target.
+  const visiblePlans = plans.filter((p) => p.tier !== "gold");
+
   return (
     <section className="pricing-grid">
-      {plans.map((plan) => (
-        <article key={plan.tier} className={`pricing-card ${plan.tier === "gold" ? "pricing-card--highlight" : ""}`}>
+      {visiblePlans.map((plan) => (
+        <article key={plan.tier} className={`pricing-card ${plan.tier === "plus" ? "pricing-card--highlight" : ""}`}>
           <header>
             <p className="pricing-card__tier">{plan.name}</p>
             <h2>{plan.monthlyPrice}</h2>

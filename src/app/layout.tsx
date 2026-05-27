@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { DM_Sans, Outfit } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { APP_NAME } from "@/lib/branding";
 import { SessionRestorer } from "@/components/session-restorer";
+import { CookieBanner } from "@/components/cookie-banner";
 import "./globals.css";
 
 const bodyFont = DM_Sans({
@@ -97,6 +100,11 @@ export default function RootLayout({
         </div>
         <SessionRestorer />
         {children}
+        <CookieBanner />
+        {/* `debug={false}` mutes the [Vercel Web Analytics] console logs in dev.
+            The production beacon still fires normally on Vercel. */}
+        <Analytics debug={false} />
+        <SpeedInsights debug={false} />
       </body>
     </html>
   );

@@ -1,14 +1,14 @@
 export const APP_NAME = "uncoverd";
 
 export const BILLING_PURPOSE_LINE =
-  "uncoverd is a mobile investing app focused on risk clarity. Use this site for login, checkout, and billing.";
+  "uncoverd is a dividend investing platform with screeners, research, and model portfolios.";
 
 export type TierCode = "free" | "plus" | "gold";
-export type PlanDisplay = "Free" | "Plus" | "Pro";
+export type PlanDisplay = "Free" | "Premium" | "Pro";
 
 export const tierDisplayMap: Record<TierCode, PlanDisplay> = {
   free: "Free",
-  plus: "Plus",
+  plus: "Premium",
   gold: "Pro",
 };
 
@@ -24,37 +24,46 @@ export const plans: Plan[] = [
   {
     tier: "gold",
     name: "Pro",
-    monthlyPrice: "EUR 24.99 / month",
-    description: "Complete access with unlimited features and priority support.",
+    monthlyPrice: "$199 / year",
+    description: "For active investors who want the full uncoverd suite plus the AI mobile app.",
     features: [
-      "Everything in Plus",
-      "Unlimited swipes",
-      "All top picks",
-      "Priority functions",
-      "Privileged access to new features",
-      "More powerful models for AI analytics",
+      "Everything in Premium",
+      "Unlimited mobile app swipes",
+      "All top picks & AI insights",
+      "Priority new features",
+      "More powerful AI models",
+      "Premium support",
     ],
   },
   {
     tier: "plus",
-    name: "Plus",
-    monthlyPrice: "EUR 14.99 / month",
-    description: "Enhanced experience with more swipes and AI-powered insights.",
+    name: "Premium",
+    monthlyPrice: "$100 / year",
+    description: "Full access to dividend research, model portfolios, screener, watchlist, and ad-free browsing.",
     features: [
+      "All Model Portfolios (High Yield, Growth, Protection)",
+      "Best Monthly Dividend & Best Sector lists",
+      "Best Dividend Capture stocks",
+      "Payout Estimator & Compounding Calculator",
+      "Dividend Ratings on every stock",
+      "CSV data downloads for spreadsheets",
+      "Dividend Watchlist with alerts",
+      "In-depth dividend news & research",
+      "Upcoming increasers, decreasers, initiations & special payers",
       "No ads",
-      "Extra swipes",
-      "More AI analysis",
-      "Return button",
-      "Watchlist analytics",
-      "Increased portfolio size",
     ],
   },
   {
     tier: "free",
     name: "Free",
-    monthlyPrice: "EUR 0",
-    description: "Get started with basic access to the uncoverd app.",
-    features: ["Regular ads", "Less AI insights", "Limited amount of swipes", "Limited portfolio"],
+    monthlyPrice: "$0",
+    description: "Get started with the basics.",
+    features: [
+      "Stock screener with basic filters",
+      "Ex-dividend calendar",
+      "Public dividend news feed",
+      "Basic stock profiles &amp; dividend history",
+    ],
   },
 ];
 

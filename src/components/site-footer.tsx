@@ -7,10 +7,13 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <div className="site-footer__links">
+          <Link href="/about">About</Link>
+          <Link href="/methodology">Methodology</Link>
+          <Link href="/pricing">Pricing</Link>
+          <Link href="/contact">Contact</Link>
           <Link href="/legal/terms">Terms</Link>
           <Link href="/legal/privacy">Privacy Policy</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/pricing">Pricing</Link>
+          <Link href="/legal/disclaimer">Investment Disclaimer</Link>
           <Link href="/login">Log in</Link>
         </div>
 

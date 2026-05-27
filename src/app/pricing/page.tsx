@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { MainNav } from "@/components/main-nav";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { PricingCards } from "@/components/pricing-cards";
 import { SessionRestorer } from "@/components/session-restorer";
-import { BILLING_PURPOSE_LINE } from "@/lib/branding";
 
 export const metadata: Metadata = {
   title: "Pricing & Plans",
   description:
-    "Choose the right uncoverd plan for your investing journey. Get AI-powered stock analysis, portfolio insights, and investment ideas with flexible subscription options.",
+    "Choose the right uncoverd plan. Premium unlocks all dividend Model Portfolios, the Watchlist, payout estimator, and ad-free research.",
   alternates: {
     canonical: "/pricing",
   },
@@ -17,16 +17,19 @@ export default function PricingPage() {
   return (
     <>
       <SessionRestorer />
-      <MainNav />
-      <main className="page">
-        <section className="panel stack">
+      <SiteHeader />
+      <main className="dv-page">
+        <section className="panel stack" style={{ marginBottom: "1.5rem" }}>
           <h1>Choose your subscription</h1>
-          <p>{BILLING_PURPOSE_LINE}</p>
-          <p>All plan features apply to the uncoverd mobile app. Checkout and billing are managed here on web.</p>
+          <p>
+            Premium unlocks all dividend Model Portfolios, the Watchlist, payout estimator, ratings on every stock,
+            in-depth research, and an ad-free experience.
+          </p>
         </section>
 
         <PricingCards />
       </main>
+      <SiteFooter />
     </>
   );
 }

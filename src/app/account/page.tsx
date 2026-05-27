@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MainNav } from "@/components/main-nav";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { AccountActions } from "@/components/account-actions";
+import { DeleteAccountButton } from "@/components/delete-account-button";
 import { toDisplayPlan } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,20 +35,33 @@ export default async function AccountPage() {
 
   return (
     <>
-      <MainNav />
-      <main className="page">
+      <SiteHeader />
+      <main className="dv-page">
         <section className="panel stack">
           <h1>Subscription account</h1>
           <p>Signed in as {user.email}</p>
           <p>Current plan: {toDisplayPlan(profile?.subscription_tier)}</p>
           <p>{renewsAt ? `Renews on ${renewsAt}` : "No active renewal date yet."}</p>
-          <p>Your plan unlocks uncoverd features in the mobile app. Manage billing here.</p>
+          <p>Your plan unlocks uncoverd Premium features. Manage billing here.</p>
           <AccountActions />
           <p>
             Legal: <Link href="/legal/terms">Terms</Link> and <Link href="/legal/privacy">Privacy Policy</Link>.
           </p>
         </section>
+
+        <section
+          className="panel stack"
+          style={{ marginTop: "1.5rem", borderColor: "rgba(248, 113, 113, 0.25)" }}
+        >
+          <h2 style={{ marginTop: 0, color: "var(--negative)" }}>Danger zone</h2>
+          <p style={{ color: "var(--text-secondary)" }}>
+            Permanently delete your account, watchlist and profile. Active subscriptions will be
+            cancelled. This action cannot be undone &mdash; backups are purged within 30 days.
+          </p>
+          <DeleteAccountButton />
+        </section>
       </main>
+      <SiteFooter />
     </>
   );
 }
