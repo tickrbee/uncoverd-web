@@ -189,6 +189,7 @@ export function SiteHeader() {
                 <MenuLink href="/payout-changes/initiating">Initiating Dividend</MenuLink>
                 <MenuLink href="/payout-changes/suspending">Suspending Dividend</MenuLink>
                 <MenuLink href="/payout-changes/special">Special Dividend</MenuLink>
+                <MenuLink href="/lists/potential-payers">Future Dividend Payers</MenuLink>
               </MenuCol>
               <MenuCol title="Dividend Growers">
                 <MenuLink href="/growers/aristocrats">Dividend Aristocrats (&gt;25 yrs)</MenuLink>
@@ -200,7 +201,6 @@ export function SiteHeader() {
                 <MenuTitle>ETFs &amp; Exposure</MenuTitle>
                 <MenuLink href="/screener?type=etfs">All Dividend ETFs</MenuLink>
                 <MenuLink href="/etfs/top-held">Most held by ETFs</MenuLink>
-                <MenuLink href="/lists/potential-payers">Future dividend payers</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=real-estate">REIT ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=energy">Energy ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=technology">Technology ETFs</MenuLink>

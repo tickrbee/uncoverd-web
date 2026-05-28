@@ -1599,6 +1599,14 @@ a {
   text-align: right;
 }
 
+/* Inline ETF holder search on /etfs/top-held */
+.dv-etf-search {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.1rem;
+}
+
 @media (max-width: 1100px) {
   .dv-nav {
     display: none;

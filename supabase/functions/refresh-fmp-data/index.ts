@@ -537,6 +537,177 @@ async function refreshHistoricalPricesFull(shard: number, shards: number, scope 
   };
 }
 
+// 3a-c) Refresh income / balance-sheet / cash-flow statements per symbol.
+// FMP returns the full reported history; we only keep the most recent 12
+// annuals + 24 quarterlies to stay under upsert size limits. The daily cron
+// only touches a subset of tickers — this stage walks the long tail so
+// every active stock ends up with fresh statements eventually.
+async function refreshFinancials(shard: number, shards: number) {
+  const candidates: string[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await sb
+      .from("tickers")
+      .select("symbol")
+      .eq("is_actively_trading", true)
+      .eq("is_etf", false)
+      .eq("is_fund", false)
+      .gt("mkt_cap", 50_000_000)
+      .order("symbol", { ascending: true })
+      .range(offset, offset + 999);
+    if (error || !data) break;
+    const rows = data as { symbol: string }[];
+    for (const r of rows) candidates.push(r.symbol);
+    if (rows.length < 1000) break;
+    offset += 1000;
+    if (offset > 200000) break;
+  }
+  const subset = shardSlice(candidates, shard, shards);
+
+  // Maps from FMP camelCase → our snake_case schema columns. We list every
+  // column we care about so unknown fields are silently dropped on upsert.
+  const INCOME_COLS = [
+    "revenue", "cost_of_revenue", "gross_profit", "operating_income", "ebitda",
+    "ebit", "net_income", "eps", "eps_diluted", "weighted_average_shs_out",
+    "weighted_average_shs_out_dil",
+  ];
+  const BALANCE_COLS = [
+    "cash_and_cash_equivalents", "cash_and_short_term_investments",
+    "total_current_assets", "total_non_current_assets", "total_assets",
+    "total_current_liabilities", "total_non_current_liabilities", "total_liabilities",
+    "short_term_debt", "long_term_debt", "total_debt", "net_debt",
+    "total_stockholders_equity", "total_equity",
+  ];
+  const CASH_FLOW_COLS = [
+    "net_cash_provided_by_operating_activities", "net_cash_provided_by_investing_activities",
+    "net_cash_provided_by_financing_activities", "operating_cash_flow",
+    "capital_expenditure", "free_cash_flow", "common_dividends_paid",
+    "net_dividends_paid", "depreciation_and_amortization",
+  ];
+
+  // Convert a single FMP statement row into an upsertable record. FMP returns
+  // camelCase; we snake_case the field names. Numeric columns get clamped so
+  // outliers don't overflow our bigint columns.
+  function camelToSnake(s: string): string {
+    return s.replace(/[A-Z]/g, (m) => "_" + m.toLowerCase());
+  }
+  function mapStatement(
+    row: Record<string, unknown>,
+    sym: string,
+    period: "FY" | "Q1" | "Q2" | "Q3" | "Q4",
+    cols: string[],
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {
+      symbol: sym,
+      date: row.date,
+      reported_currency: row.reportedCurrency ?? null,
+      cik: row.cik ?? null,
+      filing_date: row.filingDate ?? null,
+      accepted_date: row.acceptedDate ?? null,
+      fiscal_year: row.fiscalYear ?? row.calendarYear ?? null,
+      period,
+    };
+    for (const col of cols) {
+      const camel = col.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+      const v = row[camel];
+      if (v !== undefined) out[col] = v;
+    }
+    return out;
+  }
+
+  const CONCURRENCY = 2;
+  let next = 0;
+  let symbolsProcessed = 0;
+  let incomeUpserted = 0;
+  let balanceUpserted = 0;
+  let cashFlowUpserted = 0;
+  const errors: string[] = [];
+
+  async function fetchAndUpsert(sym: string, kind: "income-statement" | "balance-sheet-statement" | "cash-flow-statement") {
+    const table =
+      kind === "income-statement"
+        ? "income_statement"
+        : kind === "balance-sheet-statement"
+        ? "balance_sheet"
+        : "cash_flow";
+    const cols =
+      kind === "income-statement"
+        ? INCOME_COLS
+        : kind === "balance-sheet-statement"
+        ? BALANCE_COLS
+        : CASH_FLOW_COLS;
+
+    let inserted = 0;
+    for (const period of ["annual", "quarter"] as const) {
+      try {
+        const res = await fetch(
+          `${FMP_STABLE}/${kind}?symbol=${encodeURIComponent(sym)}&period=${period}&limit=12&apikey=${FMP_API_KEY}`,
+        );
+        if (!res.ok) continue;
+        const rows = (await res.json()) as Record<string, unknown>[];
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        const tableName = `${table}_${period === "annual" ? "annual" : "quarterly"}`;
+        const records = rows.map((r) =>
+          mapStatement(
+            r,
+            sym,
+            (period === "annual" ? "FY" : ((r.period as string) ?? "Q1")) as "FY" | "Q1" | "Q2" | "Q3" | "Q4",
+            cols,
+          ),
+        );
+        // De-dupe on (symbol,date,period) which is our unique constraint.
+        const seen = new Set<string>();
+        const dedup = records.filter((r) => {
+          const k = `${r.symbol}|${r.date}|${r.period}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        const { error } = await sb
+          .from(tableName)
+          .upsert(dedup, { onConflict: "symbol,date,period" });
+        if (error) errors.push(`${sym}/${tableName}: ${error.message}`);
+        else inserted += dedup.length;
+      } catch (e) {
+        errors.push(`${sym}/${kind}/${period}: ${String(e)}`);
+      }
+    }
+    return inserted;
+  }
+
+  async function worker() {
+    while (next < subset.length) {
+      const idx = next++;
+      const sym = subset[idx];
+      try {
+        const [inc, bal, cf] = await Promise.all([
+          fetchAndUpsert(sym, "income-statement"),
+          fetchAndUpsert(sym, "balance-sheet-statement"),
+          fetchAndUpsert(sym, "cash-flow-statement"),
+        ]);
+        incomeUpserted += inc;
+        balanceUpserted += bal;
+        cashFlowUpserted += cf;
+        symbolsProcessed++;
+      } catch (e) {
+        errors.push(`${sym}: ${String(e)}`);
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.min(CONCURRENCY, subset.length) }, () => worker());
+  await Promise.all(workers);
+
+  return {
+    symbolsProcessed,
+    incomeUpserted,
+    balanceUpserted,
+    cashFlowUpserted,
+    shardSize: subset.length,
+    totalSymbols: candidates.length,
+    errors: errors.slice(0, 3),
+  };
+}
+
 // 3a-b) Backfill historical dividends per symbol via /dividends?symbol=X. The
 // daily /dividends-calendar refresh covers everything up to 365 days forward
 // but cannot reach years of prior payments. This stage walks candidate symbols
@@ -1221,6 +1392,12 @@ Deno.serve(async (req) => {
       // Stand-alone: pulls top-500 holdings + sector weights per ETF.
       tasks.push(refreshEtfHoldings(shard, shards));
       labels.push("etfHoldings");
+    }
+    if (stage === "financials") {
+      // Stand-alone: refreshes income / balance / cash-flow statements
+      // (annual + quarterly) for every active stock with mkt_cap > $50M.
+      tasks.push(refreshFinancials(shard, shards));
+      labels.push("financials");
     }
 
     const settled = await Promise.allSettled(tasks);

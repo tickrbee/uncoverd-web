@@ -358,7 +358,11 @@ export async function listStocks(opts: ScreenerOptions = {}): Promise<StockRow[]
       q = q.eq("country", country);
       const primaryExchanges = COUNTRY_PRIMARY_EXCHANGES[country];
       if (primaryExchanges) {
-        q = q.in("exchange_short", primaryExchanges);
+        // Allow either a primary-exchange match OR a null exchange. ~1.4K US
+        // dividend payers have `exchange_short = null` in the data — they're
+        // still US-country, just missing the field, so they should appear.
+        const orClause = `exchange_short.in.(${primaryExchanges.join(",")}),exchange_short.is.null`;
+        q = q.or(orClause);
       }
     }
   }
