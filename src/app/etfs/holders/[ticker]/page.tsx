@@ -24,7 +24,10 @@ export const dynamic = "force-dynamic";
 export const revalidate = 1800;
 
 const PAGE_SIZE = 50;
-const HOLDERS_CAP = 1000;
+// No artificial cap: getEtfHoldersOf is indexed and we paginate at the
+// rendering layer. Stocks like AAPL show up in several hundred ETFs; SPY,
+// VOO etc can reach into the thousands.
+const HOLDERS_CAP = 50000;
 const VALID_VIEWS: ColumnView[] = ["etf-holders", "etf-overview", "payout", "returns"];
 
 export async function generateMetadata({

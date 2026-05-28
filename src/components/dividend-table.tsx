@@ -53,7 +53,20 @@ type SortKey =
   | "return_5y"
   | "return_10y"
   | "pct_off_52w_high"
-  | "avg_recovery_days";
+  | "avg_recovery_days"
+  // RowMeta-driven sort keys (etf-coverage, etf-holders views)
+  | "rank"
+  | "etf_count"
+  | "total_market_value"
+  | "weight_percentage"
+  | "position_market_value"
+  | "shares_held"
+  // StockRow direct fields used by the new ETF views
+  | "aum"
+  | "expense_ratio"
+  | "asset_class"
+  | "etf_category"
+  | "etf_company";
 
 // Optional per-row meta available to cell renderers — currently used by the
 // ETF-coverage view to render the ETF-count + position-value columns.
@@ -571,18 +584,21 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     {
       header: "Rank",
       className: "dv-th--num",
+      sortKey: "rank",
       cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
     },
     { header: "ETF", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
     {
       header: "Weight in ETF",
       className: "dv-th--num",
+      sortKey: "weight_percentage",
       cell: (_r, _rt, _p, _d, _e, meta) =>
         meta?.weight_percentage != null ? `${meta.weight_percentage.toFixed(2)}%` : "—",
     },
     {
       header: "Position value",
       className: "dv-th--num",
+      sortKey: "position_market_value",
       cell: (_r, _rt, _p, _d, _e, meta) =>
         meta?.position_market_value != null
           ? formatCurrency(meta.position_market_value, { abbreviate: true })
@@ -591,20 +607,23 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     {
       header: "Shares held",
       className: "dv-th--num",
+      sortKey: "shares_held",
       cell: (_r, _rt, _p, _d, _e, meta) =>
         meta?.shares_held != null ? meta.shares_held.toLocaleString() : "—",
     },
     {
       header: "ETF AUM",
       className: "dv-th--num",
+      sortKey: "aum",
       cell: (r) => (r.aum != null ? formatCurrency(r.aum, { abbreviate: true }) : "—"),
     },
     {
       header: "Expense Ratio",
       className: "dv-th--num",
+      sortKey: "expense_ratio",
       cell: (r) => (r.expense_ratio != null ? `${(r.expense_ratio * 100).toFixed(2)}%` : "—"),
     },
-    { header: "Asset Class", cell: (r) => r.asset_class ?? "—" },
+    { header: "Asset Class", sortKey: "asset_class", cell: (r) => r.asset_class ?? "—" },
   ],
   // ETF-COVERAGE — used by /etfs/top-held to show the basket-exposure data
   // (count of ETFs holding the stock, coverage bar, total position value)
@@ -613,6 +632,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     {
       header: "Rank",
       className: "dv-th--num",
+      sortKey: "rank",
       cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
     },
     { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
@@ -626,11 +646,13 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     {
       header: "ETFs holding it",
       className: "dv-th--num",
+      sortKey: "etf_count",
       cell: (_r, _rt, _p, _d, _e, meta) =>
         meta?.etf_count != null ? meta.etf_count.toLocaleString() : "—",
     },
     {
       header: "Coverage",
+      sortKey: "etf_count",
       cell: (_r, _rt, _p, _d, _e, meta) => {
         if (meta?.etf_count == null || !meta.max_etf_count) return "—";
         const pct = (meta.etf_count / meta.max_etf_count) * 100;
@@ -658,6 +680,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     {
       header: "Position value",
       className: "dv-th--num",
+      sortKey: "total_market_value",
       cell: (r, _rt, _p, _d, _e, meta) =>
         meta?.total_market_value != null
           ? formatCurrency(meta.total_market_value, { abbreviate: true, currency: r.currency })
@@ -748,6 +771,7 @@ export function DividendTable({
         const rating = ratings?.get(r.symbol);
         const div = upcomingDividends?.get(r.symbol);
         const ex = extras?.get(r.symbol);
+        const m = meta?.get(r.symbol);
         switch (key) {
           // String fields
           case "symbol":
@@ -805,6 +829,30 @@ export function DividendTable({
             // For days-to-recover lower is better, but we keep the comparator
             // standard (ascending = lower first) and let the user toggle dir.
             return r.avg_recovery_days ?? Infinity;
+          // RowMeta-driven (etf-coverage + etf-holders views)
+          case "rank":
+            return m?.rank ?? Infinity;
+          case "etf_count":
+            return m?.etf_count ?? -Infinity;
+          case "total_market_value":
+            return m?.total_market_value ?? -Infinity;
+          case "weight_percentage":
+            return m?.weight_percentage ?? -Infinity;
+          case "position_market_value":
+            return m?.position_market_value ?? -Infinity;
+          case "shares_held":
+            return m?.shares_held ?? -Infinity;
+          // StockRow optional ETF-specific fields
+          case "aum":
+            return r.aum ?? -Infinity;
+          case "expense_ratio":
+            return r.expense_ratio ?? -Infinity;
+          case "asset_class":
+            return r.asset_class ?? "";
+          case "etf_category":
+            return r.etf_category ?? "";
+          case "etf_company":
+            return r.etf_company ?? "";
           // StockRow primitive fields (price, change_percent, market_cap, etc.)
           default: {
             const v = (r as unknown as Record<string, number | null | undefined>)[key];
@@ -818,7 +866,7 @@ export function DividendTable({
       if (av === bv) return 0;
       return av < bv ? -1 * dir : 1 * dir;
     });
-  }, [rows, sort, ratings, upcomingDividends, extras]);
+  }, [rows, sort, ratings, upcomingDividends, extras, meta]);
 
   if (!rows || rows.length === 0) {
     return <div className="dv-empty">No matching stocks found.</div>;

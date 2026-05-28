@@ -540,9 +540,11 @@ export type EtfHolderRow = {
   market_value: number | null;
 };
 
-export async function getEtfHoldersOf(symbol: string, limit = 100): Promise<EtfHolderRow[]> {
+export async function getEtfHoldersOf(symbol: string, limit = 50000): Promise<EtfHolderRow[]> {
   const sb = getBackendClient();
-  // 1) Find every ETF that holds this asset, sorted by weight desc.
+  // 1) Find every ETF that holds this asset, sorted by weight desc. The
+  // etf_holdings_asset_idx index makes this cheap even at 5K+ results, so
+  // we default to a high limit that effectively returns "all".
   const { data: holdings, error } = await sb
     .from("etf_holdings")
     .select("etf_symbol,weight_percentage,shares_number,market_value")

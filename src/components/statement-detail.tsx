@@ -149,16 +149,6 @@ export function StatementDetail({
 
       <HistoryChart data={chartData} period={period} series={series} />
 
-      {source.length > 0 && (
-        <div className="dv-fin-yeartags" aria-hidden>
-          {source.map((r, i) => (
-            <span key={i} className="dv-fin-yeartag">
-              {periodLabel(r, period)}
-            </span>
-          ))}
-        </div>
-      )}
-
       <StatementTable source={source} period={period} lineItems={lineItems} />
     </div>
   );
