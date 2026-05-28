@@ -20,7 +20,8 @@ export type ColumnView =
   | "upside"
   | "etf-overview"
   | "etf-coverage"
-  | "etf-holders";
+  | "etf-holders"
+  | "future-payers";
 
 type SortKey =
   | "symbol"
@@ -66,7 +67,11 @@ type SortKey =
   | "expense_ratio"
   | "asset_class"
   | "etf_category"
-  | "etf_company";
+  | "etf_company"
+  // Future-payers view (potential dividend initiators)
+  | "net_income"
+  | "free_cash_flow"
+  | "fcf_margin";
 
 // Optional per-row meta available to cell renderers — currently used by the
 // ETF-coverage view to render the ETF-count + position-value columns.
@@ -80,6 +85,10 @@ export type RowMeta = {
   weight_percentage?: number;
   position_market_value?: number;
   shares_held?: number;
+  // Future-payers view (used on /lists/potential-payers)
+  net_income?: number;
+  free_cash_flow?: number;
+  fcf_margin?: number;
 };
 
 type Column = {
@@ -577,6 +586,49 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       cell: (r) => r.etf_company ?? "—",
     },
   ],
+  // FUTURE-PAYERS — used by /lists/potential-payers. Each row is a profitable
+  // non-dividend stock; meta carries the financials snapshot (net income,
+  // free cash flow, FCF margin) used to rank them.
+  "future-payers": [
+    {
+      header: "Rank",
+      className: "dv-th--num",
+      sortKey: "rank",
+      cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
+    },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Sector", sortKey: "sector", cell: (r) => r.sector ?? "—" },
+    { header: "Industry", sortKey: "industry", cell: (r) => r.industry ?? "—" },
+    {
+      header: "Market cap",
+      className: "dv-th--num",
+      sortKey: "market_cap",
+      cell: (r) => formatCurrency(r.market_cap, { abbreviate: true, currency: r.currency }),
+    },
+    {
+      header: "Net income (FY)",
+      className: "dv-th--num",
+      sortKey: "net_income",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.net_income != null ? formatCurrency(meta.net_income, { abbreviate: true }) : "—",
+    },
+    {
+      header: "Free cash flow (FY)",
+      className: "dv-th--num",
+      sortKey: "free_cash_flow",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.free_cash_flow != null
+          ? formatCurrency(meta.free_cash_flow, { abbreviate: true })
+          : "—",
+    },
+    {
+      header: "FCF margin",
+      className: "dv-th--num",
+      sortKey: "fcf_margin",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.fcf_margin != null ? `${meta.fcf_margin.toFixed(1)}%` : "—",
+    },
+  ],
   // ETF-HOLDERS — used by /etfs/holders/[ticker] as the default tab. Each row
   // is an ETF that holds the target stock; meta supplies the per-ETF position
   // info (weight in the ETF, position market value, shares held).
@@ -853,6 +905,13 @@ export function DividendTable({
             return r.etf_category ?? "";
           case "etf_company":
             return r.etf_company ?? "";
+          // Future-payers (RowMeta-driven)
+          case "net_income":
+            return m?.net_income ?? -Infinity;
+          case "free_cash_flow":
+            return m?.free_cash_flow ?? -Infinity;
+          case "fcf_margin":
+            return m?.fcf_margin ?? -Infinity;
           // StockRow primitive fields (price, change_percent, market_cap, etc.)
           default: {
             const v = (r as unknown as Record<string, number | null | undefined>)[key];
@@ -1063,7 +1122,7 @@ function ScoreCell({ score, isPremium }: { score: number; isPremium: boolean }) 
 //  - "screener"   → Overview / Payout / Div Growth / Returns / Ratings
 //  - "calendar"   → Overview / Payout / Income / Income Risk / Returns
 //                   (used on payout-changes & ex-div/declaration calendars)
-const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders", { key: ColumnView; label: string }[]> = {
+const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders" | "future-payers", { key: ColumnView; label: string }[]> = {
   screener: [
     { key: "overview", label: "Overview" },
     { key: "payout", label: "Payout" },
@@ -1103,6 +1162,15 @@ const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "et
     { key: "payout", label: "Distributions" },
     { key: "returns", label: "Returns" },
   ],
+  // /lists/potential-payers: financial-ready columns first, then the standard
+  // stock-equity views. Payout / Div Growth omitted on purpose — these
+  // companies don't pay yet so those columns would all be em-dashes.
+  "future-payers": [
+    { key: "future-payers", label: "Future Income" },
+    { key: "overview", label: "Overview" },
+    { key: "returns", label: "Returns" },
+    { key: "ratings", label: "Ratings" },
+  ],
 };
 
 export function ColumnTabs({
@@ -1112,7 +1180,7 @@ export function ColumnTabs({
 }: {
   active: ColumnView;
   baseHref: string;
-  preset?: "screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders";
+  preset?: "screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders" | "future-payers";
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
