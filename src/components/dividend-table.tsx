@@ -18,7 +18,8 @@ export type ColumnView =
   | "income-risk"
   | "buy-reco"
   | "upside"
-  | "etf-overview";
+  | "etf-overview"
+  | "etf-coverage";
 
 type SortKey =
   | "symbol"
@@ -53,6 +54,15 @@ type SortKey =
   | "pct_off_52w_high"
   | "avg_recovery_days";
 
+// Optional per-row meta available to cell renderers — currently used by the
+// ETF-coverage view to render the ETF-count + position-value columns.
+export type RowMeta = {
+  rank?: number;
+  etf_count?: number;
+  total_market_value?: number;
+  max_etf_count?: number;
+};
+
 type Column = {
   header: string;
   className?: string;
@@ -62,7 +72,8 @@ type Column = {
     rating?: StockRating,
     isPremium?: boolean,
     div?: DividendEvent,
-    extras?: StockExtras
+    extras?: StockExtras,
+    meta?: RowMeta,
   ) => React.ReactNode;
 };
 
@@ -547,6 +558,70 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       cell: (r) => r.etf_company ?? "—",
     },
   ],
+  // ETF-COVERAGE — used by /etfs/top-held to show the basket-exposure data
+  // (count of ETFs holding the stock, coverage bar, total position value)
+  // alongside price + yield. Coverage meta comes from the page via RowMeta.
+  "etf-coverage": [
+    {
+      header: "Rank",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
+    },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
+    {
+      header: "Yield (FWD)",
+      className: "dv-th--num",
+      sortKey: "dividend_yield",
+      cell: (r) => formatPercent(r.dividend_yield),
+    },
+    {
+      header: "ETFs holding it",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.etf_count != null ? meta.etf_count.toLocaleString() : "—",
+    },
+    {
+      header: "Coverage",
+      cell: (_r, _rt, _p, _d, _e, meta) => {
+        if (meta?.etf_count == null || !meta.max_etf_count) return "—";
+        const pct = (meta.etf_count / meta.max_etf_count) * 100;
+        return (
+          <div
+            style={{
+              minWidth: 180,
+              background: "rgba(255,255,255,0.05)",
+              height: 8,
+              borderRadius: 4,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                background: "linear-gradient(90deg, #064e3b 0%, #34d399 100%)",
+              }}
+            />
+          </div>
+        );
+      },
+    },
+    {
+      header: "Position value",
+      className: "dv-th--num",
+      cell: (r, _rt, _p, _d, _e, meta) =>
+        meta?.total_market_value != null
+          ? formatCurrency(meta.total_market_value, { abbreviate: true, currency: r.currency })
+          : "—",
+    },
+    {
+      header: "Rating",
+      className: "dv-th--num",
+      sortKey: "rating",
+      cell: (_r, rating, isPremium) => <RatingBadge rating={rating} isPremium={!!isPremium} />,
+    },
+  ],
   ratings: [
     { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
     {
@@ -598,6 +673,9 @@ export type DividendTableOptions = {
   ratings?: Map<string, StockRating>;
   upcomingDividends?: Map<string, DividendEvent>;
   extras?: Map<string, StockExtras>;
+  // Optional per-row meta — currently used by the etf-coverage view to show
+  // ETF count + coverage bar + total position value.
+  meta?: Map<string, RowMeta>;
   isPremium?: boolean;
   view?: ColumnView;
 };
@@ -607,6 +685,7 @@ export function DividendTable({
   ratings,
   upcomingDividends,
   extras,
+  meta,
   isPremium,
   view = "overview",
 }: DividendTableOptions) {
@@ -753,11 +832,12 @@ export function DividendTable({
               const rating = ratings?.get(row.symbol);
               const div = upcomingDividends?.get(row.symbol);
               const ex = extras?.get(row.symbol);
+              const m = meta?.get(row.symbol);
               return (
                 <tr key={row.symbol}>
                   {cols.map((c) => (
                     <td key={c.header} className={c.className?.replace("dv-th--num", "dv-td--num")}>
-                      {c.cell(row, rating, isPremium ?? undefined, div, ex)}
+                      {c.cell(row, rating, isPremium ?? undefined, div, ex, m)}
                     </td>
                   ))}
                   <td>
@@ -887,7 +967,7 @@ function ScoreCell({ score, isPremium }: { score: number; isPremium: boolean }) 
 //  - "screener"   → Overview / Payout / Div Growth / Returns / Ratings
 //  - "calendar"   → Overview / Payout / Income / Income Risk / Returns
 //                   (used on payout-changes & ex-div/declaration calendars)
-const TAB_PRESETS: Record<"screener" | "calendar" | "etf", { key: ColumnView; label: string }[]> = {
+const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage", { key: ColumnView; label: string }[]> = {
   screener: [
     { key: "overview", label: "Overview" },
     { key: "payout", label: "Payout" },
@@ -907,6 +987,16 @@ const TAB_PRESETS: Record<"screener" | "calendar" | "etf", { key: ColumnView; la
     { key: "payout", label: "Distributions" },
     { key: "returns", label: "Returns" },
   ],
+  // /etfs/top-held: starts with the ETF-coverage columns, but you can flip to
+  // any of the regular dividend views.
+  "etf-coverage": [
+    { key: "etf-coverage", label: "ETF Coverage" },
+    { key: "overview", label: "Overview" },
+    { key: "payout", label: "Payout" },
+    { key: "growth", label: "Div Growth" },
+    { key: "returns", label: "Returns" },
+    { key: "ratings", label: "Ratings" },
+  ],
 };
 
 export function ColumnTabs({
@@ -916,7 +1006,7 @@ export function ColumnTabs({
 }: {
   active: ColumnView;
   baseHref: string;
-  preset?: "screener" | "calendar" | "etf";
+  preset?: "screener" | "calendar" | "etf" | "etf-coverage";
 }) {
   const pathname = usePathname();
   const params = useSearchParams();

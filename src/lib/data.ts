@@ -2200,10 +2200,93 @@ export async function searchStocks(query: string, limit = 20): Promise<StockRow[
     .order("mkt_cap", { ascending: false, nullsFirst: false })
     .limit(limit);
   if (error) {
-    console.error("[data.searchStocks]", error);
+    console.error("[data.searchStocks]", error.message ?? error);
     return [];
   }
   return (data as TickerRow[] | null)?.map(toStockRow) ?? [];
+}
+
+// Search for "any holdable asset" — extends searchStocks so the /etfs/holders
+// flow can find names that exist only in ETF holdings (pre-IPO companies, JV
+// holdings, private placements like SPACEX). Returns a lightweight shape
+// because we only need symbol + name + a tag for the typeahead.
+export type HoldableSearchResult = {
+  symbol: string;
+  name: string | null;
+  exchange: string | null;
+  sector: string | null;
+  is_etf: boolean | null;
+  is_fund: boolean | null;
+  source: "ticker" | "etf_holding";
+};
+
+export async function searchHoldableAssets(query: string, limit = 12): Promise<HoldableSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const sb = getBackendClient();
+  const upper = trimmed.toUpperCase();
+
+  // Step 1: regular ticker search (fastest, covers 90% of cases).
+  const [tickerRes, holdingRes] = await Promise.all([
+    sb
+      .from("tickers")
+      .select("symbol,name,exchange_short,sector,is_etf,is_fund,mkt_cap")
+      .or(`symbol.ilike.${upper}%,name.ilike.%${trimmed}%`)
+      .eq("is_actively_trading", true)
+      .order("mkt_cap", { ascending: false, nullsFirst: false })
+      .limit(limit),
+    // Step 2: ETF holdings for asset names that don't exist in tickers
+    // (private companies, pre-IPO names). Cap at limit*2 since we'll dedupe.
+    sb
+      .from("etf_holdings")
+      .select("asset,name")
+      .or(`asset.ilike.${upper}%,name.ilike.%${trimmed}%`)
+      .limit(limit * 2),
+  ]);
+
+  const out: HoldableSearchResult[] = [];
+  const seen = new Set<string>();
+
+  for (const r of (tickerRes.data as { symbol: string; name: string | null; exchange_short: string | null; sector: string | null; is_etf: boolean | null; is_fund: boolean | null }[]) ?? []) {
+    if (seen.has(r.symbol)) continue;
+    seen.add(r.symbol);
+    out.push({
+      symbol: r.symbol,
+      name: r.name,
+      exchange: r.exchange_short,
+      sector: r.sector,
+      is_etf: r.is_etf,
+      is_fund: r.is_fund,
+      source: "ticker",
+    });
+  }
+
+  // Aggregate ETF-only assets by (asset, name) so duplicates from many ETFs
+  // collapse into a single suggestion. We don't add tickers we already have.
+  const etfOnly = new Map<string, { name: string | null; count: number }>();
+  for (const r of (holdingRes.data as { asset: string; name: string | null }[]) ?? []) {
+    if (!r.asset || seen.has(r.asset)) continue;
+    const key = r.asset.toUpperCase();
+    const cur = etfOnly.get(key) ?? { name: r.name, count: 0 };
+    cur.count += 1;
+    // Prefer a non-null name across collisions.
+    if (!cur.name && r.name) cur.name = r.name;
+    etfOnly.set(key, cur);
+  }
+  for (const [asset, v] of Array.from(etfOnly.entries()).sort((a, b) => b[1].count - a[1].count)) {
+    if (out.length >= limit) break;
+    out.push({
+      symbol: asset,
+      name: v.name,
+      exchange: null,
+      sector: null,
+      is_etf: null,
+      is_fund: null,
+      source: "etf_holding",
+    });
+  }
+
+  return out.slice(0, limit);
 }
 
 // ============================================================

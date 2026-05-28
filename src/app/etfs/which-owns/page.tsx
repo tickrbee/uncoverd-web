@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   description: "Search any ticker or company name to see every ETF that holds it — with weights, AUM, expense ratios, and position market value.",
 };
 
-export const dynamic = "force-dynamic";
+// Static / pre-rendered: this page has no DB calls itself, only the client
+// search component fires requests. Pre-render so first paint is instant.
 
 export default function WhichEtfOwnsPage() {
   return (

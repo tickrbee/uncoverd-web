@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
-import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
+import { DividendTable, ColumnTabs, type ColumnView, type RowMeta } from "@/components/dividend-table";
 import {
   getMostHeldByEtfs,
   listStocks,
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
-const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
+const VALID_VIEWS: ColumnView[] = ["etf-coverage", "overview", "payout", "growth", "returns", "ratings"];
 
 export default async function TopHeldPage({
   searchParams,
@@ -32,7 +32,7 @@ export default async function TopHeldPage({
 }) {
   const sp = await searchParams;
   const view: ColumnView =
-    sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
+    sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "etf-coverage";
 
   // Aggregate top-500 most-held assets across all ETFs, then hydrate into
   // StockRows so the standard DividendTable can render its full column views.
@@ -59,6 +59,21 @@ export default async function TopHeldPage({
     nextDividendBySymbols(symbols),
     getStockExtras(symbols),
   ]);
+
+  // Build per-row meta (rank, ETF count, position value) so the etf-coverage
+  // view can render the count + coverage bar + market value alongside the
+  // standard stock columns.
+  const maxEtfCount = aggregate.reduce((m, r) => Math.max(m, r.etf_count), 0) || 1;
+  const meta = new Map<string, RowMeta>();
+  aggregate.forEach((a, i) => {
+    meta.set(a.asset, {
+      rank: i + 1,
+      etf_count: a.etf_count,
+      total_market_value: a.total_market_value ?? undefined,
+      max_etf_count: maxEtfCount,
+    });
+  });
+
   rows = redactRowsForFree(rows, premium.isPremium);
   ratings = gatedMap(ratings, premium.isPremium);
   upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
@@ -74,7 +89,7 @@ export default async function TopHeldPage({
           description="The 500 companies that show up in the most ETFs across our database, ordered by ETF count. Click any ticker to see exactly which funds hold it."
         />
 
-        <ColumnTabs active={view} baseHref="/etfs/top-held" />
+        <ColumnTabs active={view} baseHref="/etfs/top-held" preset="etf-coverage" />
 
         <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: "0.75rem 0" }}>
           Showing top {rows.length.toLocaleString()} stocks ranked by ETF count.
@@ -85,6 +100,7 @@ export default async function TopHeldPage({
           ratings={ratings}
           upcomingDividends={upcomingDividends}
           extras={extras}
+          meta={meta}
           isPremium={premium.isPremium}
           view={view}
         />

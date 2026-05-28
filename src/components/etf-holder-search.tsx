@@ -11,6 +11,7 @@ type Suggestion = {
   sector: string | null;
   is_etf: boolean | null;
   is_fund: boolean | null;
+  source?: "ticker" | "etf_holding";
 };
 
 /**
@@ -35,10 +36,13 @@ export function EtfHolderSearch() {
     }
     debounce.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        // Dedicated endpoint that also surfaces assets only found inside
+        // etf_holdings (private/pre-IPO names like SPACEX, by-name lookups).
+        const res = await fetch(`/api/search/holders?q=${encodeURIComponent(q)}`);
         if (!res.ok) return;
         const data = (await res.json()) as { results: Suggestion[] };
-        // Only stocks (non-ETF) make sense for "which ETFs hold this".
+        // Hide ETF rows since "which ETFs hold an ETF" isn't usually what
+        // users want here. Asset-source rows (private companies) are kept.
         const stockOnly = (data.results ?? []).filter((s) => !s.is_etf && !s.is_fund);
         setSuggestions(stockOnly);
         setActiveIdx(-1);
@@ -107,7 +111,22 @@ export function EtfHolderSearch() {
                 onMouseEnter={() => setActiveIdx(i)}
               >
                 <span className="dv-search-suggestion__symbol">{s.symbol}</span>
-                <span className="dv-search-suggestion__name">{s.name ?? ""}</span>
+                <span className="dv-search-suggestion__name">
+                  {s.name ?? ""}
+                  {s.source === "etf_holding" && (
+                    <span
+                      style={{
+                        marginLeft: "0.45rem",
+                        fontSize: "0.7rem",
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      · ETF holding
+                    </span>
+                  )}
+                </span>
                 <span className="dv-search-suggestion__meta">
                   {s.sector ?? ""}
                   {s.exchange ? ` · ${s.exchange}` : ""}

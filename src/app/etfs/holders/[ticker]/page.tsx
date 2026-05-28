@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
+import { EtfHolderSearch } from "@/components/etf-holder-search";
+import { PremiumLock } from "@/components/premium-lock";
 import { getStock, getEtfHoldersOf, formatCurrency } from "@/lib/data";
+import { getPremiumStatus } from "@/lib/premium";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -30,22 +33,33 @@ export default async function EtfHoldersPage({
   const { ticker } = await params;
   const symbol = ticker.toUpperCase();
 
-  const [stock, holders] = await Promise.all([
+  const [stock, holders, premium] = await Promise.all([
     getStock(symbol),
     getEtfHoldersOf(symbol, 200),
+    getPremiumStatus(),
   ]);
 
-  if (!stock) notFound();
+  // Allow the page to render for "phantom" assets that only appear in
+  // etf_holdings (e.g. pre-IPO names like SPACEX). If we have ETF holders but
+  // no stock row, synthesize the minimum needed for the header.
+  const stockName = stock?.name ?? symbol;
+  if (!stock && holders.length === 0) notFound();
 
   return (
     <>
       <SiteHeader />
       <main className="dv-page">
         <PageHeader
-          eyebrow={`${stock.name ?? symbol} (${symbol})`}
+          eyebrow={`${stockName} (${symbol})`}
           title={`Which ETFs own ${symbol}?`}
           description={`Every ETF in our database that holds ${symbol}, ranked by position weight. Useful for understanding basket exposure and finding ETFs that match your view on the underlying company.`}
         />
+
+        {/* Keep the search visible so users can quickly look up a different
+            stock without backing out to the index page. */}
+        <section className="dv-section">
+          <EtfHolderSearch />
+        </section>
 
         <section className="dv-section">
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
@@ -73,10 +87,19 @@ export default async function EtfHoldersPage({
                     {holders.map((h) => (
                       <tr key={h.etf_symbol}>
                         <td>
-                          <Link href={`/etfs/symbol/${h.etf_symbol}`} className="dv-ticker">
-                            <span className="dv-ticker__name">{h.etf_symbol}</span>
-                            <span className="dv-ticker__meta">{h.etf_name ?? ""}</span>
-                          </Link>
+                          {premium.isPremium ? (
+                            <Link href={`/etfs/symbol/${h.etf_symbol}`} className="dv-ticker">
+                              <span className="dv-ticker__name">{h.etf_symbol}</span>
+                              <span className="dv-ticker__meta">{h.etf_name ?? ""}</span>
+                            </Link>
+                          ) : (
+                            <PremiumLock isPremium={false} inline>
+                              <span className="dv-ticker">
+                                <span className="dv-ticker__name">{h.etf_symbol}</span>
+                                <span className="dv-ticker__meta">{h.etf_name ?? "ETF name"}</span>
+                              </span>
+                            </PremiumLock>
+                          )}
                         </td>
                         <td className="dv-td--num">
                           {h.weight_percentage != null ? `${h.weight_percentage.toFixed(2)}%` : "—"}
@@ -107,11 +130,13 @@ export default async function EtfHoldersPage({
           )}
         </section>
 
-        <p style={{ marginTop: "1.5rem" }}>
-          <Link href={`/stocks/${symbol}`} className="dv-action-link">
-            ← Back to {symbol}
-          </Link>
-        </p>
+        {stock && (
+          <p style={{ marginTop: "1.5rem" }}>
+            <Link href={`/stocks/${symbol}`} className="dv-action-link">
+              ← Back to {symbol}
+            </Link>
+          </p>
+        )}
       </main>
       <SiteFooter />
     </>
