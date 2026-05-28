@@ -19,7 +19,8 @@ export type ColumnView =
   | "buy-reco"
   | "upside"
   | "etf-overview"
-  | "etf-coverage";
+  | "etf-coverage"
+  | "etf-holders";
 
 type SortKey =
   | "symbol"
@@ -58,9 +59,14 @@ type SortKey =
 // ETF-coverage view to render the ETF-count + position-value columns.
 export type RowMeta = {
   rank?: number;
+  // Top-held heatmap
   etf_count?: number;
   total_market_value?: number;
   max_etf_count?: number;
+  // Per-ETF holder of a stock (used on /etfs/holders/[ticker])
+  weight_percentage?: number;
+  position_market_value?: number;
+  shares_held?: number;
 };
 
 type Column = {
@@ -558,6 +564,48 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       cell: (r) => r.etf_company ?? "—",
     },
   ],
+  // ETF-HOLDERS — used by /etfs/holders/[ticker] as the default tab. Each row
+  // is an ETF that holds the target stock; meta supplies the per-ETF position
+  // info (weight in the ETF, position market value, shares held).
+  "etf-holders": [
+    {
+      header: "Rank",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
+    },
+    { header: "ETF", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    {
+      header: "Weight in ETF",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.weight_percentage != null ? `${meta.weight_percentage.toFixed(2)}%` : "—",
+    },
+    {
+      header: "Position value",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.position_market_value != null
+          ? formatCurrency(meta.position_market_value, { abbreviate: true })
+          : "—",
+    },
+    {
+      header: "Shares held",
+      className: "dv-th--num",
+      cell: (_r, _rt, _p, _d, _e, meta) =>
+        meta?.shares_held != null ? meta.shares_held.toLocaleString() : "—",
+    },
+    {
+      header: "ETF AUM",
+      className: "dv-th--num",
+      cell: (r) => (r.aum != null ? formatCurrency(r.aum, { abbreviate: true }) : "—"),
+    },
+    {
+      header: "Expense Ratio",
+      className: "dv-th--num",
+      cell: (r) => (r.expense_ratio != null ? `${(r.expense_ratio * 100).toFixed(2)}%` : "—"),
+    },
+    { header: "Asset Class", cell: (r) => r.asset_class ?? "—" },
+  ],
   // ETF-COVERAGE — used by /etfs/top-held to show the basket-exposure data
   // (count of ETFs holding the stock, coverage bar, total position value)
   // alongside price + yield. Coverage meta comes from the page via RowMeta.
@@ -967,7 +1015,7 @@ function ScoreCell({ score, isPremium }: { score: number; isPremium: boolean }) 
 //  - "screener"   → Overview / Payout / Div Growth / Returns / Ratings
 //  - "calendar"   → Overview / Payout / Income / Income Risk / Returns
 //                   (used on payout-changes & ex-div/declaration calendars)
-const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage", { key: ColumnView; label: string }[]> = {
+const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders", { key: ColumnView; label: string }[]> = {
   screener: [
     { key: "overview", label: "Overview" },
     { key: "payout", label: "Payout" },
@@ -987,15 +1035,25 @@ const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage", { ke
     { key: "payout", label: "Distributions" },
     { key: "returns", label: "Returns" },
   ],
-  // /etfs/top-held: starts with the ETF-coverage columns, but you can flip to
-  // any of the regular dividend views.
+  // /etfs/top-held: starts with the heatmap columns (rank + ETF count +
+  // coverage bar + position value), but lets users flip to the regular
+  // dividend views to compare the stocks themselves.
   "etf-coverage": [
-    { key: "etf-coverage", label: "ETF Coverage" },
+    { key: "etf-coverage", label: "Heatmap" },
     { key: "overview", label: "Overview" },
     { key: "payout", label: "Payout" },
     { key: "growth", label: "Div Growth" },
     { key: "returns", label: "Returns" },
     { key: "ratings", label: "Ratings" },
+  ],
+  // /etfs/holders/[ticker]: shows per-ETF holding info first (weight, position
+  // value, shares), then standard ETF columns so users can compare the holding
+  // funds by AUM, expense ratio, returns, etc.
+  "etf-holders": [
+    { key: "etf-holders", label: "Holders" },
+    { key: "etf-overview", label: "ETF Overview" },
+    { key: "payout", label: "Distributions" },
+    { key: "returns", label: "Returns" },
   ],
 };
 
@@ -1006,7 +1064,7 @@ export function ColumnTabs({
 }: {
   active: ColumnView;
   baseHref: string;
-  preset?: "screener" | "calendar" | "etf" | "etf-coverage";
+  preset?: "screener" | "calendar" | "etf" | "etf-coverage" | "etf-holders";
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
