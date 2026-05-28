@@ -3,10 +3,16 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
-import { ListingToolbar } from "@/components/listing-toolbar";
+import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import { Pager } from "@/components/pager";
 import { getBackendClient } from "@/lib/supabase/admin";
-import { listStocks, getStockRatings, nextDividendBySymbols, getStockExtras, type StockRow } from "@/lib/data";
+import {
+  listStocks,
+  getStockRatings,
+  nextDividendBySymbols,
+  getStockExtras,
+  type StockRow,
+} from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
@@ -44,17 +50,30 @@ async function monthlyDividendSymbols(): Promise<string[]> {
 export default async function MonthlyDividendsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; page?: string }>;
+  searchParams: Promise<{ view?: string; page?: string; type?: string }>;
 }) {
   const sp = await searchParams;
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
+  // The Stocks / ETFs chip writes ?type= back to the same URL. Default = stocks.
+  // ETFs branch: filter monthly-paying symbols down to ETFs/funds only.
+  const type: SecurityType =
+    sp.type === "etfs" || sp.type === "active-etfs" || sp.type === "funds" ? "etfs" : "stocks";
 
   let allRows: StockRow[] = [];
   try {
     const symbols = await monthlyDividendSymbols();
     if (symbols.length > 0) {
-      allRows = await listStocks({ symbols, minMarketCap: 10_000_000, limit: 1000, excludeEtfs: false });
+      const candidates = await listStocks({
+        symbols,
+        minMarketCap: 10_000_000,
+        limit: 2000,
+        excludeEtfs: false,
+      });
+      allRows =
+        type === "etfs"
+          ? candidates.filter((r) => r.is_etf || r.is_fund)
+          : candidates.filter((r) => !r.is_etf && !r.is_fund);
       allRows.sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0));
     }
   } catch (e) {
@@ -85,10 +104,10 @@ export default async function MonthlyDividendsPage({
         />
         <ColumnTabs active={view} baseHref="/monthly" />
         <ListingToolbar
-          active="stocks"
+          active={type}
           rows={rows}
           isPremium={premium.isPremium}
-          csvFilename="uncoverd-monthly.csv"
+          csvFilename={`uncoverd-monthly-${type}.csv`}
         />
         <DividendTable
           rows={rows}

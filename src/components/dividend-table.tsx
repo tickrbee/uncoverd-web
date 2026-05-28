@@ -775,6 +775,7 @@ export function DividendTable({
 
 export type DividendCalRow = {
   symbol: string;
+  name?: string | null;
   exDate: string;
   paymentDate?: string;
   declarationDate?: string;
@@ -802,7 +803,7 @@ export function CalendarTable({
         <table className="dv-table">
           <thead>
             <tr>
-              <th>Symbol</th>
+              <th>Name</th>
               <th>Declaration</th>
               <th>{dateLabel}</th>
               <th>Payment Date</th>
@@ -816,6 +817,7 @@ export function CalendarTable({
                 <td>
                   <Link href={`/stocks/${row.symbol}`} className="dv-ticker">
                     <span className="dv-ticker__name">{row.symbol}</span>
+                    {row.name && <span className="dv-ticker__meta">{row.name}</span>}
                   </Link>
                 </td>
                 <td>{formatDate(row.declarationDate)}</td>

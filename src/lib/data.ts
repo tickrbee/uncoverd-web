@@ -522,6 +522,220 @@ export type EtfHolding = {
   market_value: number | null;
 };
 
+// Reverse lookup: given a stock ticker, find all ETFs that hold it. Pulls
+// per-ETF metadata (name, AUM, expense ratio) so callers can render a useful
+// table without an N+1 follow-up query.
+export type EtfHolderRow = {
+  etf_symbol: string;
+  etf_name: string | null;
+  etf_aum: number | null;
+  etf_expense_ratio: number | null;
+  etf_category: string | null;
+  weight_percentage: number | null;
+  shares_number: number | null;
+  market_value: number | null;
+};
+
+export async function getEtfHoldersOf(symbol: string, limit = 100): Promise<EtfHolderRow[]> {
+  const sb = getBackendClient();
+  // 1) Find every ETF that holds this asset, sorted by weight desc.
+  const { data: holdings, error } = await sb
+    .from("etf_holdings")
+    .select("etf_symbol,weight_percentage,shares_number,market_value")
+    .eq("asset", symbol.toUpperCase())
+    .order("weight_percentage", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error || !holdings) {
+    console.error("[data.getEtfHoldersOf]", error?.message ?? error);
+    return [];
+  }
+  const etfSymbols = (holdings as { etf_symbol: string }[]).map((h) => h.etf_symbol);
+  if (etfSymbols.length === 0) return [];
+
+  // 2) Hydrate each ETF row with ticker metadata.
+  const { data: metas } = await sb
+    .from("tickers")
+    .select("symbol,name,aum,expense_ratio,etf_category")
+    .in("symbol", etfSymbols);
+  const metaBySymbol = new Map<string, { name: string | null; aum: number | null; expense_ratio: number | null; etf_category: string | null }>();
+  for (const m of (metas as { symbol: string; name: string | null; aum: number | null; expense_ratio: number | null; etf_category: string | null }[]) ?? []) {
+    metaBySymbol.set(m.symbol, {
+      name: m.name,
+      aum: m.aum,
+      expense_ratio: m.expense_ratio,
+      etf_category: m.etf_category,
+    });
+  }
+
+  return (holdings as { etf_symbol: string; weight_percentage: number | null; shares_number: number | null; market_value: number | null }[]).map((h) => {
+    const meta = metaBySymbol.get(h.etf_symbol);
+    return {
+      etf_symbol: h.etf_symbol,
+      etf_name: meta?.name ?? null,
+      etf_aum: meta?.aum ?? null,
+      etf_expense_ratio: meta?.expense_ratio ?? null,
+      etf_category: meta?.etf_category ?? null,
+      weight_percentage: h.weight_percentage,
+      shares_number: h.shares_number,
+      market_value: h.market_value,
+    };
+  });
+}
+
+// Aggregate: which stocks are held by the most ETFs (basket exposure).
+// Used by the heatmap / "top held by ETFs" page.
+export type MostHeldRow = {
+  asset: string;
+  asset_name: string | null;
+  asset_sector: string | null;
+  etf_count: number;
+  total_market_value: number | null;
+  weight_total: number | null;
+};
+
+// "Could-be" dividend payers: profitable companies that don't yet distribute,
+// ranked by how strong the case is. We look for:
+//   - net_income > 0 in the latest annual income statement
+//   - free_cash_flow > 0 in the latest annual cash flow
+//   - last_div = 0 (currently not paying)
+//   - market cap > $500M (filters out micro-caps that rarely initiate)
+// Returns a candidate score = FCF margin proxy so the user sees the most
+// dividend-ready names first.
+export type PotentialPayerRow = {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  industry: string | null;
+  market_cap: number | null;
+  net_income: number | null;
+  free_cash_flow: number | null;
+  fcf_margin: number | null;
+};
+
+export async function getPotentialDividendPayers(limit = 80): Promise<PotentialPayerRow[]> {
+  const sb = getBackendClient();
+  // Stocks currently not paying, profitable, US-listed, > $500M market cap.
+  const { data: candidates } = await sb
+    .from("tickers")
+    .select("symbol,name,sector,industry,mkt_cap")
+    .eq("is_actively_trading", true)
+    .eq("is_etf", false)
+    .eq("country", "US")
+    .or("last_div.is.null,last_div.eq.0")
+    .gte("mkt_cap", 500_000_000)
+    .order("mkt_cap", { ascending: false, nullsFirst: false })
+    .limit(3000);
+  if (!candidates || candidates.length === 0) return [];
+
+  type T = { symbol: string; name: string | null; sector: string | null; industry: string | null; mkt_cap: number | null };
+  const symbols = (candidates as T[]).map((c) => c.symbol);
+  const tickerMap = new Map<string, T>();
+  for (const c of candidates as T[]) tickerMap.set(c.symbol, c);
+
+  // Latest annual income + cash flow per symbol. Restrict to the freshest
+  // statement we have — that's usually the most recent fiscal year.
+  const [{ data: incomeRows }, { data: cfRows }] = await Promise.all([
+    sb
+      .from("income_statement_annual")
+      .select("symbol,date,revenue,net_income")
+      .in("symbol", symbols)
+      .order("date", { ascending: false })
+      .limit(symbols.length * 2),
+    sb
+      .from("cash_flow_annual")
+      .select("symbol,date,free_cash_flow")
+      .in("symbol", symbols)
+      .order("date", { ascending: false })
+      .limit(symbols.length * 2),
+  ]);
+
+  type I = { symbol: string; date: string; revenue: number | null; net_income: number | null };
+  type C = { symbol: string; date: string; free_cash_flow: number | null };
+  const incomeBySym = new Map<string, I>();
+  for (const r of (incomeRows as I[]) ?? []) {
+    if (!incomeBySym.has(r.symbol)) incomeBySym.set(r.symbol, r);
+  }
+  const cfBySym = new Map<string, C>();
+  for (const r of (cfRows as C[]) ?? []) {
+    if (!cfBySym.has(r.symbol)) cfBySym.set(r.symbol, r);
+  }
+
+  const out: PotentialPayerRow[] = [];
+  for (const sym of symbols) {
+    const t = tickerMap.get(sym);
+    const inc = incomeBySym.get(sym);
+    const cf = cfBySym.get(sym);
+    if (!t || !inc || !cf) continue;
+    const ni = Number(inc.net_income ?? 0);
+    const rev = Number(inc.revenue ?? 0);
+    const fcf = Number(cf.free_cash_flow ?? 0);
+    if (ni <= 0 || fcf <= 0) continue; // not yet profitable / cash-generative
+    const fcfMargin = rev > 0 ? (fcf / rev) * 100 : null;
+    out.push({
+      symbol: sym,
+      name: t.name,
+      sector: t.sector,
+      industry: t.industry,
+      market_cap: t.mkt_cap,
+      net_income: ni,
+      free_cash_flow: fcf,
+      fcf_margin: fcfMargin,
+    });
+  }
+
+  // Rank by FCF margin (proxy for ability to start paying) then by market cap.
+  out.sort((a, b) => {
+    const am = a.fcf_margin ?? -1;
+    const bm = b.fcf_margin ?? -1;
+    if (am !== bm) return bm - am;
+    return (b.market_cap ?? 0) - (a.market_cap ?? 0);
+  });
+  return out.slice(0, limit);
+}
+
+export async function getMostHeldByEtfs(limit = 100): Promise<MostHeldRow[]> {
+  const sb = getBackendClient();
+  // Postgres aggregate via direct SQL is faster than client-side grouping.
+  const { data, error } = await sb.rpc("etf_top_held", { row_limit: limit });
+  if (error || !data) {
+    // Fallback: client-side aggregation if the RPC isn't installed yet.
+    const { data: rows } = await sb
+      .from("etf_holdings")
+      .select("asset,weight_percentage,market_value")
+      .limit(50000);
+    if (!rows) return [];
+    const agg = new Map<string, { count: number; total_mv: number; total_w: number }>();
+    for (const r of rows as { asset: string; weight_percentage: number | null; market_value: number | null }[]) {
+      const cur = agg.get(r.asset) ?? { count: 0, total_mv: 0, total_w: 0 };
+      cur.count += 1;
+      cur.total_mv += Number(r.market_value ?? 0);
+      cur.total_w += Number(r.weight_percentage ?? 0);
+      agg.set(r.asset, cur);
+    }
+    const top = Array.from(agg.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, limit);
+    const assets = top.map(([a]) => a);
+    const { data: tickerRows } = await sb
+      .from("tickers")
+      .select("symbol,name,sector")
+      .in("symbol", assets);
+    const tickerMap = new Map<string, { name: string | null; sector: string | null }>();
+    for (const t of (tickerRows as { symbol: string; name: string | null; sector: string | null }[]) ?? []) {
+      tickerMap.set(t.symbol, { name: t.name, sector: t.sector });
+    }
+    return top.map(([asset, v]) => ({
+      asset,
+      asset_name: tickerMap.get(asset)?.name ?? null,
+      asset_sector: tickerMap.get(asset)?.sector ?? null,
+      etf_count: v.count,
+      total_market_value: v.total_mv,
+      weight_total: v.total_w,
+    }));
+  }
+  return data as MostHeldRow[];
+}
+
 export async function getEtfHoldings(symbol: string, limit = 25): Promise<EtfHolding[]> {
   const sb = getBackendClient();
   const { data, error } = await sb

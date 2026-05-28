@@ -197,16 +197,14 @@ export function SiteHeader() {
                 <MenuLink href="/growers/contenders">Dividend Contenders (10–24 yrs)</MenuLink>
                 <MenuLink href="/growers/challengers">Dividend Challengers (5–9 yrs)</MenuLink>
                 <MenuLink href="/growers/achievers">Dividend Achievers (&gt;10 yrs)</MenuLink>
-                <MenuTitle>ETFs by industry</MenuTitle>
+                <MenuTitle>ETFs &amp; Exposure</MenuTitle>
                 <MenuLink href="/screener?type=etfs">All Dividend ETFs</MenuLink>
+                <MenuLink href="/etfs/top-held">Most held by ETFs</MenuLink>
+                <MenuLink href="/lists/potential-payers">Future dividend payers</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=real-estate">REIT ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=energy">Energy ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=financials">Financials ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=technology">Technology ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=health-care">Healthcare ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=utilities">Utility ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=consumer-staples">Consumer Staples ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=materials">Materials ETFs</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>

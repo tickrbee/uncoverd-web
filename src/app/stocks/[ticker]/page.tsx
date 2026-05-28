@@ -193,6 +193,10 @@ export default async function StockPage({
                   <Link href={`/stocks/${symbol}?tab=profile`} className="dv-action-link dv-action-link--accent">
                     Full profile →
                   </Link>
+                  {" · "}
+                  <Link href={`/etfs/holders/${symbol}`} className="dv-action-link dv-action-link--accent">
+                    Which ETFs own {symbol}? →
+                  </Link>
                 </div>
               </section>
             )}

@@ -11,6 +11,8 @@ import {
   listStocks,
   rankByDimension,
   getStockRatings,
+  getStockExtras,
+  nextDividendBySymbols,
   redactRowsForFree,
   gatedMap,
   type StockRow,
@@ -94,6 +96,23 @@ const PICKS: Record<string, Pick> = {
   },
 };
 
+// Reject debt instruments + preferreds that FMP exposes as "stocks". We can't
+// rely on `type` because FMP labels them all as 'stock' / 'common stock'; the
+// signal is in the name (percentage coupons, "Notes", "Series", "Pref",
+// finance-subsidiary LLCs) or in symbol punctuation (CFG-PH style suffixes).
+const NAME_BOND_PATTERN =
+  /(%|\bNote(s)?\b|\bSubord|\bSenior\b|\bSeries\s+[A-Z]\b|\bPref\b|\bPreferred\b|\bFinance\s+(Co|Corp|LLC)\b|\bCapital\s+Trust\b|\bDebenture)/i;
+
+function isCommonStock(row: { symbol: string; name: string | null }): boolean {
+  if (!row.name) return true;
+  if (NAME_BOND_PATTERN.test(row.name)) return false;
+  // Tickers with a dash followed by 1–2 letters are nearly always preferred
+  // share classes on US exchanges (e.g. CFG-PH, BAC-PA). Foreign tickers
+  // ending in things like .L or .TO are fine — the dash is the marker.
+  if (/^[A-Z]+-[A-Z]{1,2}$/.test(row.symbol)) return false;
+  return true;
+}
+
 async function monthlySymbols(): Promise<Set<string>> {
   const sb = getBackendClient();
   const cutoff = new Date();
@@ -142,6 +161,11 @@ export default async function PicksPage({
       const monthly = await monthlySymbols();
       all = all.filter((r) => monthly.has(r.symbol));
     }
+    // Strip bonds / preferred shares / structured notes — these have FMP
+    // symbols and yields but they're not "dividend stocks" in the equity sense
+    // and they pollute model portfolios with names like
+    // "Athene Holding Ltd. 7.250% Fixe" or "KKR Group Finance Co. IX LLC 4.".
+    all = all.filter(isCommonStock);
     rows = pick.build(all);
     rows = await rankByDimension(rows, pick.rankBy);
     rows = rows.slice(0, pick.finalLimit);
@@ -150,10 +174,20 @@ export default async function PicksPage({
   }
 
   const premium = await getPremiumStatus();
-  let ratings = await getStockRatings(rows.map((r) => r.symbol));
+  const symbols = rows.map((r) => r.symbol);
+  // Fetch ratings + upcoming dividends + extras in parallel so every column
+  // view (Overview / Payout / Div Growth / Returns / Ratings) actually
+  // populates instead of showing em-dashes.
+  let [ratings, upcomingDividends, extras] = await Promise.all([
+    getStockRatings(symbols),
+    nextDividendBySymbols(symbols),
+    getStockExtras(symbols),
+  ]);
   // Redact for free users so inspect can't reveal the picks.
   rows = redactRowsForFree(rows, premium.isPremium);
   ratings = gatedMap(ratings, premium.isPremium);
+  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
+  extras = gatedMap(extras, premium.isPremium);
 
   return (
     <>
@@ -168,7 +202,14 @@ export default async function PicksPage({
           csvFilename={`uncoverd-${slug}.csv`}
           hideSecurityType
         />
-        <DividendTable rows={rows} ratings={ratings} isPremium={premium.isPremium} view={view} />
+        <DividendTable
+          rows={rows}
+          ratings={ratings}
+          upcomingDividends={upcomingDividends}
+          extras={extras}
+          isPremium={premium.isPremium}
+          view={view}
+        />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           Rebalanced periodically based on yield, fundamentals, and dividend safety.
           {!premium.isPremium && pick.premium && " Premium subscribers see every pick, rating, and rebalancing date."}

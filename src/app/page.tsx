@@ -43,13 +43,35 @@ export default async function HomePage() {
   const premium = await getPremiumStatus();
   const ratings = await getStockRatings(topYielders.map((r) => r.symbol));
 
+  // Resolve company names so the calendar shows "AAPL — Apple Inc." instead of
+  // just bare tickers.
+  const calSymbols = Array.from(new Set(exDivCal.slice(0, 10).map((d) => d.symbol)));
+  const nameMap = new Map<string, string>();
+  if (calSymbols.length > 0) {
+    try {
+      const { getBackendClient } = await import("@/lib/supabase/admin");
+      const sb = getBackendClient();
+      const { data } = await sb
+        .from("tickers")
+        .select("symbol,name")
+        .in("symbol", calSymbols);
+      for (const r of (data as { symbol: string; name: string | null }[]) ?? []) {
+        if (r.name) nameMap.set(r.symbol, r.name);
+      }
+    } catch {
+      // Best-effort: still show the table without names if the lookup fails.
+    }
+  }
+
   const upcoming = exDivCal.slice(0, 10).map((d) => ({
     symbol: d.symbol,
+    name: nameMap.get(d.symbol) ?? null,
     exDate: d.date,
     paymentDate: d.payment_date ?? undefined,
     declarationDate: d.declaration_date ?? undefined,
     recordDate: d.record_date ?? undefined,
     dividend: d.dividend,
+    frequency: d.frequency ?? undefined,
   }));
 
   return (
