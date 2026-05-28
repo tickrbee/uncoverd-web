@@ -200,6 +200,7 @@ export function SiteHeader() {
                 <MenuLink href="/growers/achievers">Dividend Achievers (&gt;10 yrs)</MenuLink>
                 <MenuTitle>ETFs &amp; Exposure</MenuTitle>
                 <MenuLink href="/screener?type=etfs">All Dividend ETFs</MenuLink>
+                <MenuLink href="/etfs/which-owns">Which ETF owns a stock?</MenuLink>
                 <MenuLink href="/etfs/top-held">Most held by ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=real-estate">REIT ETFs</MenuLink>
                 <MenuLink href="/screener?type=etfs&sector=energy">Energy ETFs</MenuLink>
