@@ -618,85 +618,38 @@ export type PotentialPayerRow = {
   fcf_margin: number | null;
 };
 
-export async function getPotentialDividendPayers(limit = 80): Promise<PotentialPayerRow[]> {
+export async function getPotentialDividendPayers(limit = 120): Promise<PotentialPayerRow[]> {
   const sb = getBackendClient();
-  // Stocks currently not paying, profitable, US-listed, > $500M market cap.
-  const { data: candidates } = await sb
-    .from("tickers")
-    .select("symbol,name,sector,industry,mkt_cap")
-    .eq("is_actively_trading", true)
-    .eq("is_etf", false)
-    .eq("country", "US")
-    .or("last_div.is.null,last_div.eq.0")
-    .gte("mkt_cap", 500_000_000)
-    .order("mkt_cap", { ascending: false, nullsFirst: false })
-    .limit(3000);
-  if (!candidates || candidates.length === 0) return [];
-
-  type T = { symbol: string; name: string | null; sector: string | null; industry: string | null; mkt_cap: number | null };
-  const symbols = (candidates as T[]).map((c) => c.symbol);
-  const tickerMap = new Map<string, T>();
-  for (const c of candidates as T[]) tickerMap.set(c.symbol, c);
-
-  // Latest annual income + cash flow per symbol. Restrict to the freshest
-  // statement we have — that's usually the most recent fiscal year.
-  const [{ data: incomeRows }, { data: cfRows }] = await Promise.all([
-    sb
-      .from("income_statement_annual")
-      .select("symbol,date,revenue,net_income")
-      .in("symbol", symbols)
-      .order("date", { ascending: false })
-      .limit(symbols.length * 2),
-    sb
-      .from("cash_flow_annual")
-      .select("symbol,date,free_cash_flow")
-      .in("symbol", symbols)
-      .order("date", { ascending: false })
-      .limit(symbols.length * 2),
-  ]);
-
-  type I = { symbol: string; date: string; revenue: number | null; net_income: number | null };
-  type C = { symbol: string; date: string; free_cash_flow: number | null };
-  const incomeBySym = new Map<string, I>();
-  for (const r of (incomeRows as I[]) ?? []) {
-    if (!incomeBySym.has(r.symbol)) incomeBySym.set(r.symbol, r);
-  }
-  const cfBySym = new Map<string, C>();
-  for (const r of (cfRows as C[]) ?? []) {
-    if (!cfBySym.has(r.symbol)) cfBySym.set(r.symbol, r);
-  }
-
-  const out: PotentialPayerRow[] = [];
-  for (const sym of symbols) {
-    const t = tickerMap.get(sym);
-    const inc = incomeBySym.get(sym);
-    const cf = cfBySym.get(sym);
-    if (!t || !inc || !cf) continue;
-    const ni = Number(inc.net_income ?? 0);
-    const rev = Number(inc.revenue ?? 0);
-    const fcf = Number(cf.free_cash_flow ?? 0);
-    if (ni <= 0 || fcf <= 0) continue; // not yet profitable / cash-generative
-    const fcfMargin = rev > 0 ? (fcf / rev) * 100 : null;
-    out.push({
-      symbol: sym,
-      name: t.name,
-      sector: t.sector,
-      industry: t.industry,
-      market_cap: t.mkt_cap,
-      net_income: ni,
-      free_cash_flow: fcf,
-      fcf_margin: fcfMargin,
-    });
-  }
-
-  // Rank by FCF margin (proxy for ability to start paying) then by market cap.
-  out.sort((a, b) => {
-    const am = a.fcf_margin ?? -1;
-    const bm = b.fcf_margin ?? -1;
-    if (am !== bm) return bm - am;
-    return (b.market_cap ?? 0) - (a.market_cap ?? 0);
+  // Delegated to a SQL function so we get a single indexed query with
+  // LATERAL joins instead of two giant .in(...) lookups that overflowed
+  // PostgREST URL limits at 3K symbols and silently returned empty.
+  const { data, error } = await sb.rpc("potential_dividend_payers", {
+    row_limit: limit,
+    min_mkt_cap: 500_000_000,
   });
-  return out.slice(0, limit);
+  if (error) {
+    console.error("[data.getPotentialDividendPayers]", error.message ?? error);
+    return [];
+  }
+  return (data as Array<{
+    symbol: string;
+    name: string | null;
+    sector: string | null;
+    industry: string | null;
+    market_cap: number | null;
+    net_income: number | null;
+    free_cash_flow: number | null;
+    fcf_margin: number | null;
+  }>).map((r) => ({
+    symbol: r.symbol,
+    name: r.name,
+    sector: r.sector,
+    industry: r.industry,
+    market_cap: r.market_cap != null ? Number(r.market_cap) : null,
+    net_income: r.net_income != null ? Number(r.net_income) : null,
+    free_cash_flow: r.free_cash_flow != null ? Number(r.free_cash_flow) : null,
+    fcf_margin: r.fcf_margin != null ? Number(r.fcf_margin) : null,
+  }));
 }
 
 export async function getMostHeldByEtfs(limit = 100): Promise<MostHeldRow[]> {
