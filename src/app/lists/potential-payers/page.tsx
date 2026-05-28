@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView, type RowMeta } from "@/components/dividend-table";
+import { Pager } from "@/components/pager";
 import {
   getPotentialDividendPayers,
   listStocks,
@@ -24,22 +25,29 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
-const VALID_VIEWS: ColumnView[] = ["future-payers", "overview", "returns", "ratings"];
+const PAGE_SIZE = 30;
+const TOTAL_CANDIDATES = 300;
+const VALID_VIEWS: ColumnView[] = ["future-payers", "returns", "ratings"];
 
 export default async function PotentialPayersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const view: ColumnView =
     sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "future-payers";
+  const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
 
-  // Pull the ranked list of candidates (FCF-margin-sorted), then hydrate each
-  // into a full StockRow so the standard column views (Overview / Returns /
-  // Ratings) actually populate.
-  const candidates = await getPotentialDividendPayers(120);
-  const symbols = candidates.map((c) => c.symbol);
+  // Pull the full ranked list of candidates once so totalPages is stable, but
+  // only enrich the page slice with StockRows + ratings + extras. That keeps
+  // per-page render fast even at TOTAL_CANDIDATES=300.
+  const candidates = await getPotentialDividendPayers(TOTAL_CANDIDATES);
+  const totalPages = Math.max(1, Math.ceil(candidates.length / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
+  const pageSlice = candidates.slice(start, start + PAGE_SIZE);
+
+  const symbols = pageSlice.map((c) => c.symbol);
   const stockRowsRaw =
     symbols.length > 0
       ? await listStocks({ symbols, limit: symbols.length, excludeEtfs: false })
@@ -48,7 +56,7 @@ export default async function PotentialPayersPage({
   // Preserve the ranked order from the SQL function regardless of how
   // listStocks shuffles results.
   const rank = new Map<string, number>();
-  candidates.forEach((c, i) => rank.set(c.symbol, i + 1));
+  pageSlice.forEach((c, i) => rank.set(c.symbol, start + i + 1));
   let rows: StockRow[] = stockRowsRaw
     .filter((r) => rank.has(r.symbol))
     .sort((a, b) => (rank.get(a.symbol) ?? 999999) - (rank.get(b.symbol) ?? 999999));
@@ -64,7 +72,7 @@ export default async function PotentialPayersPage({
   // RowMeta carries the rank + financials snapshot used by the future-payers
   // ColumnView (rank, net income, free cash flow, FCF margin).
   const meta = new Map<string, RowMeta>();
-  for (const c of candidates) {
+  for (const c of pageSlice) {
     meta.set(c.symbol, {
       rank: rank.get(c.symbol),
       net_income: c.net_income ?? undefined,
@@ -92,21 +100,28 @@ export default async function PotentialPayersPage({
         <ColumnTabs active={view} baseHref="/lists/potential-payers" preset="future-payers" />
 
         <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: "0.75rem 0" }}>
-          {rows.length === 0
+          {candidates.length === 0
             ? "No candidates surfaced. The latest annual financials may not be loaded yet — re-run the financials refresh and try again."
-            : `${rows.length.toLocaleString()} candidates ranked by free-cash-flow margin.`}
+            : `Page ${page} of ${totalPages} · ${candidates.length.toLocaleString()} candidates ranked by free-cash-flow margin.`}
         </p>
 
         {rows.length > 0 && (
-          <DividendTable
-            rows={rows}
-            ratings={ratings}
-            upcomingDividends={upcomingDividends}
-            extras={extras}
-            meta={meta}
-            isPremium={premium.isPremium}
-            view={view}
-          />
+          <>
+            <DividendTable
+              rows={rows}
+              ratings={ratings}
+              upcomingDividends={upcomingDividends}
+              extras={extras}
+              meta={meta}
+              isPremium={premium.isPremium}
+              view={view}
+            />
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              baseHref={`/lists/potential-payers${view !== "future-payers" ? `?view=${view}` : ""}`}
+            />
+          </>
         )}
 
         <p style={{ marginTop: "1rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>

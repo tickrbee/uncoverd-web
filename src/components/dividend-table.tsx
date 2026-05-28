@@ -598,7 +598,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     },
     { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
     { header: "Sector", sortKey: "sector", cell: (r) => r.sector ?? "—" },
-    { header: "Industry", sortKey: "industry", cell: (r) => r.industry ?? "—" },
+    { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "Market cap",
       className: "dv-th--num",
@@ -1143,11 +1143,9 @@ const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "et
     { key: "returns", label: "Returns" },
   ],
   // /etfs/top-held: starts with the heatmap columns (rank + ETF count +
-  // coverage bar + position value), but lets users flip to the regular
-  // dividend views to compare the stocks themselves.
+  // coverage bar + position value), then standard dividend-stock views.
   "etf-coverage": [
     { key: "etf-coverage", label: "Heatmap" },
-    { key: "overview", label: "Overview" },
     { key: "payout", label: "Payout" },
     { key: "growth", label: "Div Growth" },
     { key: "returns", label: "Returns" },
@@ -1162,12 +1160,11 @@ const TAB_PRESETS: Record<"screener" | "calendar" | "etf" | "etf-coverage" | "et
     { key: "payout", label: "Distributions" },
     { key: "returns", label: "Returns" },
   ],
-  // /lists/potential-payers: financial-ready columns first, then the standard
-  // stock-equity views. Payout / Div Growth omitted on purpose — these
+  // /lists/potential-payers: financial-ready columns first, then returns and
+  // ratings. Overview / Payout / Div Growth omitted on purpose — these
   // companies don't pay yet so those columns would all be em-dashes.
   "future-payers": [
     { key: "future-payers", label: "Future Income" },
-    { key: "overview", label: "Overview" },
     { key: "returns", label: "Returns" },
     { key: "ratings", label: "Ratings" },
   ],
