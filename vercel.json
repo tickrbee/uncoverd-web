@@ -11,5 +11,11 @@
       "destination": "https://uncoverd.org/:path*",
       "permanent": true
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/monitor/reddit",
+      "schedule": "0 9 * * *"
+    }
   ]
 }
