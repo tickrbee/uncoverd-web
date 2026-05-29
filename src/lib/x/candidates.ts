@@ -15,6 +15,50 @@ import type {
   WeeklyHikeRow,
 } from "./compose";
 
+// US + EU coverage. The bot's audience is dividend investors in those
+// markets; Asian and other foreign listings get filtered out because
+// they look spammy on the feed (.JK, .HK, .L etc tickers nobody clicks).
+// EU list mirrors EU_COUNTRY_CODES in src/lib/data.ts.
+const TARGET_COUNTRIES = [
+  "US",
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+  "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+];
+
+// Primary exchanges only. Without this filter, a US stock like BDX dual-listed
+// on Warsaw shows up as $BDX.WA. We strip secondary listings by allowlisting
+// each country's main exchange. Values verified against distinct exchange_short
+// in backend.tickers (no LSE on this list — UK isn't in EU, and a US/EU
+// company's LSE listing is always secondary).
+const PRIMARY_EXCHANGES = [
+  // US
+  "NYSE", "NASDAQ", "AMEX", "NYSEArca", "BATS", "NYSE American", "NASDAQ Global Select",
+  // EU — one primary venue per country
+  "XETRA", "FSX",  // Germany
+  "PAR",            // France
+  "AMS",            // Netherlands
+  "STO",            // Sweden
+  "MIL",            // Italy
+  "BME",            // Spain
+  "CPH",            // Denmark
+  "WSE",            // Poland
+  "HEL",            // Finland
+  "BRU",            // Belgium
+  "DUB",            // Ireland
+  "ATH",            // Greece
+  "VIE",            // Austria
+  "LIS",            // Portugal
+  "BUD",            // Hungary
+  "PRG",            // Czech Republic
+  "BUC",            // Romania
+  "RGA",            // Latvia
+  "TAL",            // Estonia
+  "VLN",            // Lithuania
+  "BVL",            // Bulgaria (Sofia)
+  "LJU",            // Slovenia
+];
+
 type Schema = "backend" | "public";
 
 function admin(schema: Schema = "backend"): SupabaseClient {
@@ -209,7 +253,9 @@ export async function pickFeaturedStock(): Promise<FeaturedStockInput | null> {
   }
   const symbols = Array.from(seen.keys()).filter((s) => !skip.has(s));
 
-  // Get tickers + filter by upcoming ex-div + mkt cap
+  // Get tickers + filter by upcoming ex-div + mkt cap. US-only — the bot's
+  // audience is US dividend investors; foreign listings (.JK, .HK, .L etc)
+  // look like spam to them.
   const { data: tk } = await sb
     .from("tickers")
     .select("symbol,mkt_cap,next_ex_dividend_date,is_actively_trading,is_etf,is_fund")
@@ -217,6 +263,8 @@ export async function pickFeaturedStock(): Promise<FeaturedStockInput | null> {
     .eq("is_actively_trading", true)
     .eq("is_etf", false)
     .eq("is_fund", false)
+    .in("country", TARGET_COUNTRIES)
+    .in("exchange_short", PRIMARY_EXCHANGES)
     .gt("mkt_cap", 1_000_000_000)
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
@@ -246,6 +294,8 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     )
     .eq("is_etf", true)
     .eq("is_actively_trading", true)
+    .in("country", TARGET_COUNTRIES)
+    .in("exchange_short", PRIMARY_EXCHANGES)
     .gt("aum", 500_000_000)
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
@@ -312,6 +362,8 @@ export async function pickExDivWatchRows(): Promise<ExDivWatchRow[]> {
     .eq("is_actively_trading", true)
     .eq("is_etf", false)
     .eq("is_fund", false)
+    .in("country", TARGET_COUNTRIES)
+    .in("exchange_short", PRIMARY_EXCHANGES)
     .gt("mkt_cap", 5_000_000_000)
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
@@ -402,20 +454,27 @@ export async function pickRecentPayoutChange(
 
   const { data: tickers } = await sb
     .from("tickers")
-    .select("symbol,mkt_cap")
-    .in("symbol", symbols);
+    .select("symbol,mkt_cap,country")
+    .in("symbol", symbols)
+    .in("country", TARGET_COUNTRIES)
+    .in("exchange_short", PRIMARY_EXCHANGES);
   const mktCapBySymbol = new Map<string, number>();
-  for (const t of (tickers as { symbol: string; mkt_cap: number | null }[]) ?? []) {
+  const usSymbols = new Set<string>();
+  for (const t of (tickers as { symbol: string; mkt_cap: number | null; country: string | null }[]) ?? []) {
+    usSymbols.add(t.symbol);
     if (t.mkt_cap != null) mktCapBySymbol.set(t.symbol, Number(t.mkt_cap));
   }
+  // Drop non-US symbols from further consideration.
+  const usOnlySymbols = symbols.filter((s) => usSymbols.has(s));
+  if (usOnlySymbols.length === 0) return null;
 
   // Pull last 6 dividends per symbol so we can find the previous regular.
   const { data: history } = await sb
     .from("dividends")
     .select("symbol,date,dividend,frequency")
-    .in("symbol", symbols)
+    .in("symbol", usOnlySymbols)
     .order("date", { ascending: false })
-    .limit(symbols.length * 8);
+    .limit(usOnlySymbols.length * 8);
   const historyBySymbol = new Map<string, Row[]>();
   for (const r of (history as Row[]) ?? []) {
     const arr = historyBySymbol.get(r.symbol) ?? [];
@@ -427,7 +486,7 @@ export async function pickRecentPayoutChange(
   const candidates: Candidate[] = [];
 
   for (const r of rows) {
-    if (!symbols.includes(r.symbol)) continue;
+    if (!usOnlySymbols.includes(r.symbol)) continue;
     const mktCap = mktCapBySymbol.get(r.symbol) ?? 0;
     const hist = (historyBySymbol.get(r.symbol) ?? []).filter(
       (h) => (h.frequency ?? "").toLowerCase() !== "special",
