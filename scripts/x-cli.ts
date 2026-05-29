@@ -314,5 +314,18 @@ async function main(): Promise<void> {
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(`x-cli error: ${msg}`);
+  // twitter-api-v2 errors expose the full X response body on `.data` / `.errors`
+  // — surface it so 403/401 failures show the actual auth scope problem
+  // instead of the generic HTTP code.
+  const anyErr = err as { code?: unknown; data?: unknown; errors?: unknown; headers?: unknown };
+  if (anyErr && typeof anyErr === "object") {
+    if (anyErr.code !== undefined) console.error("x-cli http code:", anyErr.code);
+    if (anyErr.data !== undefined) {
+      console.error("x-cli X response body:", JSON.stringify(anyErr.data, null, 2));
+    }
+    if (anyErr.errors !== undefined) {
+      console.error("x-cli X errors:", JSON.stringify(anyErr.errors, null, 2));
+    }
+  }
   process.exit(1);
 });
