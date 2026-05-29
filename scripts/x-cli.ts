@@ -60,7 +60,9 @@ function parseArgs(argv: string[]): Record<string, string | boolean> {
 const SLOT_FLOWS: Record<Slot, Flow[]> = {
   morning: ["ex-div-watch", "payout-change"],
   midday: ["featured-stock", "payout-change"],
-  evening: ["featured-etf", "payout-change"],
+  // Evening posts ETF + a second featured stock. The 30-day per-flow dedup
+  // on posted_tweets ensures the evening stock differs from midday's pick.
+  evening: ["featured-etf", "featured-stock", "payout-change"],
   monday: ["featured-stock"],
   tuesday: [],
   wednesday: [],

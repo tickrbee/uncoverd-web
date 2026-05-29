@@ -121,6 +121,148 @@ async function recentlyPostedSymbols(
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Category-leadership hook: a stock is "top-N in its sector by rating" or
+// "highest yield in its industry"; an ETF is "one of the largest dividend
+// ETFs". This is a stronger "why now" signal than recent price action —
+// readers care more about a category-best name than a random snapshot.
+//
+// Both functions return null when the candidate isn't actually a leader,
+// so the composer can fall back to the price-context hook.
+// ---------------------------------------------------------------------------
+
+export type LeadershipClaim = {
+  // Short clause for the composer: "highest yield in REITs",
+  // "top-rated dividend stock in Health Care", "one of the largest
+  // dividend ETFs", etc.
+  clause: string;
+};
+
+export async function stockLeadership(
+  symbol: string,
+  sector: string | null,
+  industry: string | null,
+  yieldPct: number | null,
+): Promise<LeadershipClaim | null> {
+  if (!sector) return null;
+  const sb = admin("backend");
+  const cutoff = new Date(Date.now() - 14 * 86400 * 1000).toISOString().slice(0, 10);
+
+  // Highest-rated in sector check. Compare composite_total against the top
+  // of the sector. We rank within US+EU primary listings of decent size
+  // so the "leader" claim means something.
+  const { data: peers } = await sb
+    .from("tickers")
+    .select("symbol,country,exchange_short,industry")
+    .eq("sector", sector)
+    .eq("is_actively_trading", true)
+    .eq("is_etf", false)
+    .eq("is_fund", false)
+    .in("country", TARGET_COUNTRIES)
+    .gt("mkt_cap", 5_000_000_000);
+  type Peer = { symbol: string; country: string | null; exchange_short: string | null; industry: string | null };
+  const peerSyms = ((peers as Peer[]) ?? [])
+    .filter((p) => matchesPrimaryListing(p.country, p.exchange_short))
+    .map((p) => p.symbol);
+  if (peerSyms.length < 5) return null;
+
+  const { data: ratings } = await sb
+    .from("stock_ratings_daily")
+    .select("symbol,composite_total,computed_date")
+    .in("symbol", peerSyms)
+    .gte("computed_date", cutoff)
+    .order("computed_date", { ascending: false });
+  const bestBy = new Map<string, number>();
+  for (const r of (ratings as { symbol: string; composite_total: number }[]) ?? []) {
+    if (!bestBy.has(r.symbol)) bestBy.set(r.symbol, r.composite_total);
+  }
+  const ourRating = bestBy.get(symbol);
+  if (ourRating == null) return null;
+  const sorted = Array.from(bestBy.values()).sort((a, b) => b - a);
+  const rank = sorted.findIndex((v) => v <= ourRating) + 1;
+  // "Top 3" framing is the threshold for a meaningful claim. Beyond that,
+  // the leader label gets watered down.
+  if (rank > 0 && rank <= 3) {
+    return { clause: `a top-rated dividend stock in ${humanSector(sector)}` };
+  }
+
+  // Highest yield in industry check (REITs, utilities, BDCs etc tend to be
+  // yield-focused; users care about yield leadership).
+  if (industry && yieldPct != null && yieldPct >= 4) {
+    const industryPeers = ((peers as Peer[]) ?? [])
+      .filter((p) => p.industry === industry && matchesPrimaryListing(p.country, p.exchange_short))
+      .map((p) => p.symbol);
+    if (industryPeers.length >= 5) {
+      // Pull last_div + price for industry peers to compute yields.
+      const { data: peerTk } = await sb
+        .from("tickers")
+        .select("symbol,last_div,price")
+        .in("symbol", industryPeers);
+      const peerYields = ((peerTk as { symbol: string; last_div: number | null; price: number | null }[]) ?? [])
+        .map((p) => ({
+          symbol: p.symbol,
+          y: p.last_div != null && p.price && Number(p.price) > 0
+            ? (Number(p.last_div) / Number(p.price)) * 100
+            : null,
+        }))
+        .filter((p) => p.y != null) as { symbol: string; y: number }[];
+      peerYields.sort((a, b) => b.y - a.y);
+      const ourYieldRank = peerYields.findIndex((p) => p.symbol === symbol) + 1;
+      if (ourYieldRank > 0 && ourYieldRank <= 3) {
+        return { clause: `one of the highest-yielding names in ${humanIndustry(industry)}` };
+      }
+    }
+  }
+
+  return null;
+}
+
+export async function etfLeadership(
+  symbol: string,
+  aum: number | null,
+): Promise<LeadershipClaim | null> {
+  if (aum == null || aum < 10_000_000_000) return null; // sub-$10B ETFs aren't "leaders"
+  const sb = admin("backend");
+
+  // Rank by AUM among US+EU primary-listed ETFs. We rank by AUM only — the
+  // featured-etf picker already constrained to dividend-paying ETFs, so any
+  // ETF that reaches this function is implicitly a dividend payer. Skipping
+  // the dividends-table cross-reference avoids a 1000-row PostgREST cap that
+  // was silently dropping rows.
+  const { data: etfs } = await sb
+    .from("tickers")
+    .select("symbol,aum,country,exchange_short")
+    .eq("is_etf", true)
+    .eq("is_actively_trading", true)
+    .in("country", TARGET_COUNTRIES)
+    .gt("aum", 5_000_000_000)
+    .order("aum", { ascending: false, nullsFirst: false })
+    .limit(500);
+  type EtfRow = { symbol: string; aum: number | null; country: string | null; exchange_short: string | null };
+  const peers = ((etfs as EtfRow[]) ?? [])
+    .filter((e) => matchesPrimaryListing(e.country, e.exchange_short))
+    .map((e) => ({ symbol: e.symbol, aum: Number(e.aum) }))
+    .sort((a, b) => b.aum - a.aum);
+
+  const rank = peers.findIndex((p) => p.symbol === symbol) + 1;
+  if (rank === 0) return null;
+  if (rank === 1) return { clause: "the largest dividend ETF by AUM" };
+  if (rank <= 3) return { clause: "one of the largest dividend ETFs" };
+  if (rank <= 10) return { clause: "a top-10 dividend ETF by AUM" };
+  return null;
+}
+
+// Title-case sector for display ("Health Care", "Real Estate"). Industries
+// in this DB are already mostly title-cased ("REIT - Industrial").
+function humanSector(s: string): string {
+  return s;
+}
+function humanIndustry(s: string): string {
+  // REIT - Industrial -> Industrial REITs. Drop the prefix structure.
+  if (s.startsWith("REIT - ")) return `${s.slice("REIT - ".length)} REITs`;
+  return s;
+}
+
+// ---------------------------------------------------------------------------
 // Price-context hook: gives a "why now" reason for the post. Pulled from
 // backend.historical_prices_stocks and surfaced in the composer when the
 // move is notable. None of these claims require editorial judgment — the
@@ -237,6 +379,7 @@ type TickerSnapshot = {
   next_ex_dividend_date: string | null;
   avg_recovery_days: number | null;
   industry: string | null;
+  sector: string | null;
   is_etf: boolean | null;
   is_fund: boolean | null;
   is_actively_trading: boolean | null;
@@ -250,7 +393,7 @@ async function fetchTicker(symbol: string): Promise<TickerSnapshot | null> {
   const { data } = await sb
     .from("tickers")
     .select(
-      "symbol,name,price,last_div,next_ex_dividend_date,avg_recovery_days,industry,is_etf,is_fund,is_actively_trading,mkt_cap,expense_ratio,aum",
+      "symbol,name,price,last_div,next_ex_dividend_date,avg_recovery_days,industry,sector,is_etf,is_fund,is_actively_trading,mkt_cap,expense_ratio,aum",
     )
     .eq("symbol", symbol)
     .maybeSingle();
@@ -271,21 +414,24 @@ export async function buildFeaturedStockInput(
 ): Promise<FeaturedStockInput | null> {
   const t = await fetchTicker(symbol);
   if (!t) return null;
-  const [streak, payout, ctx] = await Promise.all([
+  const yieldPct = computeYieldPct(t);
+  const [streak, payout, ctx, leadership] = await Promise.all([
     consecutiveIncreaseYears(symbol),
     latestPayoutRatioPct(symbol),
     priceContext(symbol),
+    stockLeadership(symbol, t.sector, t.industry, yieldPct),
   ]);
   return {
     symbol,
     name: t.name,
-    yieldPct: computeYieldPct(t),
+    yieldPct,
     streakYears: streak,
     payoutRatioPct: payout,
     nextExDate: t.next_ex_dividend_date,
     recoveryDays: t.avg_recovery_days != null ? Number(t.avg_recovery_days) : null,
     isReit: isReit(t),
     priceContext: ctx,
+    leadership: leadership?.clause ?? null,
   };
 }
 
@@ -437,7 +583,10 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
       ? (ttmDistribution / Number(pick.price)) * 100
       : null;
 
-  const ctx = await priceContext(pick.symbol);
+  const [ctx, leadership] = await Promise.all([
+    priceContext(pick.symbol),
+    etfLeadership(pick.symbol, pick.aum != null ? Number(pick.aum) : null),
+  ]);
 
   return {
     symbol: pick.symbol,
@@ -448,6 +597,7 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     topHoldingSymbol: top[0]?.asset ?? null,
     nextExDate: pick.next_ex_dividend_date,
     priceContext: ctx,
+    leadership: leadership?.clause ?? null,
   };
 }
 

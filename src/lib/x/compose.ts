@@ -68,6 +68,11 @@ export type FeaturedStockInput = {
   recoveryDays: number | null;
   isReit: boolean;
   priceContext?: PriceContextInput;
+  // Category leadership clause, e.g. "a top-rated dividend stock in Health Care"
+  // or "one of the highest-yielding names in Industrial REITs". Takes priority
+  // over the price hook because category position is a stronger "why now"
+  // signal than recent price action.
+  leadership?: string | null;
 };
 
 // "Why now" hook drawn from price context. Order of preference:
@@ -102,9 +107,10 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   const pp = payoutPhrase(s.payoutRatioPct, s.isReit);
   const ep = shortDate(s.nextExDate);
   const rp = recoveryPhrase(s.recoveryDays);
-  // "Why now" hook — leads the post when notable so readers have a reason
-  // to care vs. just seeing an evergreen snapshot.
-  const hook = priceHook(s.priceContext);
+  // "Why now" hook. Priority: category leadership > recent price action >
+  // nothing. Leadership claims are stronger signals so they win when present.
+  const leadershipPhrase = s.leadership ? `${s.leadership}` : null;
+  const hook = leadershipPhrase ?? priceHook(s.priceContext);
 
   // If we can't even quote the yield, there's no tweet to make.
   if (!yp) return "";
@@ -282,6 +288,9 @@ export type FeaturedEtfInput = {
   topHoldingSymbol: string | null;
   nextExDate: string | null;
   priceContext?: PriceContextInput;
+  // Category leadership clause, e.g. "one of the largest dividend ETFs".
+  // Takes priority over the price hook.
+  leadership?: string | null;
 };
 
 // Expense ratio descriptor — bare phrase ("near-free 0.03%"), no leading
@@ -318,10 +327,12 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   // Bare ticker for top holding — second cashtag would trip X's 1-cashtag
   // tier limit. Falls back to no holding mention if missing.
   const top = e.topHoldingSymbol;
-  // "Why now" hook from recent price action — when present, it leads the
-  // sentence so the post answers "why am I reading this today?" instead of
-  // being a context-free snapshot.
-  const hook = priceHook(e.priceContext);
+  // "Why now" hook. Priority: category leadership > recent price action.
+  // Category leadership ("one of the largest dividend ETFs") is the strongest
+  // signal because it positions the fund vs. peers rather than just stating
+  // a price level.
+  const leadershipPhrase = e.leadership ? `${e.leadership}` : null;
+  const hook = leadershipPhrase ?? priceHook(e.priceContext);
 
   if (y == null && aum == null && expPct == null) return "";
 
