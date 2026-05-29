@@ -8,6 +8,13 @@ import { FinancialsSection } from "@/components/financials-section";
 import { FinancialsTab } from "@/components/financials-tab";
 import { PremiumLock } from "@/components/premium-lock";
 import {
+  breadcrumbList,
+  stockJsonLd,
+  dividendFaqs,
+  faqJsonLd,
+  jsonLdScript,
+} from "@/lib/structured-data";
+import {
   getStock,
   getStockRating,
   dividendHistoryBySymbol,
@@ -50,9 +57,41 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
+  // Live-data-enriched titles + descriptions dramatically improve SERP CTR
+  // because the snippet shows the actual yield + ex-div date, not a generic
+  // template. Fetch the bare-minimum row to avoid extra work.
+  const stock = await getStock(upper).catch(() => null);
+  if (!stock) {
+    return {
+      title: `${upper} — Dividend, Yield & Price`,
+      description: `${upper} dividend history, yield, payout ratio, and price.`,
+    };
+  }
+  const company = stock.name ?? upper;
+  const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
+  const annual = stock.annual_dividend != null ? `$${stock.annual_dividend.toFixed(2)}` : null;
+  const sector = stock.sector;
+  const titleParts = [
+    `${company} (${upper})`,
+    yld ? `${yld} dividend yield` : "dividend history",
+  ];
+  const descParts = [
+    yld
+      ? `${company} (${upper}) — ${yld} forward dividend yield${annual ? `, ${annual} annual payout` : ""}.`
+      : `${company} (${upper}) dividend research.`,
+    sector ? `Sector: ${sector}.` : "",
+    "See ratings, ex-dividend calendar, payout history and full financials on uncoverd.",
+  ].filter(Boolean);
   return {
-    title: `${upper} — Dividend, Yield, Payout & Price`,
-    description: `${upper} dividend history, yield, payout ratio, price and news.`,
+    title: titleParts.join(" — "),
+    description: descParts.join(" "),
+    alternates: { canonical: `/stocks/${upper}` },
+    openGraph: {
+      title: `${company} (${upper})${yld ? ` — ${yld} dividend yield` : ""}`,
+      description: descParts.join(" "),
+      type: "website",
+      url: `/stocks/${upper}`,
+    },
   };
 }
 
@@ -102,8 +141,61 @@ export default async function StockPage({
   const premium = await getPremiumStatus();
   const isPositive = (stock.change_percent ?? 0) >= 0;
 
+  // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
+  // <script type="application/ld+json"> tags in the <head>-equivalent slot
+  // and are parsed by Google, Bing, Perplexity, and ChatGPT.
+  const upcomingDiv = dividends.find((d) => new Date(d.date) >= new Date());
+  const stockSchema = stockJsonLd({
+    symbol,
+    name: stock.name,
+    description: stock.description,
+    exchange: stock.exchange,
+    sector: stock.sector,
+    industry: stock.industry,
+    website: stock.website,
+    image: stock.image,
+    price: stock.price,
+    currency: stock.currency,
+    dividend_yield: stock.dividend_yield,
+    annual_dividend: stock.annual_dividend,
+  });
+  const breadcrumbs = breadcrumbList([
+    { name: "Home", url: "/" },
+    { name: "Screener", url: "/screener" },
+    { name: stock.sector ?? "Stocks", url: stock.sector ? `/sectors/${stock.sector.toLowerCase().replace(/[^a-z]/g, "-")}` : "/screener" },
+    { name: `${stock.name ?? symbol} (${symbol})`, url: `/stocks/${symbol}` },
+  ]);
+  const faqs = dividendFaqs({
+    symbol,
+    name: stock.name,
+    isEtf: false,
+    dividend_yield: stock.dividend_yield,
+    annual_dividend: stock.annual_dividend,
+    currency: stock.currency,
+    next_ex_date: upcomingDiv?.date ?? null,
+    next_payment: upcomingDiv?.payment_date ?? null,
+    next_amount: upcomingDiv?.dividend ?? null,
+    frequency: upcomingDiv?.frequency ?? null,
+    has_dividends: dividends.length > 0,
+  });
+  const faqSchema = faqJsonLd(faqs);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(stockSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
+      />
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqSchema) }}
+        />
+      )}
       <SiteHeader />
       <main className="dv-page">
         <section
@@ -197,6 +289,19 @@ export default async function StockPage({
                   <Link href={`/etfs/holders/${symbol}`} className="dv-action-link dv-action-link--accent">
                     Which ETFs own {symbol}? →
                   </Link>
+                </div>
+              </section>
+            )}
+            {faqs.length > 0 && (
+              <section className="dv-section">
+                <h2 className="dv-section__title">Frequently asked about {symbol}</h2>
+                <div className="dv-faq-list">
+                  {faqs.map((qa, i) => (
+                    <details key={i} className="dv-faq-item">
+                      <summary>{qa.q}</summary>
+                      <p>{qa.a}</p>
+                    </details>
+                  ))}
                 </div>
               </section>
             )}

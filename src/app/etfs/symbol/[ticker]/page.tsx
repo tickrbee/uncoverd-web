@@ -17,6 +17,13 @@ import {
   formatDate,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import {
+  breadcrumbList,
+  etfJsonLd,
+  dividendFaqs,
+  faqJsonLd,
+  jsonLdScript,
+} from "@/lib/structured-data";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
@@ -38,9 +45,31 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
+  const etf = await getEtfDetail(upper).catch(() => null);
+  if (!etf) {
+    return {
+      title: `${upper} ETF — Expense Ratio, Holdings, Yield & Distributions`,
+      description: `${upper} ETF profile: expense ratio, AUM, holdings count, yield and distribution history.`,
+    };
+  }
+  const name = etf.name ?? upper;
+  const yld = etf.dividend_yield != null ? `${etf.dividend_yield.toFixed(2)}%` : null;
+  const exp = etf.expense_ratio != null ? `${(etf.expense_ratio * 100).toFixed(2)}%` : null;
+  const aum = etf.aum != null ? `$${(etf.aum / 1e9).toFixed(1)}B AUM` : null;
+  const titleParts = [
+    `${name} (${upper}) ETF`,
+    yld ? `${yld} yield` : null,
+    exp ? `${exp} expense ratio` : null,
+  ].filter(Boolean);
   return {
-    title: `${upper} ETF — Expense Ratio, Holdings, Yield & Distributions`,
-    description: `${upper} ETF profile: expense ratio, AUM, holdings count, yield and distribution history.`,
+    title: titleParts.join(" — "),
+    description: `${name} (${upper}) — ${[yld && `${yld} distribution yield`, exp && `${exp} expense ratio`, aum].filter(Boolean).join(", ")}. Holdings, distributions, rating and full ETF profile on uncoverd.`,
+    alternates: { canonical: `/etfs/symbol/${upper}` },
+    openGraph: {
+      title: titleParts.join(" — "),
+      type: "website",
+      url: `/etfs/symbol/${upper}`,
+    },
   };
 }
 
@@ -107,8 +136,63 @@ export default async function EtfDetailPage({
 
   const isPositive = (etf.change_percent ?? 0) >= 0;
 
+  // SEO + GEO JSON-LD for ETF pages.
+  const upcomingDiv = dividends.find((d) => new Date(d.date) >= new Date());
+  const etfSchema = etfJsonLd({
+    symbol,
+    name: etf.name,
+    description: etf.description,
+    exchange: etf.exchange,
+    sector: etf.sector,
+    industry: etf.industry,
+    website: etf.website,
+    image: etf.image,
+    price: etf.price,
+    currency: etf.currency,
+    dividend_yield: etf.dividend_yield,
+    annual_dividend: etf.annual_dividend,
+    expense_ratio: etf.expense_ratio,
+    aum: etf.aum,
+    holdings_count: etf.holdings_count,
+    etf_company: etf.etf_company,
+    asset_class: etf.asset_class,
+  });
+  const breadcrumbs = breadcrumbList([
+    { name: "Home", url: "/" },
+    { name: "ETF Screener", url: "/screener?type=etfs" },
+    { name: `${etf.name ?? symbol} (${symbol})`, url: `/etfs/symbol/${symbol}` },
+  ]);
+  const faqs = dividendFaqs({
+    symbol,
+    name: etf.name,
+    isEtf: true,
+    dividend_yield: etf.dividend_yield,
+    annual_dividend: etf.annual_dividend,
+    currency: etf.currency,
+    next_ex_date: upcomingDiv?.date ?? null,
+    next_payment: upcomingDiv?.payment_date ?? null,
+    next_amount: upcomingDiv?.dividend ?? null,
+    frequency: upcomingDiv?.frequency ?? null,
+    has_dividends: dividends.length > 0,
+  });
+  const faqSchema = faqJsonLd(faqs);
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(etfSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
+      />
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqSchema) }}
+        />
+      )}
       <SiteHeader />
       <main className="dv-page">
         <section
@@ -215,6 +299,19 @@ export default async function EtfDetailPage({
                   <Link href={`/etfs/symbol/${symbol}?tab=profile`} className="dv-action-link dv-action-link--accent">
                     Full profile →
                   </Link>
+                </div>
+              </section>
+            )}
+            {faqs.length > 0 && (
+              <section className="dv-section">
+                <h2 className="dv-section__title">Frequently asked about {symbol}</h2>
+                <div className="dv-faq-list">
+                  {faqs.map((qa, i) => (
+                    <details key={i} className="dv-faq-item">
+                      <summary>{qa.q}</summary>
+                      <p>{qa.a}</p>
+                    </details>
+                  ))}
                 </div>
               </section>
             )}

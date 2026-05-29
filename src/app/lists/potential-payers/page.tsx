@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView, type RowMeta } from "@/components/dividend-table";
 import { Pager } from "@/components/pager";
+import { RedditShareButton } from "@/components/reddit-share";
 import {
   getPotentialDividendPayers,
   listStocks,
@@ -96,6 +97,13 @@ export default async function PotentialPayersPage({
           description="Profitable, cash-generative US companies that don't yet distribute. Ranked by free-cash-flow margin — a proxy for how comfortably they could initiate."
           meta="Filters: market cap > $500M · net income > 0 · free cash flow > 0 · currently last_div = 0."
         />
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.75rem" }}>
+          <RedditShareButton
+            title={`${candidates.length} profitable US companies that could start paying dividends`}
+            path="/lists/potential-payers"
+          />
+        </div>
 
         <ColumnTabs active={view} baseHref="/lists/potential-payers" preset="future-payers" />
 

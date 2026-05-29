@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView, type RowMeta } from "@/components/dividend-table";
+import { RedditShareButton } from "@/components/reddit-share";
 import { Pager } from "@/components/pager";
 import {
   getMostHeldByEtfs,
@@ -97,6 +98,13 @@ export default async function TopHeldPage({
           title="Stocks most held by ETFs"
           description="The 500 companies that show up in the most ETFs across our database, ordered by ETF count. Click any ticker to see exactly which funds hold it."
         />
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.75rem" }}>
+          <RedditShareButton
+            title="The 500 stocks most held by ETFs (basket-exposure heatmap)"
+            path="/etfs/top-held"
+          />
+        </div>
 
         <ColumnTabs active={view} baseHref="/etfs/top-held" preset="etf-coverage" />
 

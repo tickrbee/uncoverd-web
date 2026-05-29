@@ -1607,6 +1607,74 @@ a {
   padding: 1rem 1.1rem;
 }
 
+/* FAQ accordion (SEO + GEO surface) */
+.dv-faq-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dv-faq-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+
+.dv-faq-item summary {
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.dv-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.dv-faq-item summary::before {
+  content: "▸";
+  color: var(--text-muted);
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.15s;
+}
+
+.dv-faq-item[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.dv-faq-item p {
+  margin: 0.55rem 0 0.1rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.dv-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.dv-share-btn:hover {
+  border-color: #ff4500;
+  background: rgba(255, 69, 0, 0.06);
+}
+
+.dv-share-btn svg {
+  color: #ff4500;
+}
+
 @media (max-width: 1100px) {
   .dv-nav {
     display: none;

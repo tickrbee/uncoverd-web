@@ -21,6 +21,12 @@ const STATIC_URLS: MetadataRoute.Sitemap = [
   { url: `${BASE}/legal/privacy`, changeFrequency: "yearly", priority: 0.3 },
   { url: `${BASE}/legal/terms`, changeFrequency: "yearly", priority: 0.3 },
   { url: `${BASE}/legal/disclaimer`, changeFrequency: "yearly", priority: 0.4 },
+  { url: `${BASE}/about`, changeFrequency: "monthly", priority: 0.5 },
+  { url: `${BASE}/etfs/which-owns`, changeFrequency: "weekly", priority: 0.85 },
+  { url: `${BASE}/etfs/top-held`, changeFrequency: "weekly", priority: 0.85 },
+  { url: `${BASE}/lists/potential-payers`, changeFrequency: "weekly", priority: 0.85 },
+  { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear()}`, changeFrequency: "weekly", priority: 0.9 },
+  { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear() + 1}`, changeFrequency: "weekly", priority: 0.85 },
 ];
 
 const PICKS = [
