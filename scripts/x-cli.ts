@@ -119,15 +119,15 @@ async function previewFlow(flow: Flow): Promise<CandidateReport> {
       }
       case "weekly-hikes": {
         const rows = await pickWeeklyHikes();
-        const thread = composeWeeklyHikes(rows);
-        if (thread.length === 0) return { flow, available: false, preview: null, skip_reason: `only ${rows.length} hikes this week (need 3)` };
-        return { flow, available: true, preview: thread.join("\n---\n"), symbol: null };
+        const body = composeWeeklyHikes(rows);
+        if (!body) return { flow, available: false, preview: null, skip_reason: `only ${rows.length} hikes this week (need 3)` };
+        return { flow, available: true, preview: body, symbol: null };
       }
       case "weekly-cuts": {
         const rows = await pickWeeklyCuts();
-        const thread = composeWeeklyCuts(rows);
-        if (thread.length === 0) return { flow, available: false, preview: null, skip_reason: `only ${rows.length} cuts this week (need 2)` };
-        return { flow, available: true, preview: thread.join("\n---\n"), symbol: null };
+        const body = composeWeeklyCuts(rows);
+        if (!body) return { flow, available: false, preview: null, skip_reason: `only ${rows.length} cuts this week (need 2)` };
+        return { flow, available: true, preview: body, symbol: null };
       }
     }
   } catch (err: unknown) {
@@ -175,15 +175,15 @@ async function runCompose(flow: Flow, symbol: string | null): Promise<{ body: st
     }
     case "weekly-hikes": {
       const rows = await pickWeeklyHikes();
-      const thread = composeWeeklyHikes(rows);
-      if (thread.length === 0) return null;
-      return { body: thread[0], thread, symbol: null };
+      const body = composeWeeklyHikes(rows);
+      if (!body) return null;
+      return { body, symbol: null };
     }
     case "weekly-cuts": {
       const rows = await pickWeeklyCuts();
-      const thread = composeWeeklyCuts(rows);
-      if (thread.length === 0) return null;
-      return { body: thread[0], thread, symbol: null };
+      const body = composeWeeklyCuts(rows);
+      if (!body) return null;
+      return { body, symbol: null };
     }
   }
 }

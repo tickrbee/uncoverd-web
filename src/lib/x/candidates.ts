@@ -647,22 +647,45 @@ async function weeklyPayoutMoves(
   if (rows.length === 0) return [];
 
   const symbols = Array.from(new Set(rows.map((r) => r.symbol)));
+  // Pull country + exchange + is_etf + is_fund so we can filter to US+EU
+  // primary listings only. Without this, Canadian banks (RY, BMO) and ETF
+  // micro-distribution adjustments swamp the candidates.
   const { data: tickers } = await sb
     .from("tickers")
-    .select("symbol,mkt_cap")
+    .select("symbol,mkt_cap,country,exchange_short,is_etf,is_fund")
     .in("symbol", symbols);
-  const mktCap = new Map<string, number>();
-  for (const t of (tickers as { symbol: string; mkt_cap: number | null }[]) ?? []) {
-    if (t.mkt_cap != null) mktCap.set(t.symbol, Number(t.mkt_cap));
-  }
+  type TkRow = {
+    symbol: string;
+    mkt_cap: number | null;
+    country: string | null;
+    exchange_short: string | null;
+    is_etf: boolean | null;
+    is_fund: boolean | null;
+  };
+  const tkBySymbol = new Map<string, TkRow>();
+  for (const t of (tickers as TkRow[]) ?? []) tkBySymbol.set(t.symbol, t);
 
-  // Fetch history for change comparison
+  // Allowed symbols: US+EU primary stock listings, not ETFs/funds, and a
+  // floor on mkt_cap so we don't post micro-cap noise nobody recognizes.
+  const minMktCap = direction === "down" ? 10_000_000_000 : 5_000_000_000;
+  const allowed = new Set<string>();
+  for (const sym of symbols) {
+    const t = tkBySymbol.get(sym);
+    if (!t) continue;
+    if (t.is_etf || t.is_fund) continue;
+    if ((t.mkt_cap ?? 0) < minMktCap) continue;
+    if (!matchesPrimaryListing(t.country, t.exchange_short)) continue;
+    allowed.add(sym);
+  }
+  if (allowed.size === 0) return [];
+
+  // Fetch history for change comparison — only for allowed symbols.
   const { data: history } = await sb
     .from("dividends")
     .select("symbol,date,dividend,frequency")
-    .in("symbol", symbols)
+    .in("symbol", Array.from(allowed))
     .order("date", { ascending: false })
-    .limit(symbols.length * 6);
+    .limit(allowed.size * 6);
   const historyBy = new Map<string, Row[]>();
   for (const r of (history as Row[]) ?? []) {
     if ((r.frequency ?? "").toLowerCase() === "special") continue;
@@ -674,6 +697,7 @@ async function weeklyPayoutMoves(
   const out: (WeeklyHikeRow & { mktCap: number })[] = [];
   const seenSym = new Set<string>();
   for (const r of rows) {
+    if (!allowed.has(r.symbol)) continue;
     if (seenSym.has(r.symbol)) continue;
     if ((r.frequency ?? "").toLowerCase() === "special") continue;
     const hist = historyBy.get(r.symbol) ?? [];
@@ -682,20 +706,25 @@ async function weeklyPayoutMoves(
     const newAmount = Number(r.dividend);
     const prevAmount = Number(prior.dividend);
     if (newAmount <= 0 || prevAmount <= 0) continue;
-    if (direction === "up" && newAmount <= prevAmount * 1.005) continue;
-    if (direction === "down" && newAmount >= prevAmount * 0.995) continue;
+    // Require a meaningful absolute dividend so $0.04 -> $0.05 noise doesn't
+    // qualify (those are usually ETF distribution adjustments, not real
+    // corporate news).
+    if (newAmount < 0.10 || prevAmount < 0.10) continue;
+    // Require a real % move — 5% threshold filters out rounding noise.
+    if (direction === "up" && newAmount <= prevAmount * 1.05) continue;
+    if (direction === "down" && newAmount >= prevAmount * 0.95) continue;
     out.push({
       symbol: r.symbol,
       newAmount,
       prevAmount,
       streakYearsAfter: null,
-      mktCap: mktCap.get(r.symbol) ?? 0,
+      mktCap: tkBySymbol.get(r.symbol)?.mkt_cap ?? 0,
     });
     seenSym.add(r.symbol);
   }
 
   out.sort((a, b) => b.mktCap - a.mktCap);
-  const top = out.slice(0, 5);
+  const top = out.slice(0, 4);
 
   if (direction === "up") {
     // Fill in streak for hikes (cuts don't need it in the template).

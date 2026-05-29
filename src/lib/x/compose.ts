@@ -253,7 +253,13 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   return `${body}\n${etfUrl(e.symbol)}`;
 }
 
-// --- weekly-hikes thread ----------------------------------------------------
+// --- weekly-hikes single tweet ---------------------------------------------
+// Originally a thread. Switched to single tweet because X's algorithm
+// collapses repetitive numbered threads ("Show more replies" hiding
+// 4 of 7 tweets, killing reach). Single substantive tweets perform
+// better and stay above the algorithmic threshold.
+//
+// Multi-ticker => bare tickers (no $) to stay under the 1-cashtag tier limit.
 
 export type WeeklyHikeRow = {
   symbol: string;
@@ -262,31 +268,34 @@ export type WeeklyHikeRow = {
   streakYearsAfter: number | null;
 };
 
-export function composeWeeklyHikes(rows: WeeklyHikeRow[]): string[] {
-  const usable = rows.filter((r) => r.prevAmount > 0).slice(0, 5);
-  if (usable.length < 3) return [];
+export function composeWeeklyHikes(rows: WeeklyHikeRow[]): string {
+  const usable = rows.filter((r) => r.prevAmount > 0).slice(0, 4);
+  if (usable.length < 3) return "";
 
-  const head = `1/ This week's biggest dividend hikes:`;
-  const body = usable.map((r, i) => {
+  const lines = usable.map((r) => {
     const pct = Math.round(((r.newAmount - r.prevAmount) / r.prevAmount) * 100);
-    const streak = r.streakYearsAfter
-      ? ` ${r.streakYearsAfter} consecutive years of raises.`
+    const newAmt = fmtUsd(r.newAmount);
+    const streak = r.streakYearsAfter && r.streakYearsAfter >= 5
+      ? ` (${r.streakYearsAfter}-year streak)`
       : "";
-    return `${i + 2}/ $${r.symbol} raised ${pct}% — new ${fmtUsd(r.newAmount)} quarterly.${streak}`;
+    return `· ${r.symbol} raised ${pct}% to ${newAmt}${streak}`;
   });
-  const tail = `${usable.length + 2}/ Full payout-change tracker:\nuncoverd.org/payout-changes/increasing`;
-  return [head, ...body, tail].map((t) => trimToBudget(t));
+
+  const body = `This week's biggest dividend hikes:\n${lines.join("\n")}`;
+  return `${trimToBudget(body)}\nuncoverd.org/payout-changes/increasing`;
 }
 
-export function composeWeeklyCuts(rows: WeeklyHikeRow[]): string[] {
-  const usable = rows.filter((r) => r.prevAmount > 0).slice(0, 5);
-  if (usable.length < 2) return []; // silence ok per style guide
+export function composeWeeklyCuts(rows: WeeklyHikeRow[]): string {
+  const usable = rows.filter((r) => r.prevAmount > 0).slice(0, 4);
+  if (usable.length < 2) return ""; // silence ok per style guide
 
-  const head = `1/ This week's biggest dividend cuts:`;
-  const body = usable.map((r, i) => {
+  const lines = usable.map((r) => {
     const pct = Math.round(((r.prevAmount - r.newAmount) / r.prevAmount) * 100);
-    return `${i + 2}/ $${r.symbol} cut ${pct}% — new ${fmtUsd(r.newAmount)} quarterly, down from ${fmtUsd(r.prevAmount)}.`;
+    const newAmt = fmtUsd(r.newAmount);
+    const prevAmt = fmtUsd(r.prevAmount);
+    return `· ${r.symbol} cut ${pct}% to ${newAmt} (from ${prevAmt})`;
   });
-  const tail = `${usable.length + 2}/ Full cut tracker:\nuncoverd.org/payout-changes/decreasing`;
-  return [head, ...body, tail].map((t) => trimToBudget(t));
+
+  const body = `This week's biggest dividend cuts:\n${lines.join("\n")}`;
+  return `${trimToBudget(body)}\nuncoverd.org/payout-changes/decreasing`;
 }
