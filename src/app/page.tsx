@@ -26,6 +26,21 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 900;
 
+// Curated lists of well-known dividend names. These appear on the home page
+// as direct links to their detail pages, giving Google + AI crawlers a
+// strong signal that those pages matter (high-authority internal linking).
+const POPULAR_STOCKS = [
+  "AAPL", "MSFT", "JNJ", "KO", "PG", "JPM", "XOM", "CVX",
+  "PFE", "ABBV", "MRK", "VZ", "T", "WMT", "HD", "MCD",
+  "PEP", "MO", "LMT", "IBM", "O", "NEE", "DUK", "SO",
+  "BAC", "CSCO", "GIS", "TXN", "AVGO", "MMM",
+];
+
+const POPULAR_ETFS = [
+  "SCHD", "VYM", "DGRO", "VIG", "HDV", "DIVO", "JEPI", "JEPQ",
+  "SPYD", "NOBL", "SDY", "DVY", "DGRW", "IDV", "DLN",
+];
+
 export default async function HomePage() {
   let topYielders: StockRow[] = [];
   let exDivCal: DividendEvent[] = [];
@@ -96,6 +111,40 @@ export default async function HomePage() {
             <Link href="/picks/best-dividend-stocks" className="btn btn--ghost">
               See Best Dividend Stocks
             </Link>
+          </div>
+        </section>
+
+        {/*
+          Popular tickers block: high-authority internal links from the home
+          page to the most-searched stock + ETF detail pages. Boosts crawl
+          priority for these targets and helps users jump to recognizable
+          names instead of the obscure foreign yielders that often top the
+          "Top dividend stocks right now" block.
+        */}
+        <section className="dv-popular">
+          <div className="dv-popular__group">
+            <h3 className="dv-popular__title">Popular dividend stocks</h3>
+            <ul className="dv-popular__list" aria-label="Popular dividend stocks">
+              {POPULAR_STOCKS.map((sym) => (
+                <li key={sym}>
+                  <Link href={`/stocks/${sym}`} className="dv-popular__chip">
+                    {sym}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="dv-popular__group">
+            <h3 className="dv-popular__title">Popular dividend ETFs</h3>
+            <ul className="dv-popular__list" aria-label="Popular dividend ETFs">
+              {POPULAR_ETFS.map((sym) => (
+                <li key={sym}>
+                  <Link href={`/etfs/symbol/${sym}`} className="dv-popular__chip">
+                    {sym}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
