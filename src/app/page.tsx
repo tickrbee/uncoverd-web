@@ -137,6 +137,9 @@ export default async function HomePage() {
         <section className="dv-popular">
           <div className="dv-popular__group">
             <h3 className="dv-popular__title">Popular dividend stocks</h3>
+            <p className="dv-popular__subtitle">
+              30 large-cap names investors most commonly research.
+            </p>
             <ul className="dv-popular__list" aria-label="Popular dividend stocks">
               {POPULAR_STOCKS.map((sym) => (
                 <li key={sym}>
@@ -149,6 +152,9 @@ export default async function HomePage() {
           </div>
           <div className="dv-popular__group">
             <h3 className="dv-popular__title">Popular dividend ETFs</h3>
+            <p className="dv-popular__subtitle">
+              The 15 dividend-focused ETFs that drive the bulk of fund flows.
+            </p>
             <ul className="dv-popular__list" aria-label="Popular dividend ETFs">
               {POPULAR_ETFS.map((sym) => (
                 <li key={sym}>
