@@ -546,13 +546,16 @@ async function refreshFinancials(shard: number, shards: number) {
   const candidates: string[] = [];
   let offset = 0;
   while (true) {
+    // No market-cap floor: include the long tail. FMP returns an empty array
+    // for symbols without data (filings, financials), so this is safe — we
+    // just skip those at insert time. Lets us cover micro-caps like GMEX
+    // (where FMP actually does have income / cash flow statements).
     const { data, error } = await sb
       .from("tickers")
       .select("symbol")
       .eq("is_actively_trading", true)
       .eq("is_etf", false)
       .eq("is_fund", false)
-      .gt("mkt_cap", 50_000_000)
       .order("symbol", { ascending: true })
       .range(offset, offset + 999);
     if (error || !data) break;
@@ -726,6 +729,10 @@ async function refreshHistoricalDividends(shard: number, shards: number, scope =
       .range(offset, offset + 999);
     if (scope === "etfs") {
       q = q.or("is_etf.eq.true,is_fund.eq.true");
+    } else if (scope === "all-stocks") {
+      // No last_div filter: include the long tail. FMP returns empty for
+      // non-payers so we don't waste upserts.
+      q = q.eq("is_etf", false).eq("is_fund", false);
     } else {
       q = q.gt("last_div", 0);
     }
