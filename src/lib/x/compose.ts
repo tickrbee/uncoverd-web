@@ -232,32 +232,69 @@ export type FeaturedEtfInput = {
   nextExDate: string | null;
 };
 
+// Expense-ratio adjective. ETF audiences care a lot about this number,
+// so we surface its tone alongside the figure.
+function expensePhrase(pct: number | null): string | null {
+  if (pct == null || !isFinite(pct)) return null;
+  const v = pct.toFixed(2);
+  if (pct < 0.1) return `a tight ${v}% expense ratio`;
+  if (pct < 0.3) return `a ${v}% expense ratio`;
+  if (pct < 0.6) return `a ${v}% expense ratio`;
+  return `a steep ${v}% expense ratio`;
+}
+
 export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   const tagged = hasForeignSuffix(e.symbol)
     ? `$${e.symbol}${shortName(e.name, 22) ? ` (${shortName(e.name, 22)})` : ""}`
     : `$${e.symbol}`;
-  const parts: string[] = [tagged];
-  if (e.secYield30dPct != null)
-    parts.push(`30-day SEC yield ${e.secYield30dPct.toFixed(1)}%`);
-  if (e.expenseRatioPct != null)
-    parts.push(`expense ratio ${e.expenseRatioPct.toFixed(2)}%`);
+
+  const yieldStr = e.secYield30dPct != null ? `${e.secYield30dPct.toFixed(1)}%` : null;
+  const exp = expensePhrase(e.expenseRatioPct);
   const aum = fmtLargeUsd(e.aumUsd);
-  if (aum) parts.push(`${aum} in AUM`);
-  if (parts.length < 2) return ""; // need at least one stat beyond the ticker
-  const headline = parts.join(" · ") + ".";
+  // Bare ticker for top holding (no $) — second cashtag would trip the tier
+  // limit. Falls back to silence if missing.
+  const top = e.topHoldingSymbol;
 
-  const tailBits: string[] = [];
-  // Bare ticker (no $) for top holding — would otherwise be a second cashtag
-  // and trip X's 1-cashtag-per-tweet limit on Free/Basic tiers.
-  if (e.topHoldingSymbol) tailBits.push(`Top holding: ${e.topHoldingSymbol}`);
-  const ed = shortDate(e.nextExDate);
-  if (ed) tailBits.push(`Ex-div ${ed}`);
-  const tail = tailBits.length ? `${tailBits.join(". ")}.` : null;
+  // Need at least yield + one other stat to make a sentence worth posting.
+  if (!yieldStr && !aum && !exp) return "";
 
-  const body = trimToBudget(joinSentences([headline, tail]));
+  // Three shapes, hashed by symbol so the same ETF always reads the same.
+  const shape = shapeIndex(e.symbol, 3);
+  let body = "";
+
+  if (shape === 0) {
+    // Shape A — yield-first
+    const opener = yieldStr
+      ? `${tagged} is yielding ${yieldStr}${exp ? ` with ${exp}` : ""}.`
+      : `${tagged} runs ${exp ?? "with low costs"}.`;
+    const middle = aum ? `${aum} in AUM.` : null;
+    const tail = top ? `Top holding is ${top}.` : null;
+    body = joinSentences([opener, middle, tail]);
+  } else if (shape === 1) {
+    // Shape B — scale-first
+    const opener = aum && yieldStr
+      ? `${tagged} holds ${aum} in AUM and yields ${yieldStr}.`
+      : aum
+        ? `${tagged} holds ${aum} in AUM.`
+        : `${tagged} is yielding ${yieldStr}.`;
+    const middle = exp ? `Expense ratio sits at ${e.expenseRatioPct!.toFixed(2)}%.` : null;
+    const tail = top ? `Top holding: ${top}.` : null;
+    body = joinSentences([opener, middle, tail]);
+  } else {
+    // Shape C — discovery-first (good for less-known ETFs)
+    const opener = aum
+      ? `${tagged} is a ${aum} fund${yieldStr ? ` yielding ${yieldStr}` : ""}.`
+      : yieldStr
+        ? `${tagged} is yielding ${yieldStr}.`
+        : `${tagged} ${exp ?? "is a dividend ETF"}.`;
+    const middle = exp && aum ? `${exp[0].toUpperCase()}${exp.slice(1)} keeps costs in check.` : null;
+    const tail = top ? `Top holding is ${top}.` : null;
+    body = joinSentences([opener, middle, tail]);
+  }
+
+  body = trimToBudget(body);
   // ETF posts get a second hashtag (#etf) — the dividend-ETF audience on X
-  // searches both #dividends and #etf, doubling discoverability without
-  // crossing into spam-flag territory (2 tags is fine, 3+ is not).
+  // searches both #dividends and #etf. 2 tags is fine; 3+ flags as spam.
   return `${body}\n\n${HASHTAG} #etf\n${etfUrl(e.symbol)}`;
 }
 
