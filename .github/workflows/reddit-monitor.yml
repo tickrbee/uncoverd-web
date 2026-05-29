@@ -41,6 +41,13 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Reddit OAuth — required for datacenter IPs (GitHub Actions
+          # gets 403 on the anonymous JSON endpoint).
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+          # Email digest (optional).
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
           DIGEST_EMAIL_FROM: ${{ secrets.DIGEST_EMAIL_FROM }}
