@@ -120,6 +120,56 @@ async function recentlyPostedSymbols(
 // match what the website shows on stock pages.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Price-context hook: gives a "why now" reason for the post. Pulled from
+// backend.historical_prices_stocks and surfaced in the composer when the
+// move is notable. None of these claims require editorial judgment — the
+// numbers come from straight price data.
+// ---------------------------------------------------------------------------
+
+export type PriceContext = {
+  // % change vs N trading days ago — null when data is missing.
+  wowPct: number | null; // ~5 trading days
+  momPct: number | null; // ~22 trading days
+  // True when current price is within 3% of the 52-week extreme.
+  near52wHigh: boolean;
+  near52wLow: boolean;
+};
+
+export async function priceContext(symbol: string): Promise<PriceContext> {
+  const sb = admin("backend");
+  const { data } = await sb
+    .from("historical_prices_stocks")
+    .select("date,close")
+    .eq("symbol", symbol)
+    .order("date", { ascending: false })
+    .limit(260); // ~1 year of trading days
+  const rows = (data as { date: string; close: number }[] | null) ?? [];
+  if (rows.length < 5) {
+    return { wowPct: null, momPct: null, near52wHigh: false, near52wLow: false };
+  }
+  const latest = Number(rows[0].close);
+  if (!isFinite(latest) || latest <= 0) {
+    return { wowPct: null, momPct: null, near52wHigh: false, near52wLow: false };
+  }
+  const pickClose = (idx: number): number | null => {
+    if (idx >= rows.length) return null;
+    const v = Number(rows[idx].close);
+    return isFinite(v) && v > 0 ? v : null;
+  };
+  const week = pickClose(5);
+  const month = pickClose(22);
+  const closes = rows.map((r) => Number(r.close)).filter((v) => isFinite(v) && v > 0);
+  const high52 = Math.max(...closes);
+  const low52 = Math.min(...closes);
+  return {
+    wowPct: week ? ((latest - week) / week) * 100 : null,
+    momPct: month ? ((latest - month) / month) * 100 : null,
+    near52wHigh: latest >= high52 * 0.97,
+    near52wLow: latest <= low52 * 1.03,
+  };
+}
+
 async function consecutiveIncreaseYears(symbol: string): Promise<number | null> {
   const sb = admin("backend");
   const cutoff = new Date();
@@ -221,9 +271,10 @@ export async function buildFeaturedStockInput(
 ): Promise<FeaturedStockInput | null> {
   const t = await fetchTicker(symbol);
   if (!t) return null;
-  const [streak, payout] = await Promise.all([
+  const [streak, payout, ctx] = await Promise.all([
     consecutiveIncreaseYears(symbol),
     latestPayoutRatioPct(symbol),
+    priceContext(symbol),
   ]);
   return {
     symbol,
@@ -234,6 +285,7 @@ export async function buildFeaturedStockInput(
     nextExDate: t.next_ex_dividend_date,
     recoveryDays: t.avg_recovery_days != null ? Number(t.avg_recovery_days) : null,
     isReit: isReit(t),
+    priceContext: ctx,
   };
 }
 
@@ -385,6 +437,8 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
       ? (ttmDistribution / Number(pick.price)) * 100
       : null;
 
+  const ctx = await priceContext(pick.symbol);
+
   return {
     symbol: pick.symbol,
     name: pick.name,
@@ -393,6 +447,7 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     aumUsd: pick.aum != null ? Number(pick.aum) : null,
     topHoldingSymbol: top[0]?.asset ?? null,
     nextExDate: pick.next_ex_dividend_date,
+    priceContext: ctx,
   };
 }
 

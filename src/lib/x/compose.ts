@@ -45,6 +45,15 @@ function etfUrl(symbol: string): string {
   return `uncoverd.org/etfs/symbol/${symbol}`;
 }
 
+// Price-context hook — surfaced when the move/level is notable. Drives the
+// "why now" opener so posts feel timely instead of evergreen stat dumps.
+export type PriceContextInput = {
+  wowPct: number | null;
+  momPct: number | null;
+  near52wHigh: boolean;
+  near52wLow: boolean;
+};
+
 // Inputs for composeFeaturedStock — every field nullable so the composer
 // can degrade gracefully when data is missing. Filling these is the
 // candidates.ts job; here we assume the candidate already passed
@@ -58,7 +67,32 @@ export type FeaturedStockInput = {
   nextExDate: string | null;
   recoveryDays: number | null;
   isReit: boolean;
+  priceContext?: PriceContextInput;
 };
+
+// "Why now" hook drawn from price context. Order of preference:
+//   1. Near 52w extreme (strongest signal)
+//   2. Big monthly move (>= 5%)
+//   3. Big weekly move (>= 3%)
+//   4. Imminent ex-div (within 5 days) — caller decides this from nextExDate
+//   5. Null when nothing is notable; composer skips the hook
+//
+// Returns a clause like "trading near a 52-week high" or "up 6% this month"
+// — the composer slots it after the ticker so the lead reads natural.
+function priceHook(c: PriceContextInput | undefined): string | null {
+  if (!c) return null;
+  if (c.near52wHigh) return "trading near a 52-week high";
+  if (c.near52wLow) return "trading near a 52-week low";
+  if (c.momPct != null && Math.abs(c.momPct) >= 5) {
+    const direction = c.momPct > 0 ? "up" : "down";
+    return `${direction} ${Math.abs(Math.round(c.momPct))}% this month`;
+  }
+  if (c.wowPct != null && Math.abs(c.wowPct) >= 3) {
+    const direction = c.wowPct > 0 ? "up" : "down";
+    return `${direction} ${Math.abs(Math.round(c.wowPct))}% this week`;
+  }
+  return null;
+}
 
 // Three template shapes. Per docs/x-style-guide.md they're picked by a
 // stable per-symbol hash so the same ticker always reads the same.
@@ -68,6 +102,9 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   const pp = payoutPhrase(s.payoutRatioPct, s.isReit);
   const ep = shortDate(s.nextExDate);
   const rp = recoveryPhrase(s.recoveryDays);
+  // "Why now" hook — leads the post when notable so readers have a reason
+  // to care vs. just seeing an evergreen snapshot.
+  const hook = priceHook(s.priceContext);
 
   // If we can't even quote the yield, there's no tweet to make.
   if (!yp) return "";
@@ -83,27 +120,41 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   let body = "";
 
   if (shape === 0) {
-    // Shape A — yield-first
-    const opener = sp
-      ? `${tagged} is paying ${yp} with ${sp}.`
-      : `${tagged} is paying ${yp}.`;
+    // Shape A — yield-first, with optional hook lead
+    const opener = hook
+      ? sp
+        ? `${tagged} is ${hook}, paying ${yp} with ${sp}.`
+        : `${tagged} is ${hook}, paying ${yp}.`
+      : sp
+        ? `${tagged} is paying ${yp} with ${sp}.`
+        : `${tagged} is paying ${yp}.`;
     const middle =
       ep && rp ? `Next ex-div ${ep}; price ${rp}.` : ep ? `Next ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
     body = joinSentences([opener, middle, tail]);
   } else if (shape === 1) {
-    // Shape B — streak-first
-    const opener = sp
-      ? `${tagged} has ${sp} and yields ${yp} today.`
-      : `${tagged} yields ${yp}.`;
+    // Shape B — streak-first, with optional hook lead
+    const opener = hook
+      ? sp
+        ? `${tagged} is ${hook} — ${sp}, yielding ${yp}.`
+        : `${tagged} is ${hook}, yielding ${yp}.`
+      : sp
+        ? `${tagged} has ${sp} and yields ${yp} today.`
+        : `${tagged} yields ${yp}.`;
     const middle =
       ep && rp ? `Next ex-div ${ep}, ${rp}.` : ep ? `Next ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
     body = joinSentences([opener, middle, tail]);
   } else {
-    // Shape C — compact data-forward
+    // Shape C — compact data-forward, optional hook lead
     const yPct = s.yieldPct != null ? `${s.yieldPct.toFixed(2)}%` : yp;
-    const opener = sp ? `${tagged} · ${yPct}, ${sp}.` : `${tagged} · ${yPct}.`;
+    const opener = hook
+      ? sp
+        ? `${tagged} is ${hook} — yielding ${yPct} with ${sp}.`
+        : `${tagged} is ${hook}, yielding ${yPct}.`
+      : sp
+        ? `${tagged} · ${yPct}, ${sp}.`
+        : `${tagged} · ${yPct}.`;
     const middle = ep && rp ? `Ex-div ${ep}, ${rp}.` : ep ? `Ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
     body = joinSentences([opener, middle, tail]);
@@ -230,6 +281,7 @@ export type FeaturedEtfInput = {
   aumUsd: number | null;
   topHoldingSymbol: string | null;
   nextExDate: string | null;
+  priceContext?: PriceContextInput;
 };
 
 // Expense ratio descriptor — bare phrase ("near-free 0.03%"), no leading
@@ -266,6 +318,10 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   // Bare ticker for top holding — second cashtag would trip X's 1-cashtag
   // tier limit. Falls back to no holding mention if missing.
   const top = e.topHoldingSymbol;
+  // "Why now" hook from recent price action — when present, it leads the
+  // sentence so the post answers "why am I reading this today?" instead of
+  // being a context-free snapshot.
+  const hook = priceHook(e.priceContext);
 
   if (y == null && aum == null && expPct == null) return "";
 
@@ -279,7 +335,16 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
 
   let lead = "";
 
-  if (isHighYield(y)) {
+  if (hook) {
+    // Hook-led: the recent move IS the reason to read. All stats follow.
+    const stats: string[] = [];
+    if (yieldStr) stats.push(`yields ${yieldStr}`);
+    if (aumStr) stats.push(`on ${aumStr} in assets`);
+    if (expDesc) stats.push(`at a ${expDesc} expense ratio`);
+    lead = stats.length
+      ? `${tagged} is ${hook} — ${stats.join(" ")}.`
+      : `${tagged} is ${hook}.`;
+  } else if (isHighYield(y)) {
     // Yield-led: the income angle is the story.
     const tail = aumStr && expDesc
       ? `, drawn from ${aumStr} in assets at a ${expDesc} expense ratio`
