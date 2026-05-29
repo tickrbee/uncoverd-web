@@ -1,17 +1,13 @@
 name: Reddit monitor
 
-# Daily Reddit opportunity poller. Hits the /api/cron/monitor/reddit
-# endpoint on production with the shared CRON_SECRET so randos can't
-# trigger it.
-#
-# Why GitHub Actions and not Vercel cron: keeps the trigger independent
-# of the web deploy — a broken Vercel build doesn't silently skip the
-# monitor, and we can manually re-run from the Actions tab without
-# redeploying.
+# Daily Reddit opportunity poller. Runs the standalone script
+# scripts/reddit-monitor.ts directly inside the GitHub Actions runner —
+# no Vercel endpoint involved. Inserts hits into Supabase and emails
+# a digest via Resend when there are new rows.
 #
 # Schedule precision: GitHub cron is "best effort", typically fires
-# within 5-15 minutes of the requested time, sometimes later under
-# heavy load. For a once-daily poll this is fine.
+# within 5-15 minutes of the requested time. For a once-daily poll
+# this is fine.
 
 on:
   schedule:
@@ -23,25 +19,30 @@ on:
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Hit Reddit monitor endpoint
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install minimal deps
+        # Use ci for a reproducible install. We need the runtime deps
+        # (supabase-js, resend) plus tsx. The Next/React stack the rest
+        # of the app uses isn't needed here, but it's cheap to install
+        # everything than to set up a separate workspace.
+        run: npm ci --no-audit --no-fund
+
+      - name: Run Reddit monitor
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          MONITOR_URL: ${{ vars.MONITOR_URL || 'https://uncoverd.org/api/cron/monitor/reddit' }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CRON_SECRET:-}" ]; then
-            echo "::error::CRON_SECRET secret is not set in this repo."
-            exit 1
-          fi
-          # -f makes curl exit non-zero on HTTP >= 400 so the workflow
-          # turns red if the endpoint rejects us or errors.
-          # -sS keeps output quiet on success but surfaces errors.
-          response=$(curl -fsS \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
-            -H "User-Agent: uncoverd-gh-action/1.0" \
-            "${MONITOR_URL}")
-          echo "$response" | head -c 4000
-          echo ""
-          echo "::notice::Reddit monitor completed."
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
+          DIGEST_EMAIL_FROM: ${{ secrets.DIGEST_EMAIL_FROM }}
+          INBOX_URL: ${{ vars.INBOX_URL }}
+        run: npm run reddit:monitor

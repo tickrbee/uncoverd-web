@@ -9,7 +9,8 @@
     "lint": "eslint",
     "x:candidates": "tsx scripts/x-cli.ts candidates",
     "x:compose": "tsx scripts/x-cli.ts compose",
-    "x:post": "tsx scripts/x-cli.ts post"
+    "x:post": "tsx scripts/x-cli.ts post",
+    "reddit:monitor": "tsx scripts/reddit-monitor.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.54.0",
