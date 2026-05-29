@@ -361,13 +361,28 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     .limit(1);
   const top = (holdings as { asset: string; weight_percentage: number | null }[]) ?? [];
 
-  // 30-day SEC yield: approximate as trailing 12 months of distributions /
-  // current price. SEC yield is a regulated calc; we surface a proxy and
-  // call it that in the composer. If we ever add a sec_yield_30d column to
-  // tickers, swap here.
+  // ETF yield: TTM (trailing 12 months) sum of distributions / current price.
+  // `tickers.last_div` is NULL for most US ETFs, so we sum the dividends
+  // table directly. This is a proxy for SEC 30-day yield — close enough for
+  // a snapshot tweet, not the regulated calc.
+  let ttmDistribution: number | null = null;
+  if (pick.price != null && Number(pick.price) > 0) {
+    const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
+    const { data: divs } = await sb
+      .from("dividends")
+      .select("dividend,date")
+      .eq("symbol", pick.symbol)
+      .gte("date", cutoff)
+      .order("date", { ascending: false })
+      .limit(15);
+    const rows = (divs as { dividend: number }[]) ?? [];
+    if (rows.length > 0) {
+      ttmDistribution = rows.reduce((s, r) => s + Number(r.dividend || 0), 0);
+    }
+  }
   const yieldPct =
-    pick.last_div != null && pick.price && pick.price > 0
-      ? (Number(pick.last_div) / Number(pick.price)) * 100
+    ttmDistribution != null && pick.price && Number(pick.price) > 0
+      ? (ttmDistribution / Number(pick.price)) * 100
       : null;
 
   return {

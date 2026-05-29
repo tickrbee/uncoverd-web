@@ -255,7 +255,10 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   const tail = tailBits.length ? `${tailBits.join(". ")}.` : null;
 
   const body = trimToBudget(joinSentences([headline, tail]));
-  return `${body}\n\n${HASHTAG}\n${etfUrl(e.symbol)}`;
+  // ETF posts get a second hashtag (#etf) — the dividend-ETF audience on X
+  // searches both #dividends and #etf, doubling discoverability without
+  // crossing into spam-flag territory (2 tags is fine, 3+ is not).
+  return `${body}\n\n${HASHTAG} #etf\n${etfUrl(e.symbol)}`;
 }
 
 // --- weekly-hikes single tweet ---------------------------------------------
