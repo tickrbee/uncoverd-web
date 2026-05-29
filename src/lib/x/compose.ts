@@ -28,7 +28,10 @@ function hasForeignSuffix(symbol: string): boolean {
 // X allows 280 chars per tweet. t.co shortens URLs to 23 regardless of length.
 const MAX_TWEET = 280;
 const URL_LEN = 23;
-const BODY_BUDGET = MAX_TWEET - URL_LEN - 1; // -1 for the newline
+// One hashtag for community discoverability — feed search hits this tag. We
+// keep it to a single tag (multi-tag posts are flagged spammy by X's algo).
+const HASHTAG = "#dividends";
+const BODY_BUDGET = MAX_TWEET - URL_LEN - HASHTAG.length - 3; // -3 for newlines + space
 
 function joinSentences(parts: (string | null | undefined)[]): string {
   return parts.filter((p): p is string => !!p && p.length > 0).join(" ");
@@ -107,7 +110,7 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   }
 
   body = trimToBudget(body);
-  return `${body}\n${stockUrl(s.symbol)}`;
+  return `${body}\n\n${HASHTAG}\n${stockUrl(s.symbol)}`;
 }
 
 // Trim a body to fit the budget by dropping trailing sentences. Never
@@ -154,7 +157,7 @@ export function composeExDivWatch(rows: ExDivWatchRow[]): string {
     })
     .join("\n");
   const body = `Ex-dividend dates this week worth watching:\n${lines}`;
-  return `${body}\nuncoverd.org/calendar/ex-dividend`;
+  return `${body}\n\n${HASHTAG}\nuncoverd.org/calendar/ex-dividend`;
 }
 
 // --- payout-change ----------------------------------------------------------
@@ -208,7 +211,7 @@ export function composePayoutChange(p: PayoutChangeInput): string {
   }
   if (!body) return "";
   body = trimToBudget(body);
-  return `${body}\n${stockUrl(p.symbol)}`;
+  return `${body}\n\n${HASHTAG}\n${stockUrl(p.symbol)}`;
 }
 
 function ordinal(n: number): string {
@@ -244,13 +247,15 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
   const headline = parts.join(" · ") + ".";
 
   const tailBits: string[] = [];
-  if (e.topHoldingSymbol) tailBits.push(`Top holding: $${e.topHoldingSymbol}`);
+  // Bare ticker (no $) for top holding — would otherwise be a second cashtag
+  // and trip X's 1-cashtag-per-tweet limit on Free/Basic tiers.
+  if (e.topHoldingSymbol) tailBits.push(`Top holding: ${e.topHoldingSymbol}`);
   const ed = shortDate(e.nextExDate);
   if (ed) tailBits.push(`Ex-div ${ed}`);
   const tail = tailBits.length ? `${tailBits.join(". ")}.` : null;
 
   const body = trimToBudget(joinSentences([headline, tail]));
-  return `${body}\n${etfUrl(e.symbol)}`;
+  return `${body}\n\n${HASHTAG}\n${etfUrl(e.symbol)}`;
 }
 
 // --- weekly-hikes single tweet ---------------------------------------------
@@ -282,7 +287,7 @@ export function composeWeeklyHikes(rows: WeeklyHikeRow[]): string {
   });
 
   const body = `This week's biggest dividend hikes:\n${lines.join("\n")}`;
-  return `${trimToBudget(body)}\nuncoverd.org/payout-changes/increasing`;
+  return `${trimToBudget(body)}\n\n${HASHTAG}\nuncoverd.org/payout-changes/increasing`;
 }
 
 export function composeWeeklyCuts(rows: WeeklyHikeRow[]): string {
@@ -297,5 +302,5 @@ export function composeWeeklyCuts(rows: WeeklyHikeRow[]): string {
   });
 
   const body = `This week's biggest dividend cuts:\n${lines.join("\n")}`;
-  return `${trimToBudget(body)}\nuncoverd.org/payout-changes/decreasing`;
+  return `${trimToBudget(body)}\n\n${HASHTAG}\nuncoverd.org/payout-changes/decreasing`;
 }

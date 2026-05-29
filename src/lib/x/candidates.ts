@@ -315,9 +315,14 @@ export async function pickFeaturedStock(): Promise<FeaturedStockInput | null> {
 export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
   const sb = admin("backend");
   const skip = await recentlyPostedSymbols("featured-etf", 30);
-  const today = new Date().toISOString().slice(0, 10);
-  const horizon = new Date(Date.now() + 60 * 86400 * 1000).toISOString().slice(0, 10);
 
+  // Two ETF data quirks in backend.tickers:
+  //  1. exchange_short is NULL for most US ETFs (SCHD, VYM, JEPI, DGRO...).
+  //     We can't .in("exchange_short", PRIMARY_EXCHANGES) — would drop all
+  //     of them. matchesPrimaryListing handles null + country='US' correctly.
+  //  2. next_ex_dividend_date is NULL for ETFs in this data set, so we can't
+  //     time the post to an upcoming ex-div. We drop that filter and just
+  //     pick the largest unposted ETF in target countries.
   const { data } = await sb
     .from("tickers")
     .select(
@@ -326,12 +331,9 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     .eq("is_etf", true)
     .eq("is_actively_trading", true)
     .in("country", TARGET_COUNTRIES)
-    .in("exchange_short", PRIMARY_EXCHANGES)
     .gt("aum", 500_000_000)
-    .gte("next_ex_dividend_date", today)
-    .lte("next_ex_dividend_date", horizon)
     .order("aum", { ascending: false, nullsFirst: false })
-    .limit(100);
+    .limit(200);
 
   type Row = {
     symbol: string;
