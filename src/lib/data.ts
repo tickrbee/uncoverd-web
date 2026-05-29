@@ -540,6 +540,55 @@ export type EtfHolderRow = {
   market_value: number | null;
 };
 
+// Lightweight peer-stock lookup for the related-content widget. Returns the
+// top dividend payers in the same sector (excluding the target), ranked by
+// market cap. Used for internal-linking signal on /stocks/[ticker].
+export type PeerStockRow = {
+  symbol: string;
+  name: string | null;
+  dividend_yield: number | null;
+};
+
+export async function getPeerStocksInSector(
+  symbol: string,
+  sector: string | null,
+  limit = 6,
+): Promise<PeerStockRow[]> {
+  if (!sector) return [];
+  const sb = getBackendClient();
+  const { data, error } = await sb
+    .from("tickers")
+    .select("symbol,name,price,last_div,mkt_cap")
+    .eq("is_actively_trading", true)
+    .eq("is_etf", false)
+    .eq("sector", sector)
+    .neq("symbol", symbol)
+    .gt("last_div", 0)
+    .gt("price", 0)
+    .gte("mkt_cap", 1_000_000_000)
+    .order("mkt_cap", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as { symbol: string; name: string | null; price: number | null; last_div: number | null; mkt_cap: number | null }[]).map((r) => ({
+    symbol: r.symbol,
+    name: r.name,
+    dividend_yield:
+      r.price && r.price > 0 && r.last_div != null ? (r.last_div / r.price) * 100 : null,
+  }));
+}
+
+// Top ETFs holding the target ticker, capped at N. Wraps getEtfHoldersOf for
+// the related-content widget so the call site doesn't have to deal with the
+// full holder schema.
+export async function getTopEtfHoldersPreview(symbol: string, limit = 6) {
+  const holders = await getEtfHoldersOf(symbol, limit);
+  return holders.map((h) => ({
+    etf_symbol: h.etf_symbol,
+    etf_name: h.etf_name,
+    weight_percentage: h.weight_percentage,
+  }));
+}
+
 export async function getEtfHoldersOf(symbol: string, limit = 50000): Promise<EtfHolderRow[]> {
   const sb = getBackendClient();
   // 1) Find every ETF that holds this asset, sorted by weight desc. The

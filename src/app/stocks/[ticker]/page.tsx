@@ -28,6 +28,8 @@ import {
   cashFlowQuarterly,
   ratiosLatest,
   avgRecoveryDays,
+  getPeerStocksInSector,
+  getTopEtfHoldersPreview,
   formatCurrency,
   formatPercent,
   formatDate,
@@ -140,6 +142,12 @@ export default async function StockPage({
   if (!stock) notFound();
   const premium = await getPremiumStatus();
   const isPositive = (stock.change_percent ?? 0) >= 0;
+
+  // Related-content for the bottom-of-page widget (internal linking + UX).
+  const [peerStocks, topEtfHolders] = await Promise.all([
+    getPeerStocksInSector(symbol, stock.sector ?? null, 6),
+    getTopEtfHoldersPreview(symbol, 6),
+  ]);
 
   // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
   // <script type="application/ld+json"> tags in the <head>-equivalent slot
@@ -302,6 +310,102 @@ export default async function StockPage({
                       <p>{qa.a}</p>
                     </details>
                   ))}
+                </div>
+              </section>
+            )}
+            {(peerStocks.length > 0 || topEtfHolders.length > 0) && (
+              <section className="dv-section">
+                <h2 className="dv-section__title">Related</h2>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {peerStocks.length > 0 && (
+                    <div
+                      style={{
+                        padding: "1rem 1.1rem",
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                    >
+                      <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>
+                        Other dividend stocks in {stock.sector ?? "this sector"}
+                      </h3>
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        {peerStocks.map((p) => (
+                          <li key={p.symbol} style={{ padding: "0.25rem 0" }}>
+                            <Link href={`/stocks/${p.symbol}`} className="dv-action-link">
+                              {p.symbol}
+                            </Link>
+                            {p.name && (
+                              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                                {" "}— {p.name}
+                              </span>
+                            )}
+                            {p.dividend_yield != null && (
+                              <span
+                                style={{
+                                  color: "var(--text-secondary)",
+                                  fontSize: "0.82rem",
+                                  marginLeft: "0.4rem",
+                                }}
+                              >
+                                ({p.dividend_yield.toFixed(2)}%)
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {topEtfHolders.length > 0 && (
+                    <div
+                      style={{
+                        padding: "1rem 1.1rem",
+                        background: "rgba(255,255,255,0.02)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                    >
+                      <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>
+                        Top ETFs holding {symbol}
+                      </h3>
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        {topEtfHolders.map((h) => (
+                          <li key={h.etf_symbol} style={{ padding: "0.25rem 0" }}>
+                            <Link href={`/etfs/symbol/${h.etf_symbol}`} className="dv-action-link">
+                              {h.etf_symbol}
+                            </Link>
+                            {h.etf_name && (
+                              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                                {" "}— {h.etf_name}
+                              </span>
+                            )}
+                            {h.weight_percentage != null && (
+                              <span
+                                style={{
+                                  color: "var(--text-secondary)",
+                                  fontSize: "0.82rem",
+                                  marginLeft: "0.4rem",
+                                }}
+                              >
+                                ({h.weight_percentage.toFixed(2)}%)
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <p style={{ marginTop: "0.6rem", marginBottom: 0, fontSize: "0.82rem" }}>
+                        <Link href={`/etfs/holders/${symbol}`} className="dv-action-link">
+                          See all ETFs holding {symbol} →
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </section>
             )}

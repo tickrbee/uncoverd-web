@@ -9,6 +9,7 @@ export function SiteFooter() {
         <div className="site-footer__links">
           <Link href="/about">About</Link>
           <Link href="/methodology">Methodology</Link>
+          <Link href="/glossary">Glossary</Link>
           <Link href="/pricing">Pricing</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/legal/terms">Terms</Link>

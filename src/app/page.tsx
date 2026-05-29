@@ -16,6 +16,11 @@ import {
   type NewsRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import {
+  websiteJsonLd,
+  organizationJsonLd,
+  jsonLdScript,
+} from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: "uncoverd — Dividend stock research, screener, and model portfolios",
@@ -91,6 +96,14 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(websiteJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationJsonLd()) }}
+      />
       <SiteHeader />
       <main className="dv-page">
         <section

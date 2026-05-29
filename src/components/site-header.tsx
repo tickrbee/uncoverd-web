@@ -33,9 +33,27 @@ export function SiteHeader() {
   const [searchValue, setSearchValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
+  // Mobile slide-in drawer state. Desktop ignores this — the regular dv-nav
+  // is rendered identically above the ≥1100px breakpoint.
+  const [mobileOpen, setMobileOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+
+  // Lock body scroll while the mobile drawer is open + close on Escape.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -134,6 +152,17 @@ export function SiteHeader() {
           <span className="dv-brand__dot" />
           <span className="dv-brand__name">{APP_NAME}</span>
         </Link>
+
+        {/* Hamburger button — only visible on mobile (<1100px) */}
+        <button
+          type="button"
+          className="dv-hamburger"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((v) => !v)}
+        >
+          <span /><span /><span />
+        </button>
 
         <nav className="dv-nav" aria-label="Main">
           <NavItem
@@ -387,7 +416,98 @@ export function SiteHeader() {
           )}
         </div>
       )}
+
+      {/* Mobile slide-in drawer. Hidden via CSS at ≥1100px so it never
+          appears on desktop. Touching the backdrop or any link closes it. */}
+      {mobileOpen && (
+        <>
+          <div
+            className="dv-mobile-backdrop"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden
+          />
+          <aside
+            className="dv-mobile-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site navigation"
+          >
+            <div className="dv-mobile-drawer__head">
+              <span className="dv-brand">
+                <span className="dv-brand__dot" />
+                <span className="dv-brand__name">{APP_NAME}</span>
+              </span>
+              <button
+                type="button"
+                className="dv-mobile-drawer__close"
+                aria-label="Close menu"
+                onClick={() => setMobileOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <nav className="dv-mobile-nav" onClick={(e) => {
+              // Close the drawer when any internal link is clicked.
+              const target = e.target as HTMLElement;
+              if (target.closest("a")) setMobileOpen(false);
+            }}>
+              <MobileGroup title="Explore">
+                <Link href="/screener">Screener</Link>
+                <Link href="/screener?type=etfs">ETF Screener</Link>
+                <Link href="/methodology">Methodology</Link>
+                <Link href="/news">News</Link>
+                <Link href="/about">About</Link>
+              </MobileGroup>
+              <MobileGroup title="Lists & Picks">
+                <Link href="/picks/best-dividend-stocks">Best Dividend Stocks</Link>
+                <Link href="/picks/best-high-yield">Best High Yield</Link>
+                <Link href="/picks/best-dividend-growth">Best Dividend Growth</Link>
+                <Link href="/picks/best-dividend-protection">Best Dividend Protection</Link>
+                <Link href="/picks/best-monthly-dividend">Best Monthly Dividend</Link>
+                <Link href="/picks/dividend-capture">Best Dividend Capture</Link>
+              </MobileGroup>
+              <MobileGroup title="Calendar">
+                <Link href="/calendar/ex-dividend?range=week">This Week's Ex-Dates</Link>
+                <Link href="/calendar/ex-dividend?range=month">This Month's Ex-Dates</Link>
+                <Link href="/calendar/declaration?range=month">Recent Declarations</Link>
+              </MobileGroup>
+              <MobileGroup title="Income">
+                <Link href="/monthly">Monthly Dividend Stocks</Link>
+                <Link href="/monthly/staggered">Monthly Income from Quarterly</Link>
+                <Link href="/high-yield">Yields over 4%</Link>
+              </MobileGroup>
+              <MobileGroup title="ETFs">
+                <Link href="/etfs/top-held">Most Held by ETFs</Link>
+                <Link href="/etfs/which-owns">Which ETF Owns…</Link>
+                <Link href="/lists/potential-payers">Future Dividend Payers</Link>
+              </MobileGroup>
+              <MobileGroup title="Dividend Growers">
+                <Link href="/growers/aristocrats">Aristocrats (25+ yrs)</Link>
+                <Link href="/growers/kings">Kings (50+ yrs)</Link>
+                <Link href="/growers/champions">Champions</Link>
+                <Link href="/growers/contenders">Contenders</Link>
+                <Link href="/growers/challengers">Challengers</Link>
+                <Link href="/growers/achievers">Achievers</Link>
+              </MobileGroup>
+              <MobileGroup title="Account">
+                <Link href="/watchlist">Watchlist</Link>
+                <Link href="/pricing">Pricing</Link>
+                {user ? <Link href="/account">Account</Link> : <Link href="/login">Log In</Link>}
+              </MobileGroup>
+            </nav>
+          </aside>
+        </>
+      )}
     </header>
+  );
+}
+
+function MobileGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="dv-mobile-group">
+      <summary>{title}</summary>
+      <div className="dv-mobile-group__items">{children}</div>
+    </details>
   );
 }
 

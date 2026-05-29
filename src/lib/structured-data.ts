@@ -203,6 +203,53 @@ export function faqJsonLd(qa: { q: string; a: string }[]) {
   };
 }
 
+// Organization + Website schemas for the home page. Eligible for Google
+// sitelinks search box + brand panels. AI engines parse these as the
+// canonical "what is uncoverd" record.
+export function websiteJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${BASE}/#website`,
+    url: BASE,
+    name: APP_NAME,
+    description:
+      "Dividend stock research, screener, ratings, and model portfolios. Independent research built on top of SEC filings.",
+    publisher: { "@id": `${BASE}/#organization` },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${BASE}/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
+export function organizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${BASE}/#organization`,
+    name: APP_NAME,
+    url: BASE,
+    logo: `${BASE}/favicon.ico`,
+    description:
+      "Independent dividend research platform covering 65,000+ stocks and 13,800+ ETFs with proprietary ratings derived from SEC filings.",
+    knowsAbout: [
+      "dividend stocks",
+      "dividend ETFs",
+      "ex-dividend dates",
+      "dividend yield",
+      "dividend growth investing",
+      "monthly dividend stocks",
+      "dividend capture strategy",
+    ],
+    sameAs: [],
+  };
+}
+
 // Small helper to serialize JSON-LD into a script element string.
 export function jsonLdScript(obj: unknown): string {
   return JSON.stringify(obj).replace(/</g, "\\u003c");

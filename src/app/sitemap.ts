@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { GLOSSARY } from "@/lib/glossary";
 
 const BASE = "https://uncoverd.org";
 
@@ -27,6 +28,12 @@ const STATIC_URLS: MetadataRoute.Sitemap = [
   { url: `${BASE}/lists/potential-payers`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear()}`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear() + 1}`, changeFrequency: "weekly", priority: 0.85 },
+  { url: `${BASE}/glossary`, changeFrequency: "monthly", priority: 0.7 },
+  ...GLOSSARY.map((e) => ({
+    url: `${BASE}/glossary/${e.slug}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  })),
 ];
 
 const PICKS = [
