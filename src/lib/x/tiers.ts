@@ -76,3 +76,43 @@ export function shapeIndex(symbol: string, shapeCount: number): number {
   for (const ch of symbol) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
   return Math.abs(h) % shapeCount;
 }
+
+// Strip common corporate-suffix noise so "Becton, Dickinson and Company"
+// becomes "Becton Dickinson". Returns null if the cleaned name still exceeds
+// `maxChars` — better to skip the annotation than truncate mid-word and
+// produce "(Gaztransport &)"-style nonsense.
+export function shortName(name: string | null | undefined, maxChars = 22): string | null {
+  if (!name) return null;
+  let n = name.trim();
+  // Strip a parenthetical suffix entirely ("ASML Holding N.V. (Sponsored ADR)")
+  n = n.replace(/\s*\([^)]+\)\s*$/, "").trim();
+  // Strip a trailing comma + corporate filler.
+  n = n.replace(/[, ]+(and Company|& Company|& Co\.?|and Co\.?)\s*$/i, "").trim();
+  // Strip trailing legal/structural suffixes that add no signal.
+  const suffixes = [
+    "Incorporated", "Inc\\.?", "Corporation", "Corp\\.?", "Company", "Co\\.?",
+    "Limited", "Ltd\\.?", "Holdings", "Holding", "Group", "PLC", "plc",
+    "S\\.A\\.", "SA", "S\\.E\\.", "SE", "N\\.V\\.", "NV", "AG", "GmbH",
+    "AB", "ASA", "ApS", "S\\.p\\.A\\.", "SpA", "SAS",
+  ];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const s of suffixes) {
+      const re = new RegExp(`[, ]+${s}\\s*$`, "i");
+      if (re.test(n)) {
+        n = n.replace(re, "").trim();
+        changed = true;
+      }
+    }
+  }
+  // Strip trailing dangling punctuation that survived suffix removal
+  // ("Gaztransport &" → "Gaztransport").
+  n = n.replace(/[\s,&·\-/]+$/, "").trim();
+  if (n.length === 0) return null;
+  // If after stripping the name STILL doesn't fit, return null so the caller
+  // omits the annotation entirely. Truncated names ("Gaztransport &") look
+  // worse than no name at all.
+  if (n.length > maxChars) return null;
+  return n;
+}

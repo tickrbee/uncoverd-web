@@ -15,7 +15,15 @@ import {
   fmtUsd,
   fmtLargeUsd,
   shapeIndex,
+  shortName,
 } from "./tiers";
+
+// Foreign-listing tickers contain a "." suffix (e.g. MDO.DE, BDX.WA). Pure
+// US/UK primary tickers don't. Used to decide whether to append a company
+// name for disambiguation.
+function hasForeignSuffix(symbol: string): boolean {
+  return symbol.includes(".");
+}
 
 // X allows 280 chars per tweet. t.co shortens URLs to 23 regardless of length.
 const MAX_TWEET = 280;
@@ -61,14 +69,21 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   // If we can't even quote the yield, there's no tweet to make.
   if (!yp) return "";
 
+  // For foreign-suffix tickers (e.g. $MDO.DE), append a short company name so
+  // readers know what they're looking at. Pure US/UK primary tickers stay
+  // unannotated — the symbol is already self-explanatory.
+  const tagged = hasForeignSuffix(s.symbol)
+    ? `$${s.symbol}${shortName(s.name, 22) ? ` (${shortName(s.name, 22)})` : ""}`
+    : `$${s.symbol}`;
+
   const shape = shapeIndex(s.symbol, 3);
   let body = "";
 
   if (shape === 0) {
     // Shape A — yield-first
     const opener = sp
-      ? `$${s.symbol} is paying ${yp} with ${sp}.`
-      : `$${s.symbol} is paying ${yp}.`;
+      ? `${tagged} is paying ${yp} with ${sp}.`
+      : `${tagged} is paying ${yp}.`;
     const middle =
       ep && rp ? `Next ex-div ${ep}; price ${rp}.` : ep ? `Next ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
@@ -76,8 +91,8 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   } else if (shape === 1) {
     // Shape B — streak-first
     const opener = sp
-      ? `$${s.symbol} has ${sp} and yields ${yp} today.`
-      : `$${s.symbol} yields ${yp}.`;
+      ? `${tagged} has ${sp} and yields ${yp} today.`
+      : `${tagged} yields ${yp}.`;
     const middle =
       ep && rp ? `Next ex-div ${ep}, ${rp}.` : ep ? `Next ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
@@ -85,7 +100,7 @@ export function composeFeaturedStock(s: FeaturedStockInput): string {
   } else {
     // Shape C — compact data-forward
     const yPct = s.yieldPct != null ? `${s.yieldPct.toFixed(2)}%` : yp;
-    const opener = sp ? `$${s.symbol} · ${yPct}, ${sp}.` : `$${s.symbol} · ${yPct}.`;
+    const opener = sp ? `${tagged} · ${yPct}, ${sp}.` : `${tagged} · ${yPct}.`;
     const middle = ep && rp ? `Ex-div ${ep}, ${rp}.` : ep ? `Ex-div ${ep}.` : null;
     const tail = pp ? `${pp}.` : null;
     body = joinSentences([opener, middle, tail]);
@@ -115,6 +130,7 @@ function trimToBudget(body: string): string {
 
 export type ExDivWatchRow = {
   symbol: string;
+  name: string | null;
   exDate: string; // ISO
   yieldPct: number | null;
 };
@@ -126,7 +142,13 @@ export function composeExDivWatch(rows: ExDivWatchRow[]): string {
     .map((r) => {
       const date = shortDate(r.exDate) ?? "—";
       const y = r.yieldPct != null ? `${r.yieldPct.toFixed(1)}% yield` : null;
-      return `· $${r.symbol} — ${date}${y ? ` · ${y}` : ""}`;
+      // Name shown for foreign-suffix tickers (e.g. $BDX.WA · Budimex) so
+      // readers don't confuse them with same-letter US names. For pure US
+      // tickers like $KEY, we omit the name to keep the row tight — the
+      // ticker is already recognizable.
+      const n = hasForeignSuffix(r.symbol) ? shortName(r.name, 18) : null;
+      const head = n ? `$${r.symbol} · ${n}` : `$${r.symbol}`;
+      return `· ${head} — ${date}${y ? ` · ${y}` : ""}`;
     })
     .join("\n");
   const body = `Ex-dividend dates this week worth watching:\n${lines}`;
@@ -206,7 +228,10 @@ export type FeaturedEtfInput = {
 };
 
 export function composeFeaturedEtf(e: FeaturedEtfInput): string {
-  const parts: string[] = [`$${e.symbol}`];
+  const tagged = hasForeignSuffix(e.symbol)
+    ? `$${e.symbol}${shortName(e.name, 22) ? ` (${shortName(e.name, 22)})` : ""}`
+    : `$${e.symbol}`;
+  const parts: string[] = [tagged];
   if (e.secYield30dPct != null)
     parts.push(`30-day SEC yield ${e.secYield30dPct.toFixed(1)}%`);
   if (e.expenseRatioPct != null)

@@ -26,38 +26,54 @@ const TARGET_COUNTRIES = [
   "PL", "PT", "RO", "SK", "SI", "ES", "SE",
 ];
 
-// Primary exchanges only. Without this filter, a US stock like BDX dual-listed
-// on Warsaw shows up as $BDX.WA. We strip secondary listings by allowlisting
-// each country's main exchange. Values verified against distinct exchange_short
-// in backend.tickers (no LSE on this list — UK isn't in EU, and a US/EU
-// company's LSE listing is always secondary).
-const PRIMARY_EXCHANGES = [
-  // US
-  "NYSE", "NASDAQ", "AMEX", "NYSEArca", "BATS", "NYSE American", "NASDAQ Global Select",
-  // EU — one primary venue per country
-  "XETRA", "FSX",  // Germany
-  "PAR",            // France
-  "AMS",            // Netherlands
-  "STO",            // Sweden
-  "MIL",            // Italy
-  "BME",            // Spain
-  "CPH",            // Denmark
-  "WSE",            // Poland
-  "HEL",            // Finland
-  "BRU",            // Belgium
-  "DUB",            // Ireland
-  "ATH",            // Greece
-  "VIE",            // Austria
-  "LIS",            // Portugal
-  "BUD",            // Hungary
-  "PRG",            // Czech Republic
-  "BUC",            // Romania
-  "RGA",            // Latvia
-  "TAL",            // Estonia
-  "VLN",            // Lithuania
-  "BVL",            // Bulgaria (Sofia)
-  "LJU",            // Slovenia
-];
+// Primary exchanges per country. Without this map, a US stock like McDonald's
+// dual-listed on XETRA (as $MDO.DE) sneaks in: it has country=US and XETRA
+// is a primary EU exchange. We require BOTH country AND exchange to match —
+// XETRA only counts when country=DE.
+const PRIMARY_EXCHANGES_BY_COUNTRY: Record<string, string[]> = {
+  US: ["NYSE", "NASDAQ", "AMEX", "NYSEArca", "BATS", "NYSE American", "NASDAQ Global Select"],
+  DE: ["XETRA", "FSX"],
+  FR: ["PAR"],
+  NL: ["AMS"],
+  SE: ["STO"],
+  IT: ["MIL"],
+  ES: ["BME"],
+  DK: ["CPH"],
+  PL: ["WSE"],
+  FI: ["HEL"],
+  BE: ["BRU"],
+  IE: ["DUB"],
+  GR: ["ATH"],
+  AT: ["VIE"],
+  PT: ["LIS"],
+  HU: ["BUD"],
+  CZ: ["PRG"],
+  RO: ["BUC"],
+  LV: ["RGA"],
+  EE: ["TAL"],
+  LT: ["VLN"],
+  BG: ["BVL"],
+  SI: ["LJU"],
+};
+
+// Flattened list — used in the initial Supabase query as a coarse filter.
+// The JS-side `matchesPrimaryListing` does the strict country+exchange match.
+const PRIMARY_EXCHANGES = Array.from(
+  new Set(Object.values(PRIMARY_EXCHANGES_BY_COUNTRY).flat()),
+);
+
+function matchesPrimaryListing(
+  country: string | null | undefined,
+  exchange: string | null | undefined,
+): boolean {
+  if (!country) return false;
+  const allowed = PRIMARY_EXCHANGES_BY_COUNTRY[country];
+  if (!allowed) return false;
+  // Allow null exchange when country = US (data has ~30 US payers with null
+  // exchange_short — they're legit US tickers, just missing the column).
+  if (!exchange) return country === "US";
+  return allowed.includes(exchange);
+}
 
 type Schema = "backend" | "public";
 
@@ -234,47 +250,62 @@ export async function pickFeaturedStock(): Promise<FeaturedStockInput | null> {
   const today = new Date().toISOString().slice(0, 10);
   const horizon = new Date(Date.now() + 60 * 86400 * 1000).toISOString().slice(0, 10);
 
-  // First pass: high-quality stocks with an upcoming ex-div.
-  const { data: ratings } = await sb
-    .from("stock_ratings_daily")
-    .select("symbol,overall_rating,computed_date")
-    .gte("overall_rating", 4)
-    .order("computed_date", { ascending: false })
-    .order("overall_rating", { ascending: false })
-    .limit(200);
-
-  const ratingRows = (ratings as { symbol: string; overall_rating: number }[]) ?? [];
-  if (ratingRows.length === 0) return null;
-
-  // Dedup by symbol keeping best rating
-  const seen = new Map<string, number>();
-  for (const r of ratingRows) {
-    if (!seen.has(r.symbol)) seen.set(r.symbol, r.overall_rating);
-  }
-  const symbols = Array.from(seen.keys()).filter((s) => !skip.has(s));
-
-  // Get tickers + filter by upcoming ex-div + mkt cap. US-only — the bot's
-  // audience is US dividend investors; foreign listings (.JK, .HK, .L etc)
-  // look like spam to them.
+  // Strategy: tickers-first, ratings-second. The earlier version pulled the
+  // top 500 globally-rated stocks then filtered to US/EU — but the top of the
+  // composite_total leaderboard is dominated by Asian micro-caps, so US/EU
+  // candidates like PHM/NVDA were eliminated before the filter ran. Instead,
+  // get all US/EU candidates with an upcoming ex-div first, then rank by
+  // rating freshly looked up per symbol.
   const { data: tk } = await sb
     .from("tickers")
-    .select("symbol,mkt_cap,next_ex_dividend_date,is_actively_trading,is_etf,is_fund")
-    .in("symbol", symbols.slice(0, 100))
+    .select("symbol,country,exchange_short,mkt_cap,next_ex_dividend_date")
     .eq("is_actively_trading", true)
     .eq("is_etf", false)
     .eq("is_fund", false)
     .in("country", TARGET_COUNTRIES)
     .in("exchange_short", PRIMARY_EXCHANGES)
-    .gt("mkt_cap", 1_000_000_000)
+    // $5B floor for featured-stock — smaller than ex-div-watch ($10B) because
+    // featured posts include more context (streak, payout, recovery) that
+    // helps mid-caps land. Anything below $5B becomes feed noise.
+    .gt("mkt_cap", 5_000_000_000)
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
     .order("mkt_cap", { ascending: false, nullsFirst: false })
-    .limit(20);
+    .limit(400);
 
-  const candidates = (tk as { symbol: string }[]) ?? [];
-  if (candidates.length === 0) return null;
+  type TkRow = {
+    symbol: string;
+    country: string | null;
+    exchange_short: string | null;
+    mkt_cap: number | null;
+  };
+  const tickers = ((tk as TkRow[]) ?? [])
+    .filter((r) => matchesPrimaryListing(r.country, r.exchange_short))
+    .filter((r) => !skip.has(r.symbol));
+  if (tickers.length === 0) return null;
 
-  return buildFeaturedStockInput(candidates[0].symbol);
+  // Pull recent ratings for just these symbols.
+  const cutoffDate = new Date(Date.now() - 14 * 86400 * 1000).toISOString().slice(0, 10);
+  const { data: ratings } = await sb
+    .from("stock_ratings_daily")
+    .select("symbol,composite_total,computed_date")
+    .in("symbol", tickers.map((t) => t.symbol))
+    .gte("computed_date", cutoffDate)
+    .order("computed_date", { ascending: false });
+  const bestRating = new Map<string, number>();
+  for (const r of (ratings as { symbol: string; composite_total: number }[]) ?? []) {
+    if (!bestRating.has(r.symbol)) bestRating.set(r.symbol, r.composite_total);
+  }
+
+  // Rank by rating desc, then mkt_cap desc as tiebreaker. Require rating >= 17
+  // (B+ or better) — below that the bot is just amplifying mediocre payers.
+  const ranked = tickers
+    .map((t) => ({ symbol: t.symbol, mkt_cap: t.mkt_cap, rating: bestRating.get(t.symbol) ?? -1 }))
+    .filter((t) => t.rating >= 17)
+    .sort((a, b) => b.rating - a.rating || (b.mkt_cap ?? 0) - (a.mkt_cap ?? 0));
+
+  if (ranked.length === 0) return null;
+  return buildFeaturedStockInput(ranked[0].symbol);
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +321,7 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
   const { data } = await sb
     .from("tickers")
     .select(
-      "symbol,name,aum,expense_ratio,last_div,price,next_ex_dividend_date",
+      "symbol,name,country,exchange_short,aum,expense_ratio,last_div,price,next_ex_dividend_date",
     )
     .eq("is_etf", true)
     .eq("is_actively_trading", true)
@@ -300,18 +331,22 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
     .order("aum", { ascending: false, nullsFirst: false })
-    .limit(50);
+    .limit(100);
 
   type Row = {
     symbol: string;
     name: string | null;
+    country: string | null;
+    exchange_short: string | null;
     aum: number | null;
     expense_ratio: number | null;
     last_div: number | null;
     price: number | null;
     next_ex_dividend_date: string | null;
   };
-  const rows = ((data as Row[]) ?? []).filter((r) => !skip.has(r.symbol));
+  const rows = ((data as Row[]) ?? [])
+    .filter((r) => matchesPrimaryListing(r.country, r.exchange_short))
+    .filter((r) => !skip.has(r.symbol));
   if (rows.length === 0) return null;
   const pick = rows[0];
 
@@ -358,20 +393,26 @@ export async function pickExDivWatchRows(): Promise<ExDivWatchRow[]> {
 
   const { data } = await sb
     .from("tickers")
-    .select("symbol,price,last_div,next_ex_dividend_date,mkt_cap")
+    .select("symbol,name,country,exchange_short,price,last_div,next_ex_dividend_date,mkt_cap")
     .eq("is_actively_trading", true)
     .eq("is_etf", false)
     .eq("is_fund", false)
     .in("country", TARGET_COUNTRIES)
     .in("exchange_short", PRIMARY_EXCHANGES)
-    .gt("mkt_cap", 5_000_000_000)
+    // $10B floor — cuts ultra micro-caps that nobody recognizes and would
+    // make the feed look like discount-bin spam. Drops Budimex-tier names
+    // ($17B is borderline but they pass; below $10B is the noise floor).
+    .gt("mkt_cap", 10_000_000_000)
     .gte("next_ex_dividend_date", today)
     .lte("next_ex_dividend_date", horizon)
     .order("next_ex_dividend_date", { ascending: true })
-    .limit(40);
+    .limit(80);
 
   type Row = {
     symbol: string;
+    name: string | null;
+    country: string | null;
+    exchange_short: string | null;
     price: number | null;
     last_div: number | null;
     next_ex_dividend_date: string;
@@ -379,9 +420,13 @@ export async function pickExDivWatchRows(): Promise<ExDivWatchRow[]> {
   };
 
   const rows = ((data as Row[]) ?? [])
+    // Strict country+exchange match — kills dual-listings like McDonald's
+    // (country=US) showing up on XETRA as $MDO.DE.
+    .filter((r) => matchesPrimaryListing(r.country, r.exchange_short))
     .filter((r) => !skip.has(r.symbol))
     .map((r) => ({
       symbol: r.symbol,
+      name: r.name,
       exDate: r.next_ex_dividend_date,
       yieldPct:
         r.last_div != null && r.price && r.price > 0
@@ -404,7 +449,7 @@ export async function pickExDivWatchRows(): Promise<ExDivWatchRow[]> {
       (a, b) => (b.mkt_cap ?? 0) - (a.mkt_cap ?? 0),
     );
     for (const r of inDate) {
-      picked.push({ symbol: r.symbol, exDate: r.exDate, yieldPct: r.yieldPct });
+      picked.push({ symbol: r.symbol, name: r.name, exDate: r.exDate, yieldPct: r.yieldPct });
       if (picked.length === 3) return picked;
     }
   }
