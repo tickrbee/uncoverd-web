@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "x:candidates": "tsx scripts/x-cli.ts candidates",
+    "x:compose": "tsx scripts/x-cli.ts compose",
+    "x:post": "tsx scripts/x-cli.ts post"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.54.0",
@@ -16,7 +19,8 @@
     "@vercel/speed-insights": "^2.0.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "twitter-api-v2": "^1.18.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -26,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

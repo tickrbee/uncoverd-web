@@ -82,7 +82,27 @@ Set as routine secrets (NOT in repo):
 | `X_ACCESS_TOKEN`        | from step 1                               |
 | `X_ACCESS_SECRET`       | from step 1                               |
 | `SUPABASE_URL`          | your project URL                          |
-| `SUPABASE_SERVICE_KEY`  | service role key (Supabase → Settings → API) |
+| `SUPABASE_SERVICE_ROLE_KEY` | service role key (Supabase → Settings → API) |
+
+---
+
+## Architecture: hybrid CLI + thin routine prompts
+
+The routines do NOT compose tweets from scratch. They orchestrate three CLI
+commands shipped in the repo:
+
+- `npm run x:candidates -- --slot=<slot>` → JSON list of viable flows for the
+  current slot, with previews + skip reasons. Use this to decide what to post.
+- `npm run x:compose -- --flow=<flow>` → returns the tweet body / thread for
+  a flow without posting (useful for preview).
+- `npm run x:post -- --flow=<flow>` → composes, posts to X, logs to
+  `posted_tweets`. Add `--dry` to skip the network call.
+
+All number-bearing text is generated deterministically by TypeScript code
+that reads from Supabase — the routine never writes a yield, streak, or
+payout ratio itself, so factual drift is impossible. The routine's job is
+the editorial layer: pick which flows to run this slot, skip ones with
+thin data, handle errors.
 
 ---
 
@@ -93,20 +113,42 @@ Set as routine secrets (NOT in repo):
 - **Prompt:**
 
 ```
-You are the autonomous publishing routine for @uncoverd on X. Today is
-the morning slot.
+You are the autonomous publishing routine for @uncoverd on X. The morning slot.
 
-1. Read docs/x-style-guide.md and docs/x-post-types.md in full.
-2. Execute the `ex-div-watch` flow per the spec.
-3. If any `payout_changes` rows have detected_at within the last 14 hours
-   and have NOT been posted yet (check `posted_tweets`), execute the
-   `payout-change` flow on up to 1 of them, prioritizing by mkt_cap.
-4. For each tweet you post: insert a row into `posted_tweets` with the
-   correct `flow`, `symbol`, `tweet_id`, and `body`.
+Run this exactly:
 
-NEVER fabricate numbers. Every number in a tweet must come from a
-Supabase query you ran in this session. If data is missing, skip the
-post and log why.
+  npm run x:candidates -- --slot=morning
+
+You will get a JSON array of flows for this slot. Each item has:
+  - flow: name (e.g. "ex-div-watch")
+  - available: true|false
+  - preview: the tweet body that would be posted
+  - skip_reason: why if unavailable
+
+For every flow where `available` is true, run:
+
+  npm run x:post -- --flow=<flow>
+
+That command composes the tweet from live Supabase data, posts via the X API,
+and inserts the row into the `posted_tweets` table.
+
+After each post, report the JSON output the command printed (which includes
+the X tweet_id and the symbol if any).
+
+If a flow returns `available: false`, do NOT try to recover or post anything
+alternative. The skip_reason is the answer. Just log it and move on.
+
+At the end, output a summary: how many tweets posted, how many skipped, and
+the skip reasons.
+
+Hard rules:
+- Never edit the tweet body returned by the compose command. It has already
+  been validated against the style guide and character budget.
+- Never run `npm run x:compose` and then post the result yourself via the
+  X API directly. Always use `npm run x:post`, which keeps the posted_tweets
+  log in sync.
+- If `npm run x:post` errors, report the full error and STOP. Do not retry
+  unless the error is clearly transient (network).
 ```
 
 ### Routine B — Midday Post
@@ -116,16 +158,16 @@ post and log why.
 - **Prompt:**
 
 ```
-You are the autonomous publishing routine for @uncoverd on X. Today is
-the midday slot.
+You are the autonomous publishing routine for @uncoverd on X. The midday slot.
 
-1. Read docs/x-style-guide.md and docs/x-post-types.md in full.
-2. Execute the `featured-stock` flow per the spec.
-3. If any new `payout_changes` since the morning slot, execute the
-   `payout-change` flow on 1 of them (subject to the 3/day cap).
-4. Write to `posted_tweets` for every posted tweet.
+Run:
 
-NEVER fabricate numbers. Every number must come from a query.
+  npm run x:candidates -- --slot=midday
+
+Then `npm run x:post -- --flow=<flow>` for each flow with `available: true`.
+
+Same hard rules as the morning routine: never edit the body, never bypass the
+post command, never retry on non-transient errors. Report a summary at the end.
 ```
 
 ### Routine C — Evening Post
@@ -135,64 +177,61 @@ NEVER fabricate numbers. Every number must come from a query.
 - **Prompt:**
 
 ```
-You are the autonomous publishing routine for @uncoverd on X. Today is
-the evening slot.
+You are the autonomous publishing routine for @uncoverd on X. The evening slot.
 
-1. Read docs/x-style-guide.md and docs/x-post-types.md in full.
-2. Execute the `featured-etf` flow per the spec.
-3. If today is Friday, ALSO execute `weekly-hikes` (16:00) AND
-   `weekly-cuts` (will be posted 30 min later — note: this routine has
-   one slot, so post both threads back-to-back).
-4. If any new `payout_changes` since midday, execute the `payout-change`
-   flow on 1 of them (subject to 3/day cap).
-5. Write to `posted_tweets` for every posted tweet.
+Run:
 
-NEVER fabricate numbers. Every number must come from a query.
+  npm run x:candidates -- --slot=evening
+
+Then `npm run x:post -- --flow=<flow>` for each flow with `available: true`.
+
+If today is Friday (UTC), ALSO run:
+
+  npm run x:candidates -- --slot=friday
+
+and post any `available: true` flows from that response too (weekly-hikes and
+weekly-cuts threads).
+
+Same hard rules. Summary at the end.
 ```
 
 ### Routine D — Weekly Heavy Threads
 
 - **Name:** `@uncoverd Weekly Heavy`
-- **Schedule:** four crons in one routine config:
-  - `0 10 * * 1` (Mon 10:00 — company-dive)
-  - `0 14 * * 2` (Tue 14:00 — potential-payers)
-  - `0 14 * * 3` (Wed 14:00 — etf-dive)
-- **Prompt:**
-
-```
-You are the autonomous publishing routine for @uncoverd on X. You are
-handling the weekly heavy threads.
-
-1. Read docs/x-style-guide.md and docs/x-post-types.md in full.
-2. Determine which flow this slot is for, by day-of-week:
-   - Monday → `company-dive`
-   - Tuesday → `potential-payers`
-   - Wednesday → `etf-dive`
-3. Execute that flow per spec. These are threads; post each tweet in
-   sequence as a reply to the previous one.
-4. Write to `posted_tweets` for the head tweet, storing the full
-   thread_tweet_ids array.
-
-NEVER fabricate numbers. Every number must come from a query.
-```
+- **Schedule:** three crons in one routine config:
+  - `0 10 * * 1` (Mon 10:00 — company-dive — NOT YET IMPLEMENTED)
+  - `0 14 * * 2` (Tue 14:00 — potential-payers — NOT YET IMPLEMENTED)
+  - `0 14 * * 3` (Wed 14:00 — etf-dive — NOT YET IMPLEMENTED)
+- **Status:** placeholder. The CLI does not yet expose `company-dive`,
+  `potential-payers`, or `etf-dive` flows. Do not create this routine until
+  those composers ship.
 
 ---
 
 ## 4. Dry-run before going live
 
-Before flipping any routine to scheduled, run each one ONCE on demand
-via the routine's "Run now" button. It will:
+**Local preview (recommended first):**
 
-1. Compose what it would tweet.
-2. Try to post (it will actually post — there's no dry-run flag in
-   routines).
+From your dev machine with `.env` populated:
 
-**To preview without actually posting:** temporarily set the X access
-token to an invalid value before the first manual run, watch the
-routine's logs to see the composed body, then restore the real token
-once you're satisfied.
+```bash
+npm run x:candidates -- --slot=morning
+npm run x:compose -- --flow=featured-stock
+npm run x:post -- --flow=featured-stock --dry
+```
 
-After 2–3 successful manual runs, enable the schedule.
+`--dry` composes and prints what would be tweeted, but skips the X API call
+and the `posted_tweets` insert. Zero network side effects. Use this to verify
+voice + facts before flipping the routine live.
+
+**Cloud dry-run (in the routine UI):**
+
+1. Save the routine but DO NOT enable the schedule.
+2. Edit Routine A's prompt: change `npm run x:post` to `npm run x:post -- --dry`.
+3. Click "Run now". Inspect the output in the logs — you'll see the composed
+   bodies without anything actually posted.
+4. When satisfied, remove `--dry` from the prompt, save, then enable the
+   schedule.
 
 ---
 
