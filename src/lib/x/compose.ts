@@ -232,15 +232,27 @@ export type FeaturedEtfInput = {
   nextExDate: string | null;
 };
 
-// Expense-ratio adjective. ETF audiences care a lot about this number,
-// so we surface its tone alongside the figure.
-function expensePhrase(pct: number | null): string | null {
-  if (pct == null || !isFinite(pct)) return null;
-  const v = pct.toFixed(2);
-  if (pct < 0.1) return `a tight ${v}% expense ratio`;
-  if (pct < 0.3) return `a ${v}% expense ratio`;
-  if (pct < 0.6) return `a ${v}% expense ratio`;
-  return `a steep ${v}% expense ratio`;
+// Expense ratio descriptor — bare phrase ("near-free 0.03%"), no leading
+// article, so it slots inline ("with a near-free 0.03% expense ratio").
+function expenseAdj(pct: number): string {
+  if (pct < 0.05) return "near-free";
+  if (pct < 0.15) return "tight";
+  if (pct < 0.4) return "moderate";
+  if (pct < 0.75) return "above-market";
+  return "steep";
+}
+
+// AUM scale descriptor — used as the headline noun in scale-first shape.
+function aumNoun(aum: number): string {
+  if (aum >= 500_000_000_000) return "behemoth";
+  if (aum >= 100_000_000_000) return "mega-fund";
+  if (aum >= 10_000_000_000) return "large fund";
+  return "fund";
+}
+
+// Yield framing — high yields lead the sentence, modest ones come after.
+function isHighYield(pct: number | null): boolean {
+  return pct != null && pct >= 3.5;
 }
 
 export function composeFeaturedEtf(e: FeaturedEtfInput): string {
@@ -248,53 +260,58 @@ export function composeFeaturedEtf(e: FeaturedEtfInput): string {
     ? `$${e.symbol}${shortName(e.name, 22) ? ` (${shortName(e.name, 22)})` : ""}`
     : `$${e.symbol}`;
 
-  const yieldStr = e.secYield30dPct != null ? `${e.secYield30dPct.toFixed(1)}%` : null;
-  const exp = expensePhrase(e.expenseRatioPct);
-  const aum = fmtLargeUsd(e.aumUsd);
-  // Bare ticker for top holding (no $) — second cashtag would trip the tier
-  // limit. Falls back to silence if missing.
+  const y = e.secYield30dPct;
+  const expPct = e.expenseRatioPct;
+  const aum = e.aumUsd;
+  // Bare ticker for top holding — second cashtag would trip X's 1-cashtag
+  // tier limit. Falls back to no holding mention if missing.
   const top = e.topHoldingSymbol;
 
-  // Need at least yield + one other stat to make a sentence worth posting.
-  if (!yieldStr && !aum && !exp) return "";
+  if (y == null && aum == null && expPct == null) return "";
 
-  // Three shapes, hashed by symbol so the same ETF always reads the same.
-  const shape = shapeIndex(e.symbol, 3);
-  let body = "";
+  // Data-driven shape selection: lead with whatever makes this ETF stand out,
+  // not a random hash. A 7% yield wants yield-first; a near-free expense
+  // ratio wants cost-first; a $1.6T fund wants scale-first.
+  const yieldStr = y != null ? `${y.toFixed(1)}%` : null;
+  const aumStr = aum != null ? fmtLargeUsd(aum) : null;
+  const expStr = expPct != null ? `${expPct.toFixed(2)}%` : null;
+  const expDesc = expPct != null ? `${expenseAdj(expPct)} ${expStr}` : null;
 
-  if (shape === 0) {
-    // Shape A — yield-first
-    const opener = yieldStr
-      ? `${tagged} is yielding ${yieldStr}${exp ? ` with ${exp}` : ""}.`
-      : `${tagged} runs ${exp ?? "with low costs"}.`;
-    const middle = aum ? `${aum} in AUM.` : null;
-    const tail = top ? `Top holding is ${top}.` : null;
-    body = joinSentences([opener, middle, tail]);
-  } else if (shape === 1) {
-    // Shape B — scale-first
-    const opener = aum && yieldStr
-      ? `${tagged} holds ${aum} in AUM and yields ${yieldStr}.`
-      : aum
-        ? `${tagged} holds ${aum} in AUM.`
-        : `${tagged} is yielding ${yieldStr}.`;
-    const middle = exp ? `Expense ratio sits at ${e.expenseRatioPct!.toFixed(2)}%.` : null;
-    const tail = top ? `Top holding: ${top}.` : null;
-    body = joinSentences([opener, middle, tail]);
+  let lead = "";
+
+  if (isHighYield(y)) {
+    // Yield-led: the income angle is the story.
+    const tail = aumStr && expDesc
+      ? `, drawn from ${aumStr} in assets at a ${expDesc} expense ratio`
+      : aumStr
+        ? `, drawn from ${aumStr} in assets`
+        : expDesc
+          ? `, with a ${expDesc} expense ratio`
+          : "";
+    lead = `${tagged} pays a ${yieldStr} yield${tail}.`;
+  } else if (expPct != null && expPct < 0.1 && aumStr) {
+    // Cost-led: tight-ratio index funds.
+    const yieldTail = yieldStr ? `, yielding ${yieldStr}` : "";
+    lead = `${tagged} runs at a ${expDesc} expense ratio on ${aumStr} in assets${yieldTail}.`;
+  } else if (aum != null && aum >= 100_000_000_000) {
+    // Scale-led: mega-funds.
+    const yieldTail = yieldStr ? `, yielding ${yieldStr}` : "";
+    const expTail = expDesc ? ` at a ${expDesc} expense ratio` : "";
+    lead = `${tagged} is a ${aumNoun(aum)} with ${aumStr} in assets${yieldTail}${expTail}.`;
   } else {
-    // Shape C — discovery-first (good for less-known ETFs)
-    const opener = aum
-      ? `${tagged} is a ${aum} fund${yieldStr ? ` yielding ${yieldStr}` : ""}.`
-      : yieldStr
-        ? `${tagged} is yielding ${yieldStr}.`
-        : `${tagged} ${exp ?? "is a dividend ETF"}.`;
-    const middle = exp && aum ? `${exp[0].toUpperCase()}${exp.slice(1)} keeps costs in check.` : null;
-    const tail = top ? `Top holding is ${top}.` : null;
-    body = joinSentences([opener, middle, tail]);
+    // Mixed default — generic "yields X on Y at Z%" sentence.
+    const parts = [tagged];
+    if (yieldStr) parts.push(`yields ${yieldStr}`);
+    if (aumStr) parts.push(`on ${aumStr} in assets`);
+    if (expDesc) parts.push(`at a ${expDesc} expense ratio`);
+    lead = parts.join(" ") + ".";
   }
 
-  body = trimToBudget(body);
-  // ETF posts get a second hashtag (#etf) — the dividend-ETF audience on X
-  // searches both #dividends and #etf. 2 tags is fine; 3+ flags as spam.
+  const holding = top ? ` Top holding: ${top}.` : "";
+  const body = trimToBudget(lead + holding);
+
+  // 2 hashtags — #dividends + #etf — the dividend-ETF audience on X
+  // searches both. 3+ would flag spammy.
   return `${body}\n\n${HASHTAG} #etf\n${etfUrl(e.symbol)}`;
 }
 
