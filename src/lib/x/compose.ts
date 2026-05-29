@@ -138,16 +138,18 @@ export type ExDivWatchRow = {
 export function composeExDivWatch(rows: ExDivWatchRow[]): string {
   if (rows.length < 3) return "";
   const top = rows.slice(0, 3);
+  // X self-serve tiers (Free/Basic/Pro) cap cashtags at 1 per tweet. Multi-
+  // ticker posts use bare uppercase tickers (KEY, not $KEY) to stay under
+  // the limit. Single-subject posts (featured-stock, payout-change) still
+  // use the $ prefix because they only have one cashtag.
   const lines = top
     .map((r) => {
       const date = shortDate(r.exDate) ?? "—";
       const y = r.yieldPct != null ? `${r.yieldPct.toFixed(1)}% yield` : null;
-      // Name shown for foreign-suffix tickers (e.g. $BDX.WA · Budimex) so
-      // readers don't confuse them with same-letter US names. For pure US
-      // tickers like $KEY, we omit the name to keep the row tight — the
-      // ticker is already recognizable.
+      // Name shown for foreign-suffix tickers (e.g. BDX.WA · Budimex) so
+      // readers don't confuse them with same-letter US names.
       const n = hasForeignSuffix(r.symbol) ? shortName(r.name, 18) : null;
-      const head = n ? `$${r.symbol} · ${n}` : `$${r.symbol}`;
+      const head = n ? `${r.symbol} · ${n}` : r.symbol;
       return `· ${head} — ${date}${y ? ` · ${y}` : ""}`;
     })
     .join("\n");
