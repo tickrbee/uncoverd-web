@@ -146,6 +146,7 @@ export function SiteHeader() {
   }
 
   return (
+    <>
     <header className="dv-header">
       <div className="dv-header__inner">
         <Link href="/" className="dv-brand" aria-label={`${APP_NAME} home`}>
@@ -417,8 +418,11 @@ export function SiteHeader() {
         </div>
       )}
 
-      {/* Mobile slide-in drawer. Hidden via CSS at ≥1100px so it never
-          appears on desktop. Touching the backdrop or any link closes it. */}
+    </header>
+      {/* Mobile slide-in drawer. Rendered OUTSIDE <header> because .dv-header
+          uses backdrop-filter, which creates a containing block for fixed
+          positioning — placing the drawer inside breaks `position: fixed`.
+          Hidden via CSS at ≥1100px so it never appears on desktop. */}
       {mobileOpen && (
         <>
           <div
@@ -498,7 +502,7 @@ export function SiteHeader() {
           </aside>
         </>
       )}
-    </header>
+    </>
   );
 }
 
