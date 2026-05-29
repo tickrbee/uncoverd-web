@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchSubredditListing } from "@/lib/reddit/client";
 import { classifyPost, selftextPreview } from "@/lib/reddit/filter";
 import { getBackendClient } from "@/lib/supabase/admin";
+import { sendRedditDigest, type DigestRow } from "@/lib/email/reddit-digest";
 
 // Reddit monitor cron. Polls a curated list of dividend-adjacent
 // subreddits, classifies each new post against the brand/competitor/
@@ -96,8 +97,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Pull the freshly-inserted rows so the digest only includes what's new
+  // this run. We re-query rather than tracking inserted ids — Supabase's
+  // upsert+ignoreDuplicates path doesn't return per-row ids reliably.
+  let digestResult: { skipped: true; reason: string } | { skipped: false; messageId: string | null } | { error: string } =
+    { skipped: true, reason: "no inserts" };
+  if (totalInserted > 0) {
+    try {
+      const { data: newRows } = await sb
+        .schema("public")
+        .from("reddit_opportunities")
+        .select("id,detected_at,subreddit,title,author,permalink,score,num_comments,selftext_preview,match_reason,match_terms")
+        .gte("detected_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+        .order("detected_at", { ascending: false })
+        .limit(totalInserted * 2);
+      const digest = (newRows as DigestRow[] | null) ?? [];
+      const origin = new URL(req.url).origin;
+      digestResult = await sendRedditDigest(digest, {
+        inboxUrl: `${origin}/admin/inbox`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      digestResult = { error: msg };
+    }
+  }
+
   return NextResponse.json(
-    { ok: true, total_inserted: totalInserted, subreddits: summary },
+    { ok: true, total_inserted: totalInserted, subreddits: summary, digest: digestResult },
     { status: 200 },
   );
 }
