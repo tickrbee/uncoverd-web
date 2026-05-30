@@ -76,13 +76,14 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
   const sb = getBackendClient();
 
   // 1) Target ticker. Use limit(1) + array picking because some tickers
-  // have duplicate rows in the DB (e.g. AAPL listed on multiple exchanges).
-  // maybeSingle() silently returns null when >1 row matches, which broke
-  // the whole flow for those tickers — the function returned null and
-  // the page rendered as "No alternatives".
+  // have duplicate rows in the DB. NOTE: pe_ratio does NOT exist as a
+  // column on tickers (it lives in ratios_annual). The previous query
+  // selected pe_ratio here and Postgres returned 42703 'column does not
+  // exist', which made the whole alternatives flow return null silently
+  // for every stock. Take P/E from the ratios join below instead.
   const { data: targets } = await sb
     .from("tickers")
-    .select("symbol,name,sector,industry,mkt_cap,price,last_div,pe_ratio,beta,country,exchange_short,is_etf,is_fund")
+    .select("symbol,name,sector,industry,mkt_cap,price,last_div,beta,country,exchange_short,is_etf,is_fund")
     .eq("symbol", symbol)
     .order("mkt_cap", { ascending: false, nullsFirst: false })
     .limit(1);
@@ -94,7 +95,6 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     mkt_cap: number | null;
     price: number | null;
     last_div: number | null;
-    pe_ratio?: number | null;
     country: string | null;
     exchange_short: string | null;
     is_etf: boolean | null;
@@ -178,7 +178,7 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
         yieldPct: targetYield,
         composite: null,
         grade: null,
-        peRatio: t.pe_ratio ?? null,
+        peRatio: null,
         netDebtToEbitda: null,
         return1y: null,
       },
@@ -270,7 +270,7 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     yieldPct: targetYield,
     composite: targetRating.composite,
     grade: targetRating.grade,
-    peRatio: peBy.get(symbol) ?? t.pe_ratio ?? null,
+    peRatio: peBy.get(symbol) ?? null,
     netDebt: netDebtBy.get(symbol) ?? null,
     return1y: returns1yMap.get(symbol) ?? null,
   };
