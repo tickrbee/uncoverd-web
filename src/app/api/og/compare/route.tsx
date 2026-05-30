@@ -1,57 +1,24 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 
-// Dynamic OG image for /compare?a=X&b=Y[&c=...][&d=...]. 1200x630, the
-// large-summary card size X/LinkedIn render.
+// Dynamic OG image for /compare?a=X&b=Y and /alternatives/[symbol].
+// 1200x630, the large-summary card size X/LinkedIn render.
 //
-// IMPORTANT: this route renders WITHOUT any DB calls. Earlier version
-// fetched live yield/price/AUM data and rendered them into the card,
-// which kept failing (timeouts, edge-runtime quirks, missing rows). The
-// broken state meant every shared link showed a blank box.
-//
-// Trade-off: the card no longer shows live numbers, just the tickers +
-// brand + a clean visual. Reliability beats data density here — a card
-// that renders 100% of the time is worth more than a richer card that
-// silently fails 30% of the time.
+// Kept deliberately simple — no radial-gradients, no box-shadows, no
+// custom fonts. The previous version with all those styles was failing
+// at the streaming layer on Vercel, returning HTML error pages with
+// image/png content-type (corrupt-file errors in Photos for users
+// trying to download the share).
 
-// Node runtime is more reliable than edge in our deploy. Edge was
-// producing broken-PNG responses on some deploys (the share-button
-// fetch was saving the HTML error page as a .png file). Node always
-// produces valid bytes even when something downstream changes.
-export const runtime = "nodejs";
-export const maxDuration = 30;
+export const runtime = "edge";
 
 const SLOTS = ["a", "b", "c", "d"] as const;
+const BG = "#0a0a0a";
+const GREEN = "#34d399";
+const TEXT = "#fafafa";
+const MUTED = "#a1a1aa";
 
 export async function GET(req: NextRequest): Promise<Response> {
-  try {
-    return await renderOg(req);
-  } catch (err: unknown) {
-    // If JSX rendering throws for any reason, return a minimal valid image
-    // (1x1 transparent PNG) instead of an HTML error. That way the share
-    // button never saves a corrupt file — the user sees a blank image
-    // instead of a "this file is corrupt" message in Photos.
-    console.error("og/compare render failed:", err);
-    return minimalFallback();
-  }
-}
-
-// 1x1 transparent PNG — valid image bytes, opens cleanly in any viewer.
-function minimalFallback(): Response {
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-    "base64",
-  );
-  return new Response(png, {
-    status: 200,
-    headers: {
-      "Content-Type": "image/png",
-      "Cache-Control": "no-store",
-    },
-  });
-}
-
-async function renderOg(req: NextRequest): Promise<Response> {
   const url = new URL(req.url);
   const symbols: string[] = [];
   for (const slot of SLOTS) {
@@ -59,54 +26,16 @@ async function renderOg(req: NextRequest): Promise<Response> {
     if (v && v.trim().length > 0) symbols.push(v.trim().toUpperCase());
   }
   const unique = Array.from(new Set(symbols)).slice(0, 4);
+  const headline = unique.length > 0 ? unique.join("  vs  ") : "Compare dividend stocks & ETFs";
+  const colCount = Math.max(1, unique.length);
 
-  // No symbols: render a generic compare-tool card.
-  if (unique.length === 0) {
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
-            height: "100%",
-            background:
-              "radial-gradient(120% 200% at 0% 0%, rgba(52,211,153,0.12) 0%, rgba(10,10,10,0) 50%), linear-gradient(135deg, #050505 0%, #0a0a0a 60%, #020202 100%)",
-            color: "#fafafa",
-            padding: "80px 90px",
-            fontFamily: "system-ui, sans-serif",
-            justifyContent: "center",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 38 }}>
-            <div style={{ width: 18, height: 18, borderRadius: 999, background: "#34d399", boxShadow: "0 0 16px rgba(52,211,153,0.6)" }} />
-            <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: -0.5, textTransform: "lowercase" }}>
-              uncoverd
-            </div>
-            <div style={{ marginLeft: 12, padding: "5px 14px", borderRadius: 999, background: "rgba(52,211,153,0.12)", color: "#34d399", fontSize: 16, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>
-              compare
-            </div>
-          </div>
-          <div style={{ fontSize: 72, fontWeight: 800, letterSpacing: -2, lineHeight: 1.04 }}>
-            Compare dividend stocks & ETFs
-          </div>
-          <div style={{ marginTop: 28, fontSize: 28, color: "#a1a1aa", maxWidth: 900, lineHeight: 1.4 }}>
-            Yield · payout · streak · rating · expense · holdings overlap. Side by side.
-          </div>
-          <div style={{ marginTop: 56, fontSize: 26, color: "#a7f3d0", fontWeight: 700 }}>
-            uncoverd.org/compare
-          </div>
-        </div>
-      ),
-      { width: 1200, height: 630 },
-    );
-  }
-
-  const headline = unique.join("  vs  ");
-  // Tile widths scale with count. 1200 total, 90px side padding, 18px gap.
-  const usable = 1200 - 180;
+  // Tile width math. 1200 - 180 (90px side padding) = 1020 usable.
+  // Gap of 18px between tiles.
+  const usable = 1020;
   const gap = 18;
-  const tileWidth = Math.floor((usable - gap * (unique.length - 1)) / unique.length);
+  const tileWidth = unique.length > 0
+    ? Math.floor((usable - gap * (colCount - 1)) / colCount)
+    : usable;
 
   return new ImageResponse(
     (
@@ -116,74 +45,111 @@ async function renderOg(req: NextRequest): Promise<Response> {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background:
-            "radial-gradient(120% 200% at 0% 0%, rgba(52,211,153,0.14) 0%, rgba(10,10,10,0) 50%), linear-gradient(135deg, #050505 0%, #0a0a0a 60%, #020202 100%)",
-          color: "#fafafa",
-          fontFamily: "system-ui, sans-serif",
+          background: BG,
+          color: TEXT,
+          fontFamily: "sans-serif",
           padding: "60px 90px 50px",
         }}
       >
         {/* Brand bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
-          <div style={{ width: 16, height: 16, borderRadius: 999, background: "#34d399", boxShadow: "0 0 14px rgba(52,211,153,0.6)" }} />
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, textTransform: "lowercase", color: "#fafafa" }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 30 }}>
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 999,
+              background: GREEN,
+              marginRight: 16,
+            }}
+          />
+          <div
+            style={{
+              fontSize: 30,
+              fontWeight: 700,
+              color: TEXT,
+            }}
+          >
             uncoverd
           </div>
-          <div style={{ marginLeft: 12, padding: "4px 13px", borderRadius: 999, background: "rgba(52,211,153,0.12)", color: "#34d399", fontSize: 15, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            compare
+          <div
+            style={{
+              marginLeft: 16,
+              padding: "4px 14px",
+              borderRadius: 999,
+              background: "rgba(52,211,153,0.15)",
+              color: GREEN,
+              fontSize: 16,
+              fontWeight: 700,
+            }}
+          >
+            COMPARE
           </div>
         </div>
 
         {/* Headline */}
-        <div style={{ fontSize: 78, fontWeight: 800, letterSpacing: -2, lineHeight: 1, marginBottom: 14, color: "#fafafa" }}>
+        <div
+          style={{
+            fontSize: unique.length > 0 ? 78 : 56,
+            fontWeight: 800,
+            lineHeight: 1,
+            marginBottom: 14,
+            color: TEXT,
+          }}
+        >
           {headline}
         </div>
-        <div style={{ fontSize: 22, color: "#a1a1aa", fontWeight: 500, marginBottom: 40 }}>
+        <div style={{ fontSize: 22, color: MUTED, marginBottom: 40 }}>
           Dividend stock &amp; ETF comparison — yield, payout, rating, holdings.
         </div>
 
-        {/* Ticker tiles row */}
-        <div style={{ display: "flex", gap, flex: 1, alignItems: "stretch" }}>
-          {unique.map((sym) => (
-            <div
-              key={sym}
-              style={{
-                width: tileWidth,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "28px 18px",
-                borderRadius: 18,
-                border: "1px solid rgba(52,211,153,0.22)",
-                background:
-                  "radial-gradient(120% 200% at 50% 0%, rgba(52,211,153,0.12) 0%, rgba(52,211,153,0) 60%), rgba(255,255,255,0.025)",
-              }}
-            >
+        {/* Ticker tiles */}
+        {unique.length > 0 && (
+          <div style={{ display: "flex", flex: 1 }}>
+            {unique.map((sym, i) => (
               <div
+                key={sym}
                 style={{
-                  fontSize: tileWidth >= 250 ? 64 : 48,
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  color: "#fafafa",
-                  lineHeight: 1,
-                  textAlign: "center",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: "100%",
+                  width: tileWidth,
+                  marginLeft: i === 0 ? 0 : gap,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "28px 18px",
+                  borderRadius: 18,
+                  border: `1px solid ${GREEN}`,
+                  background: "rgba(255,255,255,0.03)",
                 }}
               >
-                {sym}
+                <div
+                  style={{
+                    fontSize: tileWidth >= 250 ? 64 : 48,
+                    fontWeight: 800,
+                    color: TEXT,
+                    textAlign: "center",
+                  }}
+                >
+                  {sym}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28, color: "#a7f3d0", fontSize: 22, fontWeight: 700 }}>
-          <span>uncoverd.org/compare</span>
-          <span style={{ color: "#a1a1aa", fontSize: 16 }}>Dividend research · 65K+ stocks · 13.8K+ ETFs</span>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 28,
+            color: "#a7f3d0",
+            fontSize: 22,
+            fontWeight: 700,
+          }}
+        >
+          <div>uncoverd.org/compare</div>
+          <div style={{ color: MUTED, fontSize: 16 }}>
+            Dividend research · 65K+ stocks · 13.8K+ ETFs
+          </div>
         </div>
       </div>
     ),
