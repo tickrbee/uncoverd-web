@@ -141,6 +141,8 @@ type ColumnData = {
   yearHigh: number | null;
   yearLow: number | null;
   pctOff52wHigh: number | null;
+  profitMargin: number | null;
+  revGrowthQoQ: number | null;
 };
 
 const EMPTY_COLUMN = (symbol: string): ColumnData => ({
@@ -169,7 +171,69 @@ const EMPTY_COLUMN = (symbol: string): ColumnData => ({
   yearHigh: null,
   yearLow: null,
   pctOff52wHigh: null,
+  profitMargin: null,
+  revGrowthQoQ: null,
 });
+
+// Latest annual net profit margin (income / revenue) for a stock. Returns
+// percent (e.g. 28.4 for 28.4%). Falls back to null when the income
+// statement row is missing.
+async function fetchProfitMargin(symbol: string): Promise<number | null> {
+  const sb = getBackendClient();
+  const { data } = await sb
+    .from("income_statement_annual")
+    .select("net_income,revenue,date")
+    .eq("symbol", symbol)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const row = data as { net_income: number | null; revenue: number | null } | null;
+  if (!row) return null;
+  if (row.net_income == null || row.revenue == null || Number(row.revenue) <= 0) return null;
+  return (Number(row.net_income) / Number(row.revenue)) * 100;
+}
+
+// Compute 52w high/low + % off the high from historical_prices_stocks.
+// StockExtras supplies this for stocks but not ETFs — we compute inline
+// so the Performance section isn't empty on ETF-only comparisons.
+async function fetchYearStats(
+  symbol: string,
+  currentPrice: number | null,
+): Promise<{ high: number | null; low: number | null; pctOff: number | null }> {
+  const rows = await historicalPrices(symbol, 380);
+  if (rows.length < 30) return { high: null, low: null, pctOff: null };
+  let high = -Infinity;
+  let low = Infinity;
+  for (const r of rows) {
+    const v = Number(r.close);
+    if (!isFinite(v) || v <= 0) continue;
+    if (v > high) high = v;
+    if (v < low) low = v;
+  }
+  if (!isFinite(high) || !isFinite(low)) return { high: null, low: null, pctOff: null };
+  const px = currentPrice ?? Number(rows[0].close);
+  const pctOff = isFinite(px) && px > 0 ? ((px - high) / high) * 100 : null;
+  return { high, low, pctOff };
+}
+
+// Latest quarter-over-quarter revenue growth (most-recent quarter vs. the
+// quarter before it). Useful for spotting accelerating vs decelerating
+// dividend payers.
+async function fetchRevGrowthQoQ(symbol: string): Promise<number | null> {
+  const sb = getBackendClient();
+  const { data } = await sb
+    .from("income_statement_quarterly")
+    .select("revenue,date")
+    .eq("symbol", symbol)
+    .order("date", { ascending: false })
+    .limit(2);
+  const rows = (data as { revenue: number | null }[] | null) ?? [];
+  if (rows.length < 2) return null;
+  const latest = rows[0].revenue;
+  const prior = rows[1].revenue;
+  if (latest == null || prior == null || Number(prior) <= 0) return null;
+  return ((Number(latest) - Number(prior)) / Number(prior)) * 100;
+}
 
 // Compute TTM yield from the dividends table. Used for ETFs because their
 // tickers.last_div is NULL — same logic as enrichEtfYieldsFromDividends in
@@ -229,9 +293,14 @@ async function loadColumn(symbol: string): Promise<ColumnData> {
   const isEtf = base.is_etf === true || base.is_fund === true;
 
   if (isEtf) {
-    const [etfDetail, holdings] = await Promise.all([
+    // Pull detail + holdings + returns + year stats in parallel. Earlier
+    // version skipped returns for ETFs, which left the Performance section
+    // empty whenever all columns were ETFs.
+    const [etfDetail, holdings, returns, yearStats] = await Promise.all([
       getEtfDetail(symbol),
       getEtfHoldings(symbol, 25),
+      computePriceReturns(symbol).catch(() => ({ return1y: null, return3y: null })),
+      fetchYearStats(symbol, base.price ?? null).catch(() => ({ high: null, low: null, pctOff: null })),
     ]);
     const detail = etfDetail ?? base;
     // ETF yield: tickers.last_div is null for SCHD/VYM/VTI/JEPI etc, so
@@ -255,15 +324,22 @@ async function loadColumn(symbol: string): Promise<ColumnData> {
         name: h.name,
         weight: h.weight_percentage,
       })),
+      return1y: returns.return1y,
+      return3y: returns.return3y,
+      yearHigh: yearStats.high,
+      yearLow: yearStats.low,
+      pctOff52wHigh: yearStats.pctOff,
     };
   }
 
-  // Stock path: pull extras (streak, CAGR, payout, etc.), rating, and
-  // price returns in parallel.
-  const [rating, extrasMap, returns] = await Promise.all([
+  // Stock path: pull extras (streak, CAGR, payout) + rating + price returns
+  // + profit margin + quarterly revenue growth in parallel.
+  const [rating, extrasMap, returns, profitMargin, revGrowthQoQ] = await Promise.all([
     getStockRating(symbol).catch(() => null),
     getStockExtras([symbol]).catch(() => new Map()),
     computePriceReturns(symbol).catch(() => ({ return1y: null, return3y: null })),
+    fetchProfitMargin(symbol).catch(() => null),
+    fetchRevGrowthQoQ(symbol).catch(() => null),
   ]);
   const ex = extrasMap.get(symbol);
 
@@ -291,6 +367,8 @@ async function loadColumn(symbol: string): Promise<ColumnData> {
     yearHigh: ex?.yearHigh ?? null,
     yearLow: ex?.yearLow ?? null,
     pctOff52wHigh: ex?.pctOff52wHigh ?? null,
+    profitMargin,
+    revGrowthQoQ,
   };
 }
 
@@ -339,16 +417,30 @@ function findWinner(
   cols: ColumnData[],
   picker: (c: ColumnData) => number | null,
   direction: WinnerDirection,
+  // When true, a non-null value beats a null one (used for yield/streak —
+  // a stock that pays a dividend "wins" over one that doesn't, even when
+  // we have nothing to compare on the null side). Off by default because
+  // for ratios like P/E "data missing" doesn't mean "best".
+  nullLoses = false,
 ): string | null {
   const candidates: { symbol: string; value: number }[] = [];
+  const nullSymbols: string[] = [];
   for (const c of cols) {
     const v = picker(c);
-    if (v == null || !isFinite(v)) continue;
+    if (v == null || !isFinite(v)) {
+      nullSymbols.push(c.symbol);
+      continue;
+    }
     candidates.push({ symbol: c.symbol, value: v });
   }
-  if (candidates.length < 2) return null;
+  if (candidates.length === 0) return null;
+  // Sole-data-point case: if only one column has a value and at least one
+  // other has null AND nullLoses is set, that lone value wins.
+  if (candidates.length === 1) {
+    if (nullLoses && nullSymbols.length > 0) return candidates[0].symbol;
+    return null;
+  }
   candidates.sort((a, b) => (direction === "high" ? b.value - a.value : a.value - b.value));
-  // If top two are within 0.5% of each other, it's a tie — don't highlight.
   const top = candidates[0];
   const second = candidates[1];
   const diff = Math.abs(top.value - second.value);
@@ -413,11 +505,13 @@ export default async function ComparePage({
   const headline = symbols.join(" vs ");
   const qs = buildQueryString(symbols);
 
-  // Pre-compute winners per metric.
+  // Pre-compute winners per metric. For yield + streak + CAGR, a column with
+  // data beats one with null ("pays a dividend" wins over "doesn't"). For
+  // ratio-style metrics we don't apply that — missing data ≠ "best".
   const winners = {
-    yield: findWinner(columns, (c) => c.yieldPct, "high"),
-    streak: findWinner(columns, (c) => c.streakYears, "high"),
-    cagr5y: findWinner(columns, (c) => c.divCagr5y, "high"),
+    yield: findWinner(columns, (c) => c.yieldPct, "high", true),
+    streak: findWinner(columns, (c) => c.streakYears, "high", true),
+    cagr5y: findWinner(columns, (c) => c.divCagr5y, "high", true),
     payout: findWinner(columns, (c) => c.payoutRatio, "low"),
     return1y: findWinner(columns, (c) => c.return1y, "high"),
     return3y: findWinner(columns, (c) => c.return3y, "high"),
@@ -427,17 +521,23 @@ export default async function ComparePage({
     netDebt: findWinner(columns, (c) => c.netDebtToEbitda, "low"),
     aum: findWinner(columns, (c) => c.aum, "high"),
     expense: findWinner(columns, (c) => c.expenseRatio, "low"),
+    profitMargin: findWinner(columns, (c) => c.profitMargin, "high"),
+    revGrowthQoQ: findWinner(columns, (c) => c.revGrowthQoQ, "high"),
   };
 
   const hasStocks = columns.some((c) => c.kind === "stock");
   const hasEtfs = etfCols.length > 0;
   const showSimilarity = etfCols.length >= 2;
 
-  // Pairwise similarities (ETFs only).
+  // Pairwise similarities (ETFs only). Skip pairs where either side has no
+  // holdings data — computing 0% similarity in that case is misleading
+  // ("Mostly distinct") when the real cause is missing data, not actual
+  // disjoint holdings.
   const similarities: { a: string; b: string; score: number }[] = [];
   if (showSimilarity) {
     for (let i = 0; i < etfCols.length; i++) {
       for (let j = i + 1; j < etfCols.length; j++) {
+        if (etfCols[i].topHoldings.length === 0 || etfCols[j].topHoldings.length === 0) continue;
         similarities.push({
           a: etfCols[i].symbol,
           b: etfCols[j].symbol,
@@ -592,6 +692,23 @@ export default async function ComparePage({
               valueFor={(c) => c.netDebtToEbitda}
               format={(v) => v.toFixed(2)}
               winnerHint="Lower = stronger balance sheet"
+            />
+            <MetricRow
+              label="Profit margin"
+              cols={columns}
+              winnerSymbol={winners.profitMargin}
+              valueFor={(c) => c.profitMargin}
+              format={(v) => formatPercent(v, 1)}
+              winnerHint="Net income / revenue"
+            />
+            <MetricRow
+              label="Revenue growth QoQ"
+              cols={columns}
+              winnerSymbol={winners.revGrowthQoQ}
+              valueFor={(c) => c.revGrowthQoQ}
+              format={(v) => formatPercent(v, 1)}
+              tone={(v) => (v == null ? undefined : v >= 0 ? "positive" : "negative")}
+              winnerHint="Latest quarter vs prior"
             />
             <MetricRow
               label="Market cap"

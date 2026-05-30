@@ -332,6 +332,10 @@ export function SiteHeader() {
             Compare
           </Link>
 
+          <Link href="/alternatives" className="dv-nav__item dv-nav__item--solo">
+            Alternatives
+          </Link>
+
           <Link href="/news" className="dv-nav__item dv-nav__item--solo">
             News
           </Link>
@@ -463,6 +467,7 @@ export function SiteHeader() {
                 <Link href="/screener">Screener</Link>
                 <Link href="/screener?type=etfs">ETF Screener</Link>
                 <Link href="/compare">Compare</Link>
+                <Link href="/alternatives">Alternatives</Link>
                 <Link href="/methodology">Methodology</Link>
                 <Link href="/news">News</Link>
                 <Link href="/about">About</Link>

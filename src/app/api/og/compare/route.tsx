@@ -11,7 +11,10 @@ import { getBackendClient } from "@/lib/supabase/admin";
 // surfaces image-card tweets more, and a numbered card has higher CTR
 // than a generic logo.
 
-export const runtime = "edge";
+// next/og + Supabase server client doesn't run cleanly on edge — server-only
+// modules + node-style env access. Node runtime is fine and 800ms cold-start
+// is acceptable for a once-per-share image.
+export const runtime = "nodejs";
 
 const SLOTS = ["a", "b", "c", "d"] as const;
 

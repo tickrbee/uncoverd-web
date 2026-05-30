@@ -22,9 +22,13 @@ const SLOTS = ["a", "b", "c", "d"] as const;
 export function CompareSearch({
   slot,
   currentSymbols,
+  mode = "compare",
 }: {
   slot: (typeof SLOTS)[number];
   currentSymbols: string[];
+  // "compare" -> push to /compare?a=X&b=Y (default)
+  // "alternative" -> push to /alternatives/X (used on the alternatives index)
+  mode?: "compare" | "alternative";
 }) {
   const router = useRouter();
   const [value, setValue] = useState("");
@@ -58,8 +62,6 @@ export function CompareSearch({
   }, [value, currentSymbols]);
 
   function goWith(symbol: string): void {
-    const next = [...currentSymbols, symbol].slice(0, 4);
-    const qs = next.map((s, i) => `${SLOTS[i]}=${encodeURIComponent(s)}`).join("&");
     // Clear the input + suggestions immediately so the dropdown closes
     // visually even before the navigation lands. Otherwise the prior query
     // string stays in the box and the suggestion list hangs around for the
@@ -67,6 +69,12 @@ export function CompareSearch({
     setValue("");
     setSuggestions([]);
     setActiveIdx(-1);
+    if (mode === "alternative") {
+      router.push(`/alternatives/${encodeURIComponent(symbol)}`);
+      return;
+    }
+    const next = [...currentSymbols, symbol].slice(0, 4);
+    const qs = next.map((s, i) => `${SLOTS[i]}=${encodeURIComponent(s)}`).join("&");
     router.push(`/compare?${qs}`);
   }
 

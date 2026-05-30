@@ -27,15 +27,7 @@ const STATIC_URLS: MetadataRoute.Sitemap = [
   { url: `${BASE}/etfs/top-held`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/lists/potential-payers`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/compare`, changeFrequency: "monthly", priority: 0.85 },
-  // High-value comparison URLs. Each "X vs Y" page targets a real long-tail
-  // search ranked by Google's "compare ETFs" intent classifier.
-  { url: `${BASE}/compare?a=SCHD&b=VYM`, changeFrequency: "weekly", priority: 0.8 },
-  { url: `${BASE}/compare?a=SCHD&b=DGRO`, changeFrequency: "weekly", priority: 0.8 },
-  { url: `${BASE}/compare?a=VYM&b=DGRO`, changeFrequency: "weekly", priority: 0.75 },
-  { url: `${BASE}/compare?a=JEPI&b=JEPQ`, changeFrequency: "weekly", priority: 0.8 },
-  { url: `${BASE}/compare?a=SCHD&b=VYM&c=DGRO`, changeFrequency: "weekly", priority: 0.75 },
-  { url: `${BASE}/compare?a=VIG&b=NOBL`, changeFrequency: "weekly", priority: 0.7 },
-  { url: `${BASE}/compare?a=HDV&b=DGRO`, changeFrequency: "weekly", priority: 0.7 },
+  { url: `${BASE}/alternatives`, changeFrequency: "monthly", priority: 0.85 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear()}`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear() + 1}`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/glossary`, changeFrequency: "monthly", priority: 0.7 },
@@ -99,6 +91,68 @@ const INDUSTRIES = [
 
 const GROWERS = ["aristocrats", "kings", "champions", "contenders", "challengers", "achievers"];
 
+// Seed tickers for /alternatives/{sym}. Picked for high search volume of
+// "alternatives to {sym}". Mixed stocks + ETFs.
+const ALTERNATIVES_SEED_SYMBOLS = [
+  // ETFs
+  "SCHD", "VYM", "DGRO", "VIG", "HDV", "DIVO", "JEPI", "JEPQ",
+  "SPYD", "NOBL", "SDY", "DVY", "DGRW", "VOO", "VTI",
+  // Stocks
+  "JNJ", "KO", "PG", "PEP", "MMM", "JPM", "XOM", "CVX",
+  "T", "VZ", "MO", "PM", "O", "STAG", "MAIN", "ARCC",
+  "ABBV", "PFE", "MRK", "WMT", "HD", "MCD", "NEE", "DUK",
+];
+
+// All-pairs combinations of these ETFs are emitted as /compare?a=X&b=Y
+// sitemap entries below. Each pair is a real long-tail search ("SCHD vs
+// VYM", "JEPI vs JEPQ", etc.) — Google's "compare ETFs" intent classifier
+// surfaces them when ranked. Keep this list curated to popular dividend
+// ETFs, not random tickers, so the indexed URLs are high-quality.
+const COMPARE_ETF_UNIVERSE = [
+  "SCHD", "VYM", "DGRO", "VIG", "HDV", "DIVO", "JEPI", "JEPQ",
+  "SPYD", "NOBL", "SDY", "DVY", "DGRW", "IDV", "DLN", "FDVV",
+  "DIV", "DON", "DIA", "VOO", "VTI", "PEY", "RDVY", "QYLD",
+];
+
+// Stock head-to-heads people search for. These are well-known dividend
+// pairs that get real long-tail traffic ("KO vs PEP dividend", etc.).
+const COMPARE_STOCK_PAIRS: [string, string][] = [
+  ["KO", "PEP"],
+  ["JNJ", "PFE"],
+  ["MMM", "EMR"],
+  ["XOM", "CVX"],
+  ["VZ", "T"],
+  ["MO", "PM"],
+  ["MCD", "SBUX"],
+  ["JPM", "BAC"],
+  ["O", "STAG"],
+  ["O", "WPC"],
+  ["MAIN", "ARCC"],
+  ["JNJ", "ABBV"],
+  ["JNJ", "MRK"],
+  ["WMT", "TGT"],
+  ["HD", "LOW"],
+  ["PG", "CL"],
+  ["KMB", "PG"],
+  ["DUK", "SO"],
+  ["NEE", "DUK"],
+];
+
+function etfComparePairUrls(now: Date): MetadataRoute.Sitemap {
+  const out: MetadataRoute.Sitemap = [];
+  for (let i = 0; i < COMPARE_ETF_UNIVERSE.length; i++) {
+    for (let j = i + 1; j < COMPARE_ETF_UNIVERSE.length; j++) {
+      out.push({
+        url: `${BASE}/compare?a=${COMPARE_ETF_UNIVERSE[i]}&b=${COMPARE_ETF_UNIVERSE[j]}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      });
+    }
+  }
+  return out;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const curatedUrls: MetadataRoute.Sitemap = [
@@ -127,6 +181,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.75,
     })),
+    // ETF compare pairs — all-pairs of the curated universe.
+    ...etfComparePairUrls(now),
+    // Stock compare head-to-heads.
+    ...COMPARE_STOCK_PAIRS.map(([a, b]) => ({
+      url: `${BASE}/compare?a=${a}&b=${b}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.75,
+    })),
+    // /alternatives/{symbol} for the popular tickers — "alternatives to SCHD",
+    // "alternatives to JNJ" etc. are real search queries with high intent.
+    ...ALTERNATIVES_SEED_SYMBOLS.map((sym) => ({
+      url: `${BASE}/alternatives/${sym}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
   ];
 
   // Pull top US dividend payers + ETFs to surface their detail pages for SEO.
@@ -141,7 +212,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .eq("is_actively_trading", true)
       .gt("mkt_cap", 100_000_000)
       .order("mkt_cap", { ascending: false, nullsFirst: false })
-      .limit(8000);
+      // Bumped from 8K to 45K — DB has 53K active tickers >$100M and we
+      // were leaving most of them unindexed. Stays under Google's 50K-per-
+      // sitemap-file hard limit with a buffer for curated URLs above.
+      .limit(45000);
     type R = { symbol: string; is_etf: boolean | null; is_fund: boolean | null; updated_at: string | null };
     tickerUrls = (stocks as R[] | null ?? []).map((r) => ({
       url:
