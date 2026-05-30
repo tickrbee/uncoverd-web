@@ -77,14 +77,36 @@ export async function generateMetadata({
   const joined = symbols.join(" vs ");
   const qs = buildQueryString(symbols);
   const description = `${joined}: side-by-side dividend comparison. Yield, payout ratio, dividend growth streak, rating, 1Y/3Y returns, expense ratio, and holdings overlap. Real-time data from ${APP_NAME}.`;
+
+  // Generate "X vs Y" pair variants for the keyword list. Google ranks the
+  // "compare X vs Y" intent strongly when the literal phrase appears in
+  // keywords + title + body. For 2-symbol comparisons, also generate
+  // "AAPL or MSFT" and "AAPL versus MSFT" since both are real search forms.
+  const pairKeywords: string[] = [];
+  for (let i = 0; i < symbols.length; i++) {
+    for (let j = i + 1; j < symbols.length; j++) {
+      pairKeywords.push(
+        `${symbols[i]} vs ${symbols[j]}`,
+        `${symbols[i]} versus ${symbols[j]}`,
+        `${symbols[i]} or ${symbols[j]}`,
+        `${symbols[i]} vs ${symbols[j]} dividend`,
+        `${symbols[i]} vs ${symbols[j]} comparison`,
+        `compare ${symbols[i]} ${symbols[j]}`,
+      );
+    }
+  }
+
   return {
     title: `${joined} — Dividend Stock & ETF Comparison`,
     description,
     keywords: [
+      ...pairKeywords,
       ...symbols.map((s) => `${s} dividend`),
       ...symbols.map((s) => `${s} yield`),
+      ...symbols.map((s) => `${s} stock`),
       `${joined} comparison`,
       `${joined} dividend`,
+      `${joined} which is better`,
       "compare dividend stocks",
       "compare dividend ETFs",
     ],
@@ -94,6 +116,7 @@ export async function generateMetadata({
       description,
       type: "website",
       url: `https://uncoverd.org/compare?${qs}`,
+      siteName: APP_NAME,
       images: [
         {
           url: `/api/og/compare?${qs}`,
@@ -108,6 +131,11 @@ export async function generateMetadata({
       title: `${joined} — Dividend Comparison`,
       description,
       images: [`/api/og/compare?${qs}`],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
     },
   };
 }
@@ -550,8 +578,44 @@ export default async function ComparePage({
 
   const colCount = columns.length;
 
+  // Structured data — BreadcrumbList for snippet rendering + ItemList that
+  // names every ticker in the comparison so Google indexes the page as a
+  // multi-ticker landing rather than a single-stock article.
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://uncoverd.org/" },
+      { "@type": "ListItem", position: 2, name: "Compare", item: "https://uncoverd.org/compare" },
+      { "@type": "ListItem", position: 3, name: headline, item: `https://uncoverd.org/compare?${qs}` },
+    ],
+  };
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `${headline} comparison`,
+    description: `Side-by-side comparison: ${headline}.`,
+    itemListElement: columns.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url:
+        c.kind === "etf"
+          ? `https://uncoverd.org/etfs/symbol/${c.symbol}`
+          : `https://uncoverd.org/stocks/${c.symbol}`,
+      name: c.name ? `${c.symbol} · ${c.name}` : c.symbol,
+    })),
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
       <SiteHeader />
       <main className="dv-page">
         <section className="dv-compare-hero">

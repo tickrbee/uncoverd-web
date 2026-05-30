@@ -1562,7 +1562,10 @@ a {
 
 .dv-search-suggestion {
   display: grid;
-  grid-template-columns: 70px 1fr auto;
+  /* minmax + auto lets the ticker column grow when symbols are long
+     (BRK-B.MX, NFLX.NE, 360750.KS) without pushing into the name. Each
+     column truncates with ellipsis so no column ever overflows. */
+  grid-template-columns: minmax(70px, auto) minmax(0, 1fr) minmax(0, auto);
   gap: 0.85rem;
   align-items: center;
   padding: 0.55rem 0.9rem;
@@ -1584,6 +1587,10 @@ a {
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
 }
 
 .dv-search-suggestion__name {
@@ -1591,12 +1598,17 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .dv-search-suggestion__meta {
   color: var(--text-muted);
   font-size: 0.8rem;
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
 }
 
 /* Inline ETF holder search on /etfs/top-held */

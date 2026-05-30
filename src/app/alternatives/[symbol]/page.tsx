@@ -38,24 +38,56 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const p = await params;
   const symbol = p.symbol.toUpperCase();
+  // Pull the company name so the title is "Alternatives to AAPL · Apple Inc."
+  // instead of bare ticker — front-loads the high-volume "alternatives to X"
+  // query AND adds the natural-language name that ranks for branded searches.
+  const base = await getStock(symbol).catch(() => null);
+  const namePart = base?.name ? ` · ${base.name}` : "";
+  const titlePrefix = `Alternatives to ${symbol}${namePart}`;
+  const description = base?.name
+    ? `Find similar dividend stocks and ETFs to ${base.name} (${symbol}). Compare yield, rating, valuation, balance sheet and 1-year return side-by-side. Data-driven peer analysis from ${APP_NAME}.`
+    : `Find similar dividend stocks and ETFs to ${symbol}. Compare yield, rating, valuation, balance sheet and 1-year return side-by-side. Data-driven peer analysis from ${APP_NAME}.`;
   return {
-    title: `Alternatives to ${symbol}: Similar Dividend Stocks & ETFs`,
-    description: `Find peers to ${symbol} ranked by higher yield, better rating, cheaper valuation, stronger balance sheet, and better recent returns. Side-by-side comparison from ${APP_NAME}.`,
+    title: titlePrefix,
+    description,
     keywords: [
       `alternatives to ${symbol}`,
       `${symbol} alternative`,
+      `${symbol} alternatives`,
       `stocks similar to ${symbol}`,
+      `similar to ${symbol}`,
       `${symbol} competitors`,
       `${symbol} comparison`,
       `${symbol} peers`,
-      `${symbol} similar dividend`,
+      `${symbol} vs`,
+      ...(base?.name ? [`${base.name} alternatives`, `${base.name} similar stocks`] : []),
     ],
     alternates: { canonical: `/alternatives/${symbol}` },
     openGraph: {
-      title: `Alternatives to ${symbol} | ${APP_NAME}`,
-      description: `Peers to ${symbol} ranked by yield, rating, valuation, balance sheet, and return. Data-driven, no editorializing.`,
+      title: `${titlePrefix} | ${APP_NAME}`,
+      description,
       type: "website",
       url: `https://uncoverd.org/alternatives/${symbol}`,
+      siteName: APP_NAME,
+      images: [
+        {
+          url: `/api/og/compare?a=${encodeURIComponent(symbol)}`,
+          width: 1200,
+          height: 630,
+          alt: `Alternatives to ${symbol}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: titlePrefix,
+      description,
+      images: [`/api/og/compare?a=${encodeURIComponent(symbol)}`],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
     },
   };
 }
@@ -73,8 +105,50 @@ export default async function AlternativesPage({ params }: { params: Promise<Par
   const targetName = base.name;
   const targetKind = isEtf ? "ETF" : "stock";
 
+  // Structured data — BreadcrumbList helps Google render a breadcrumb in the
+  // search result snippet. ItemList captures the alternative tickers so
+  // Google sees this as a curated peer list rather than a single article.
+  const altSymbols = [
+    ...(stockReport?.alternatives.map((a) => a.symbol) ?? []),
+    ...(etfReport?.alternatives.map((a) => a.symbol) ?? []),
+  ];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://uncoverd.org/" },
+      { "@type": "ListItem", position: 2, name: "Alternatives", item: "https://uncoverd.org/alternatives" },
+      { "@type": "ListItem", position: 3, name: `${symbol}${targetName ? ` (${targetName})` : ""}`, item: `https://uncoverd.org/alternatives/${symbol}` },
+    ],
+  };
+  const itemListJsonLd =
+    altSymbols.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: `Alternatives to ${symbol}${targetName ? ` · ${targetName}` : ""}`,
+          description: `Comparable dividend ${targetKind === "ETF" ? "ETFs" : "stocks"} ranked by yield, rating, valuation and return.`,
+          itemListElement: altSymbols.slice(0, 10).map((sym, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            url: targetKind === "ETF" ? `https://uncoverd.org/etfs/symbol/${sym}` : `https://uncoverd.org/stocks/${sym}`,
+            name: sym,
+          })),
+        }
+      : null;
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {itemListJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+      )}
       <SiteHeader />
       <main className="dv-page">
         <section className="dv-compare-hero">
