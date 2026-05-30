@@ -75,12 +75,17 @@ export type StockAlternativeReport = {
 export async function findStockAlternatives(symbol: string): Promise<StockAlternativeReport | null> {
   const sb = getBackendClient();
 
-  // 1) Target ticker
-  const { data: target } = await sb
+  // 1) Target ticker. Use limit(1) + array picking because some tickers
+  // have duplicate rows in the DB (e.g. AAPL listed on multiple exchanges).
+  // maybeSingle() silently returns null when >1 row matches, which broke
+  // the whole flow for those tickers — the function returned null and
+  // the page rendered as "No alternatives".
+  const { data: targets } = await sb
     .from("tickers")
     .select("symbol,name,sector,industry,mkt_cap,price,last_div,pe_ratio,beta,country,exchange_short,is_etf,is_fund")
     .eq("symbol", symbol)
-    .maybeSingle();
+    .order("mkt_cap", { ascending: false, nullsFirst: false })
+    .limit(1);
   type T = {
     symbol: string;
     name: string | null;
@@ -95,7 +100,7 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     is_etf: boolean | null;
     is_fund: boolean | null;
   };
-  const t = target as T | null;
+  const t = (targets as T[] | null)?.[0] ?? null;
   if (!t || t.is_etf || t.is_fund) return null;
   if (!t.sector) return null;
 
@@ -498,12 +503,14 @@ export type EtfAlternativeReport = {
 export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativeReport | null> {
   const sb = getBackendClient();
 
-  // 1) Target ETF + its holdings
-  const { data: target } = await sb
+  // 1) Target ETF + its holdings. Same duplicate-row defense as the stock
+  // path — limit(1) + array picking instead of maybeSingle().
+  const { data: targets } = await sb
     .from("tickers")
     .select("symbol,name,price,last_div,expense_ratio,aum,country,exchange_short,is_etf,is_fund")
     .eq("symbol", symbol)
-    .maybeSingle();
+    .order("aum", { ascending: false, nullsFirst: false })
+    .limit(1);
   type T = {
     symbol: string;
     name: string | null;
@@ -516,7 +523,7 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     is_etf: boolean | null;
     is_fund: boolean | null;
   };
-  const t = target as T | null;
+  const t = (targets as T[] | null)?.[0] ?? null;
   if (!t || (!t.is_etf && !t.is_fund)) return null;
 
   const { data: targetHoldings } = await sb
@@ -641,11 +648,11 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     }
   }
 
-  // Yield-similarity guard: every alt must be within ±50% of the target's
-  // yield UNLESS the axis is explicitly "higher yield" (then up to 2x is
-  // allowed). Without this, a 1% S&P broad ETF gets surfaced as an alt to
-  // SCHD (8% yield) on the "cheaper" axis — technically same holdings, but
-  // a completely different income profile.
+  // Yield-similarity guard: every alt must be within a yield band of the
+  // target. Wider band than the first attempt — [0.7, 1.5] was eliminating
+  // legitimate alts (VYM, DGRO showing as alts to SCHD). The current [0.4,
+  // 2.5] excludes truly different fund profiles (1% broad-market vs 8%
+  // dividend ETF) while keeping reasonable peers in the pool.
   function yieldInBand(y: number | null, target: number | null, mult: [number, number]): boolean {
     if (y == null) return false;
     if (target == null) return true;
@@ -690,7 +697,7 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
       (s) =>
         s.expense_ratio != null &&
         (t.expense_ratio == null || Number(s.expense_ratio) < Number(t.expense_ratio) * 0.85) &&
-        yieldInBand(s.yieldPct, targetYield, [0.7, 1.5]),
+        yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
     );
     eligible.sort((a, b) => Number(a.expense_ratio) - Number(b.expense_ratio));
     const w = eligible[0];
@@ -717,7 +724,7 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
       (s) =>
         s.aum != null &&
         (t.aum == null || Number(s.aum) > Number(t.aum) * 1.3) &&
-        yieldInBand(s.yieldPct, targetYield, [0.7, 1.5]),
+        yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
     );
     eligible.sort((a, b) => Number(b.aum) - Number(a.aum));
     const w = eligible[0];
@@ -766,6 +773,30 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
         axis: "next-best",
         claim: `${(w.similarity * 100).toFixed(0)}% holdings match, similar yield`,
         metricLabel: "Match",
+        metricValue: `${(w.similarity * 100).toFixed(0)}%`,
+        metricValueTarget: "100%",
+        similarity: w.similarity,
+        yieldPct: w.yieldPct,
+        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
+        aum: w.aum != null ? Number(w.aum) : null,
+      });
+    }
+  }
+
+  // Fallback "Closest peer": if nothing matched the strict axis criteria,
+  // surface the highest-similarity peer regardless of yield/expense
+  // differences. Stops the page from rendering as "No alternatives" for
+  // ETFs that already lead their group on every axis we track.
+  if (alternatives.length === 0) {
+    const sortedByOverlap = [...scored].sort((a, b) => b.similarity - a.similarity);
+    const w = sortedByOverlap[0];
+    if (w && w.similarity > 0.1) {
+      alternatives.push({
+        symbol: w.symbol,
+        name: w.name,
+        axis: "next-best",
+        claim: `Highest overlap with ${symbol} — ${(w.similarity * 100).toFixed(0)}% holdings match`,
+        metricLabel: "Overlap",
         metricValue: `${(w.similarity * 100).toFixed(0)}%`,
         metricValueTarget: "100%",
         similarity: w.similarity,

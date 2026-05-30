@@ -70,7 +70,18 @@ export function ShareButton({
     try {
       const res = await fetch(ogImageUrl);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Defensive: if the route errored and returned HTML, we don't want
+      // to save the error page as a .png file (the user gets "this file
+      // is corrupt" in Photos). Reject anything that's not an image.
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.startsWith("image/")) {
+        throw new Error(`Unexpected content-type: ${ct}`);
+      }
       const blob = await res.blob();
+      if (blob.size < 100) {
+        // Tiny file is suspicious — probably an error-page fallback.
+        throw new Error("Response too small to be a valid image");
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

@@ -14,12 +14,44 @@ import type { NextRequest } from "next/server";
 // that renders 100% of the time is worth more than a richer card that
 // silently fails 30% of the time.
 
-export const runtime = "edge"; // pure render, no Node-only modules
+// Node runtime is more reliable than edge in our deploy. Edge was
+// producing broken-PNG responses on some deploys (the share-button
+// fetch was saving the HTML error page as a .png file). Node always
+// produces valid bytes even when something downstream changes.
+export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const SLOTS = ["a", "b", "c", "d"] as const;
 
 export async function GET(req: NextRequest): Promise<Response> {
+  try {
+    return await renderOg(req);
+  } catch (err: unknown) {
+    // If JSX rendering throws for any reason, return a minimal valid image
+    // (1x1 transparent PNG) instead of an HTML error. That way the share
+    // button never saves a corrupt file — the user sees a blank image
+    // instead of a "this file is corrupt" message in Photos.
+    console.error("og/compare render failed:", err);
+    return minimalFallback();
+  }
+}
+
+// 1x1 transparent PNG — valid image bytes, opens cleanly in any viewer.
+function minimalFallback(): Response {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  return new Response(png, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+async function renderOg(req: NextRequest): Promise<Response> {
   const url = new URL(req.url);
   const symbols: string[] = [];
   for (const slot of SLOTS) {
