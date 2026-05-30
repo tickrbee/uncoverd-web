@@ -184,10 +184,13 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
   const peerSymbols = peers.map((p) => p.symbol);
   const allSymbolsIncludingTarget = [...peerSymbols, symbol];
 
-  // 3) Enrich peers + target in parallel with ratings, fundamentals, returns
+  // 3) Enrich peers + target in parallel with ratings, fundamentals, returns.
+  // Note: sb is already scoped to the 'backend' schema via getBackendClient.
+  // Chaining .schema("backend") on top was producing broken queries (silent
+  // empty results), which left the peer set unrated and every "better
+  // rating" axis check eliminating everyone.
   const [ratingsData, ratiosData, keyMetricsData, returns1yMap] = await Promise.all([
     sb
-      .schema("backend")
       .from("stock_ratings_daily")
       .select("symbol,composite_total,composite_grade,computed_date")
       .in("symbol", allSymbolsIncludingTarget)
@@ -398,6 +401,39 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
         metricLabel: "1Y price",
         metricValue: fmt(w.return1y, "pct"),
         metricValueTarget: fmt(targetEnriched.return1y, "pct"),
+        yieldPct: w.yieldPct,
+        marketCap: w.marketCap,
+        composite: w.composite,
+        grade: w.grade,
+        return1y: w.return1y,
+        peRatio: w.peRatio,
+      });
+    }
+  }
+
+  // Fallback "Closest peer": if NO axis surfaced (target is dominant on
+  // everything OR data is thin), show the top-rated same-industry peer
+  // as a generic alternative. Keeps the page useful instead of the
+  // "No clear axis-winners" empty state.
+  if (alts.length === 0) {
+    const closestEligible = enrichedPeers
+      .filter((p) => p.industry === t.industry || p.composite != null)
+      .sort((a, b) => {
+        const aSameInd = a.industry === t.industry ? 1 : 0;
+        const bSameInd = b.industry === t.industry ? 1 : 0;
+        if (aSameInd !== bSameInd) return bSameInd - aSameInd;
+        return (b.composite ?? -1) - (a.composite ?? -1);
+      });
+    const w = closestEligible[0] ?? enrichedPeers[0];
+    if (w) {
+      alts.push({
+        symbol: w.symbol,
+        name: w.name,
+        axis: "yield",
+        claim: `Closest peer in ${t.industry ?? t.sector ?? "this group"}`,
+        metricLabel: "Same group",
+        metricValue: w.grade ?? "—",
+        metricValueTarget: targetEnriched.grade ?? "—",
         yieldPct: w.yieldPct,
         marketCap: w.marketCap,
         composite: w.composite,
