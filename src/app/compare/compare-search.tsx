@@ -60,6 +60,13 @@ export function CompareSearch({
   function goWith(symbol: string): void {
     const next = [...currentSymbols, symbol].slice(0, 4);
     const qs = next.map((s, i) => `${SLOTS[i]}=${encodeURIComponent(s)}`).join("&");
+    // Clear the input + suggestions immediately so the dropdown closes
+    // visually even before the navigation lands. Otherwise the prior query
+    // string stays in the box and the suggestion list hangs around for the
+    // beat that router.push() takes to commit.
+    setValue("");
+    setSuggestions([]);
+    setActiveIdx(-1);
     router.push(`/compare?${qs}`);
   }
 
