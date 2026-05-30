@@ -102,7 +102,8 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
   };
   const t = (targets as T[] | null)?.[0] ?? null;
   if (!t || t.is_etf || t.is_fund) return null;
-  if (!t.sector) return null;
+  // Don't gate on sector — some major stocks (NFLX) have null sector in
+  // the DB. We fall back to industry- or country-based peer lookup below.
 
   const targetYield =
     t.last_div != null && t.price != null && Number(t.price) > 0
@@ -110,55 +111,12 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
       : null;
   const targetMktCap = t.mkt_cap != null ? Number(t.mkt_cap) : null;
 
-  // 2) Peer pool: same sector. Window adapts to target size — mega-caps
-  // (AAPL, MSFT) need a much wider band or the pool collapses to 2-3
-  // names. Smaller targets get a tighter band to avoid pulling in
-  // wildly different-sized comps.
-  let minCap: number;
-  let maxCap: number | null;
-  if (targetMktCap == null) {
-    minCap = 1_000_000_000;
-    maxCap = null;
-  } else if (targetMktCap >= 500_000_000_000) {
-    // Mega-cap (>$500B): allow anything >$50B. There aren't many >$500B
-    // peers, so we relax to all reasonable large caps in the sector.
-    minCap = 50_000_000_000;
-    maxCap = null;
-  } else if (targetMktCap >= 50_000_000_000) {
-    // Large-cap ($50B-$500B): 0.2x-5x window.
-    minCap = targetMktCap * 0.2;
-    maxCap = targetMktCap * 5;
-  } else if (targetMktCap >= 10_000_000_000) {
-    // Mid-large ($10B-$50B): 0.3x-3x window.
-    minCap = targetMktCap * 0.3;
-    maxCap = targetMktCap * 3;
-  } else {
-    // Smaller: keep the tight 0.3x-3x band but with a $500M floor.
-    minCap = Math.max(500_000_000, targetMktCap * 0.3);
-    maxCap = targetMktCap * 3;
-  }
-
-  let q = sb
-    .from("tickers")
-    .select("symbol,name,sector,industry,mkt_cap,price,last_div,country,exchange_short,isin")
-    .eq("sector", t.sector)
-    .eq("is_actively_trading", true)
-    .eq("is_etf", false)
-    .eq("is_fund", false)
-    .in("country", TARGET_COUNTRIES)
-    .gte("mkt_cap", minCap)
-    .neq("symbol", symbol);
-  if (maxCap != null) q = q.lte("mkt_cap", maxCap);
-  // Exclude same-company cross-listings: AAPL has Mexico listing AAPL.MX
-  // with identical ISIN + name. Without this filter, the page recommends
-  // a stock as an alternative to itself.
-  if (t.isin) q = q.neq("isin", t.isin);
-  if (t.name) q = q.neq("name", t.name);
-  // Same-industry peers rank higher, but if industry is set we still allow
-  // sector-wide candidates; the picker prioritizes industry matches.
-  const { data: peerRows } = await q
-    .order("mkt_cap", { ascending: false, nullsFirst: false })
-    .limit(120);
+  // 2) Load TARGET enrichment data FIRST, always. Previous version ran
+  // this only after the peer query and bailed out with hardcoded null
+  // values whenever the peer pool was empty — that's why PUM.DE, TE,
+  // and other foreign mid-caps were showing dashes for rating/P/E/etc
+  // on the reference card even though the data existed.
+  const targetEnrichment = await loadStockTargetEnrichment(sb, symbol);
 
   type P = {
     symbol: string;
@@ -172,34 +130,14 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     exchange_short: string | null;
     isin: string | null;
   };
-  // Dedupe by ISIN within the peer set itself — many companies have
-  // multiple ticker rows (e.g. NVDA's German XETRA listing). Keep the
-  // largest mkt_cap variant per ISIN.
-  const rawPeers = (peerRows as P[] | null) ?? [];
-  const byIsin = new Map<string, P>();
-  const noIsin: P[] = [];
-  for (const p of rawPeers) {
-    if (p.isin) {
-      const existing = byIsin.get(p.isin);
-      if (!existing || (p.mkt_cap ?? 0) > (existing.mkt_cap ?? 0)) {
-        byIsin.set(p.isin, p);
-      }
-    } else {
-      noIsin.push(p);
-    }
-  }
-  // Also dedupe no-ISIN peers by name (handles GOOG/GOOGL where ISIN is
-  // missing but name is identical).
-  const seenNames = new Set<string>();
-  for (const p of Array.from(byIsin.values())) {
-    if (p.name) seenNames.add(p.name);
-  }
-  const peers: P[] = Array.from(byIsin.values());
-  for (const p of noIsin.sort((a, b) => (b.mkt_cap ?? 0) - (a.mkt_cap ?? 0))) {
-    if (p.name && seenNames.has(p.name)) continue;
-    if (p.name) seenNames.add(p.name);
-    peers.push(p);
-  }
+
+  // 3) Peer pool with cascading fallback tiers. Smaller / less-typical
+  // tickers (foreign mid-caps, sector=null) often produce empty results
+  // on the strict initial query — we fall through to broader filters
+  // rather than returning empty.
+  const peers = await loadStockPeers(sb, t, targetMktCap);
+
+  // If still empty, return target-only report.
   if (peers.length === 0) {
     return {
       target: {
@@ -209,44 +147,44 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
         industry: t.industry,
         mktCap: targetMktCap,
         yieldPct: targetYield,
-        composite: null,
-        grade: null,
-        peRatio: null,
-        netDebtToEbitda: null,
-        return1y: null,
+        composite: targetEnrichment.composite,
+        grade: targetEnrichment.grade,
+        peRatio: targetEnrichment.peRatio,
+        netDebtToEbitda: targetEnrichment.netDebt,
+        return1y: targetEnrichment.return1y,
       },
       alternatives: [],
     };
   }
+  // Re-bind to satisfy downstream code that expects the local `peers` to
+  // be the typed array (the helper above returns P[] but TS doesn't see
+  // through the helper return without an explicit annotation).
+  void (peers as P[]);
 
   const peerSymbols = peers.map((p) => p.symbol);
-  const allSymbolsIncludingTarget = [...peerSymbols, symbol];
 
-  // 3) Enrich peers + target in parallel with ratings, fundamentals, returns.
-  // Note: sb is already scoped to the 'backend' schema via getBackendClient.
-  // Chaining .schema("backend") on top was producing broken queries (silent
-  // empty results), which left the peer set unrated and every "better
-  // rating" axis check eliminating everyone.
+  // Enrich PEERS with ratings, fundamentals, returns. Target enrichment
+  // is already loaded above.
   const [ratingsData, ratiosData, keyMetricsData, returns1yMap] = await Promise.all([
     sb
       .from("stock_ratings_daily")
       .select("symbol,composite_total,composite_grade,computed_date")
-      .in("symbol", allSymbolsIncludingTarget)
+      .in("symbol", peerSymbols)
       .order("computed_date", { ascending: false })
-      .limit(allSymbolsIncludingTarget.length * 3),
+      .limit(peerSymbols.length * 3),
     sb
       .from("ratios_annual")
       .select("symbol,date,price_to_earnings_ratio")
-      .in("symbol", allSymbolsIncludingTarget)
+      .in("symbol", peerSymbols)
       .order("date", { ascending: false })
-      .limit(allSymbolsIncludingTarget.length * 3),
+      .limit(peerSymbols.length * 3),
     sb
       .from("key_metrics_annual")
       .select("symbol,date,net_debt_to_ebitda")
-      .in("symbol", allSymbolsIncludingTarget)
+      .in("symbol", peerSymbols)
       .order("date", { ascending: false })
-      .limit(allSymbolsIncludingTarget.length * 3),
-    compute1yReturnsBatch(allSymbolsIncludingTarget),
+      .limit(peerSymbols.length * 3),
+    compute1yReturnsBatch(peerSymbols),
   ]);
 
   const ratingsBy = new Map<string, { composite: number | null; grade: string | null }>();
@@ -298,14 +236,15 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     };
   };
   const enrichedPeers = peers.map(enrich);
-  const targetRating = ratingsBy.get(symbol) ?? { composite: null, grade: null };
+  // Use the pre-loaded targetEnrichment (loaded BEFORE peers, so always
+  // populated when the data exists in the DB).
   const targetEnriched = {
     yieldPct: targetYield,
-    composite: targetRating.composite,
-    grade: targetRating.grade,
-    peRatio: peBy.get(symbol) ?? null,
-    netDebt: netDebtBy.get(symbol) ?? null,
-    return1y: returns1yMap.get(symbol) ?? null,
+    composite: targetEnrichment.composite,
+    grade: targetEnrichment.grade,
+    peRatio: targetEnrichment.peRatio,
+    netDebt: targetEnrichment.netDebt,
+    return1y: targetEnrichment.return1y,
   };
 
   // 4) Pick the top-1 peer per axis. Same-industry candidates win ties.
@@ -865,6 +804,190 @@ export { STOCK_AXES };
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// Load a stock target's enrichment data (rating, P/E, net debt, 1Y return)
+// in one shot. Always runs — regardless of whether we find peers later.
+// Previous version bailed out of the function before this ran whenever
+// peers came back empty, leaving the reference card with hardcoded nulls
+// even though the data existed.
+async function loadStockTargetEnrichment(
+  sb: ReturnType<typeof getBackendClient>,
+  symbol: string,
+): Promise<{
+  composite: number | null;
+  grade: string | null;
+  peRatio: number | null;
+  netDebt: number | null;
+  return1y: number | null;
+}> {
+  const [rating, ratio, key, returns] = await Promise.all([
+    sb
+      .from("stock_ratings_daily")
+      .select("composite_total,composite_grade,computed_date")
+      .eq("symbol", symbol)
+      .order("computed_date", { ascending: false })
+      .limit(1),
+    sb
+      .from("ratios_annual")
+      .select("price_to_earnings_ratio,date")
+      .eq("symbol", symbol)
+      .order("date", { ascending: false })
+      .limit(1),
+    sb
+      .from("key_metrics_annual")
+      .select("net_debt_to_ebitda,date")
+      .eq("symbol", symbol)
+      .order("date", { ascending: false })
+      .limit(1),
+    compute1yReturnsBatch([symbol]),
+  ]);
+  const rRow = (rating.data as { composite_total: number | null; composite_grade: string | null }[] | null)?.[0];
+  const pRow = (ratio.data as { price_to_earnings_ratio: number | null }[] | null)?.[0];
+  const kRow = (key.data as { net_debt_to_ebitda: number | null }[] | null)?.[0];
+  return {
+    composite: rRow?.composite_total ?? null,
+    grade: rRow?.composite_grade ?? null,
+    peRatio: pRow?.price_to_earnings_ratio != null ? Number(pRow.price_to_earnings_ratio) : null,
+    netDebt: kRow?.net_debt_to_ebitda != null ? Number(kRow.net_debt_to_ebitda) : null,
+    return1y: returns.get(symbol) ?? null,
+  };
+}
+
+// Load peers with cascading fallback. Tier 1 = strict (same sector +
+// US/EU primary listings + mkt_cap window). If that returns 0, try
+// broader filters: same industry / same country / sector only with no
+// cap window. Avoids the "no alternatives" empty state for foreign mid-
+// caps and stocks with sparse sector data.
+async function loadStockPeers(
+  sb: ReturnType<typeof getBackendClient>,
+  t: {
+    symbol: string;
+    name: string | null;
+    sector: string | null;
+    industry: string | null;
+    mkt_cap: number | null;
+    country: string | null;
+    exchange_short: string | null;
+    is_etf: boolean | null;
+    is_fund: boolean | null;
+    isin: string | null;
+  },
+  targetMktCap: number | null,
+): Promise<
+  Array<{
+    symbol: string;
+    name: string | null;
+    sector: string | null;
+    industry: string | null;
+    mkt_cap: number | null;
+    price: number | null;
+    last_div: number | null;
+    country: string | null;
+    exchange_short: string | null;
+    isin: string | null;
+  }>
+> {
+  type P = {
+    symbol: string;
+    name: string | null;
+    sector: string | null;
+    industry: string | null;
+    mkt_cap: number | null;
+    price: number | null;
+    last_div: number | null;
+    country: string | null;
+    exchange_short: string | null;
+    isin: string | null;
+  };
+
+  let minCap: number;
+  let maxCap: number | null;
+  if (targetMktCap == null) {
+    minCap = 500_000_000;
+    maxCap = null;
+  } else if (targetMktCap >= 500_000_000_000) {
+    minCap = 50_000_000_000;
+    maxCap = null;
+  } else if (targetMktCap >= 50_000_000_000) {
+    minCap = targetMktCap * 0.2;
+    maxCap = targetMktCap * 5;
+  } else if (targetMktCap >= 10_000_000_000) {
+    minCap = targetMktCap * 0.3;
+    maxCap = targetMktCap * 3;
+  } else {
+    minCap = Math.max(300_000_000, targetMktCap * 0.3);
+    maxCap = targetMktCap * 3;
+  }
+
+  // Build a base SELECT query with shared filters that apply to every tier.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  function baseTickerQuery(): any {
+    let qb: any = sb
+      .from("tickers")
+      .select("symbol,name,sector,industry,mkt_cap,price,last_div,country,exchange_short,isin")
+      .eq("is_actively_trading", true)
+      .eq("is_etf", false)
+      .eq("is_fund", false)
+      .neq("symbol", t.symbol);
+    if (t.isin) qb = qb.neq("isin", t.isin);
+    if (t.name) qb = qb.neq("name", t.name);
+    return qb;
+  }
+
+  // Tier 1: same sector + cap range + US/EU primary listings.
+  const tier1Rows: P[] = await (async (): Promise<P[]> => {
+    if (!t.sector) return [];
+    let q: any = baseTickerQuery().eq("sector", t.sector).in("country", TARGET_COUNTRIES).gte("mkt_cap", minCap);
+    if (maxCap != null) q = q.lte("mkt_cap", maxCap);
+    const { data } = await q.order("mkt_cap", { ascending: false, nullsFirst: false }).limit(120);
+    return (data as P[] | null) ?? [];
+  })();
+
+  // Tier 2: same industry, no cap range (handles thin sectors).
+  const tier2Rows: P[] = tier1Rows.length >= 3 ? [] : await (async (): Promise<P[]> => {
+    if (!t.industry) return [];
+    const q: any = baseTickerQuery()
+      .eq("industry", t.industry)
+      .in("country", TARGET_COUNTRIES)
+      .gt("mkt_cap", 200_000_000);
+    const { data } = await q.order("mkt_cap", { ascending: false, nullsFirst: false }).limit(60);
+    return (data as P[] | null) ?? [];
+  })();
+
+  // Tier 3: same country + cap range (covers sector=null and very local
+  // ticker pools).
+  const tier3Rows: P[] = (tier1Rows.length + tier2Rows.length) >= 3 ? [] : await (async (): Promise<P[]> => {
+    if (!t.country) return [];
+    let q: any = baseTickerQuery()
+      .eq("country", t.country)
+      .gte("mkt_cap", Math.max(500_000_000, minCap * 0.5));
+    if (maxCap != null) q = q.lte("mkt_cap", maxCap * 2);
+    const { data } = await q.order("mkt_cap", { ascending: false, nullsFirst: false }).limit(60);
+    return (data as P[] | null) ?? [];
+  })();
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  // Dedupe across tiers by ISIN, then by name.
+  const byIsin = new Map<string, P>();
+  const noIsin: P[] = [];
+  for (const p of [...tier1Rows, ...tier2Rows, ...tier3Rows]) {
+    if (p.isin) {
+      const existing = byIsin.get(p.isin);
+      if (!existing || (p.mkt_cap ?? 0) > (existing.mkt_cap ?? 0)) byIsin.set(p.isin, p);
+    } else {
+      noIsin.push(p);
+    }
+  }
+  const seenNames = new Set<string>();
+  for (const p of Array.from(byIsin.values())) if (p.name) seenNames.add(p.name);
+  const peers: P[] = Array.from(byIsin.values());
+  for (const p of noIsin.sort((a, b) => (b.mkt_cap ?? 0) - (a.mkt_cap ?? 0))) {
+    if (p.name && seenNames.has(p.name)) continue;
+    if (p.name) seenNames.add(p.name);
+    peers.push(p);
+  }
+  return peers;
+}
 
 async function ttmYield(symbol: string, price: number | null): Promise<number | null> {
   if (price == null || price <= 0) return null;
