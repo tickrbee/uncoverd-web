@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { ShareButton } from "@/components/share-button";
+import { CompareSearch } from "../../compare/compare-search";
 import { getStock } from "@/lib/data";
 import {
   findStockAlternatives,
@@ -76,15 +78,26 @@ export default async function AlternativesPage({ params }: { params: Promise<Par
       <SiteHeader />
       <main className="dv-page">
         <section className="dv-compare-hero">
-          <div className="dv-eyebrow">Alternatives</div>
-          <h1 style={{ margin: "0.4rem 0", fontSize: "2.05rem", letterSpacing: "-0.02em" }}>
-            Alternatives to {symbol}
-            {targetName ? <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.75)" }}> · {targetName}</span> : null}
-          </h1>
-          <p style={{ margin: 0, color: "var(--text-secondary)", maxWidth: 720 }}>
-            Comparable {targetKind === "ETF" ? "dividend ETFs" : `dividend stocks in ${stockReport?.target.sector ?? "the same sector"}`},
-            ranked by what each does better than {symbol}. Data-driven only — pick your own axis.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <div className="dv-eyebrow">Alternatives</div>
+              <h1 style={{ margin: "0.4rem 0", fontSize: "2.05rem", letterSpacing: "-0.02em" }}>
+                Alternatives to {symbol}
+                {targetName ? <span style={{ fontWeight: 400, color: "rgba(255,255,255,0.75)" }}> · {targetName}</span> : null}
+              </h1>
+              <p style={{ margin: 0, color: "var(--text-secondary)", maxWidth: 720 }}>
+                Comparable {targetKind === "ETF" ? "dividend ETFs" : `dividend stocks in ${stockReport?.target.sector ?? "the same sector"}`},
+                ranked by what each does better than {symbol}. Data-driven only — pick your own axis.
+              </p>
+            </div>
+            <ShareButton
+              ogImageUrl={`/api/og/compare?a=${encodeURIComponent(symbol)}`}
+              shareUrl={`https://uncoverd.org/alternatives/${symbol}`}
+              shareText={`Alternatives to ${symbol} — dividend research via uncoverd`}
+              downloadFileName={`uncoverd-alternatives-${symbol}.png`}
+              label="Share"
+            />
+          </div>
           <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <Link href={`/compare?a=${symbol}`} className="btn btn--ghost">
               Open in Compare →
@@ -93,6 +106,13 @@ export default async function AlternativesPage({ params }: { params: Promise<Par
               View {symbol} profile
             </Link>
           </div>
+        </section>
+
+        {/* Search bar for chained lookups — user can type a different ticker
+            and jump straight to its alternatives without going through the
+            index page. */}
+        <section className="panel" style={{ marginTop: "1rem" }}>
+          <CompareSearch slot="a" currentSymbols={[]} mode="alternative" />
         </section>
 
         {/* Target reference card — so the user can see what they're trying to beat */}

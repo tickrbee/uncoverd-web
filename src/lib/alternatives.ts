@@ -105,11 +105,33 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
       : null;
   const targetMktCap = t.mkt_cap != null ? Number(t.mkt_cap) : null;
 
-  // 2) Peer pool: same sector, mkt_cap within 0.3x-3x of target. Restrict
-  // to US+EU primary listings; the user expects names they can actually
-  // research, not micro-caps from minor exchanges.
-  const minCap = targetMktCap != null ? targetMktCap * 0.3 : 1_000_000_000;
-  const maxCap = targetMktCap != null ? targetMktCap * 3 : null;
+  // 2) Peer pool: same sector. Window adapts to target size — mega-caps
+  // (AAPL, MSFT) need a much wider band or the pool collapses to 2-3
+  // names. Smaller targets get a tighter band to avoid pulling in
+  // wildly different-sized comps.
+  let minCap: number;
+  let maxCap: number | null;
+  if (targetMktCap == null) {
+    minCap = 1_000_000_000;
+    maxCap = null;
+  } else if (targetMktCap >= 500_000_000_000) {
+    // Mega-cap (>$500B): allow anything >$50B. There aren't many >$500B
+    // peers, so we relax to all reasonable large caps in the sector.
+    minCap = 50_000_000_000;
+    maxCap = null;
+  } else if (targetMktCap >= 50_000_000_000) {
+    // Large-cap ($50B-$500B): 0.2x-5x window.
+    minCap = targetMktCap * 0.2;
+    maxCap = targetMktCap * 5;
+  } else if (targetMktCap >= 10_000_000_000) {
+    // Mid-large ($10B-$50B): 0.3x-3x window.
+    minCap = targetMktCap * 0.3;
+    maxCap = targetMktCap * 3;
+  } else {
+    // Smaller: keep the tight 0.3x-3x band but with a $500M floor.
+    minCap = Math.max(500_000_000, targetMktCap * 0.3);
+    maxCap = targetMktCap * 3;
+  }
 
   let q = sb
     .from("tickers")
@@ -423,7 +445,7 @@ export type EtfAlternative = {
   aum: number | null;
 };
 
-type EtfAxis = "yield" | "expense" | "aum" | "alt-strategy";
+type EtfAxis = "yield" | "expense" | "aum" | "next-best";
 
 export type EtfAlternativeReport = {
   target: {
@@ -583,14 +605,28 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     }
   }
 
-  // Only consider candidates with meaningful overlap or alt-strategy options.
+  // Yield-similarity guard: every alt must be within ±50% of the target's
+  // yield UNLESS the axis is explicitly "higher yield" (then up to 2x is
+  // allowed). Without this, a 1% S&P broad ETF gets surfaced as an alt to
+  // SCHD (8% yield) on the "cheaper" axis — technically same holdings, but
+  // a completely different income profile.
+  function yieldInBand(y: number | null, target: number | null, mult: [number, number]): boolean {
+    if (y == null) return false;
+    if (target == null) return true;
+    return y >= target * mult[0] && y <= target * mult[1];
+  }
+
+  // Only consider candidates with meaningful overlap.
   const similar = scored.filter((s) => s.similarity >= 0.4);
   const alternatives: EtfAlternative[] = [];
 
-  // Higher yield among similar
+  // Higher yield among similar — same fund profile, paying more (up to 2x).
   {
     const eligible = similar.filter(
-      (s) => s.yieldPct != null && (targetYield == null || s.yieldPct > targetYield * 1.05),
+      (s) =>
+        s.yieldPct != null &&
+        (targetYield == null || s.yieldPct > targetYield * 1.05) &&
+        yieldInBand(s.yieldPct, targetYield, [1.0, 2.0]),
     );
     eligible.sort((a, b) => (b.yieldPct ?? 0) - (a.yieldPct ?? 0));
     const w = eligible[0];
@@ -611,12 +647,14 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     }
   }
 
-  // Cheaper expense ratio
+  // Cheaper expense ratio — must hold a SIMILAR yield, otherwise it's just
+  // "different fund". Yield band: [0.7x, 1.5x] of target.
   {
     const eligible = similar.filter(
       (s) =>
         s.expense_ratio != null &&
-        (t.expense_ratio == null || Number(s.expense_ratio) < Number(t.expense_ratio)),
+        (t.expense_ratio == null || Number(s.expense_ratio) < Number(t.expense_ratio) * 0.85) &&
+        yieldInBand(s.yieldPct, targetYield, [0.7, 1.5]),
     );
     eligible.sort((a, b) => Number(a.expense_ratio) - Number(b.expense_ratio));
     const w = eligible[0];
@@ -637,10 +675,13 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     }
   }
 
-  // Larger AUM (more liquid)
+  // Larger AUM (more liquid) — yield must be similar.
   {
     const eligible = similar.filter(
-      (s) => s.aum != null && (t.aum == null || Number(s.aum) > Number(t.aum) * 1.3),
+      (s) =>
+        s.aum != null &&
+        (t.aum == null || Number(s.aum) > Number(t.aum) * 1.3) &&
+        yieldInBand(s.yieldPct, targetYield, [0.7, 1.5]),
     );
     eligible.sort((a, b) => Number(b.aum) - Number(a.aum));
     const w = eligible[0];
@@ -661,21 +702,34 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     }
   }
 
-  // Alt strategy: lower similarity but still in the dividend-ETF space.
-  // Surfaces "fills the same slot with a different angle" candidates.
+  // Next best — closest overall match: very similar yield + holdings overlap.
+  // Replaces the earlier "alt-strategy" axis which surfaced low-overlap
+  // funds with wildly different yields. This axis is about "if you can't
+  // get this one, this is the closest substitute".
   {
+    const usedSyms = new Set(alternatives.map((a) => a.symbol));
     const eligible = scored
-      .filter((s) => s.similarity >= 0.15 && s.similarity < 0.5)
-      .filter((s) => s.yieldPct != null && s.yieldPct > 1.5);
-    eligible.sort((a, b) => (b.aum ?? 0) - (a.aum ?? 0));
+      .filter((s) => !usedSyms.has(s.symbol))
+      .filter((s) => s.similarity >= 0.4)
+      .filter((s) => yieldInBand(s.yieldPct, targetYield, [0.8, 1.25]));
+    // Score = similarity * 0.7 + (1 - |expense_ratio - target_expense|) * 0.3
+    // Picks the candidate that overall looks closest to the target.
+    const targetExp = t.expense_ratio != null ? Number(t.expense_ratio) : null;
+    eligible.sort((a, b) => {
+      const aDelta = targetExp != null && a.expense_ratio != null ? Math.abs(Number(a.expense_ratio) - targetExp) : 0;
+      const bDelta = targetExp != null && b.expense_ratio != null ? Math.abs(Number(b.expense_ratio) - targetExp) : 0;
+      const aScore = a.similarity * 0.7 - aDelta * 0.3;
+      const bScore = b.similarity * 0.7 - bDelta * 0.3;
+      return bScore - aScore;
+    });
     const w = eligible[0];
     if (w) {
       alternatives.push({
         symbol: w.symbol,
         name: w.name,
-        axis: "alt-strategy",
-        claim: `Different angle — ${(w.similarity * 100).toFixed(0)}% overlap`,
-        metricLabel: "Holdings overlap",
+        axis: "next-best",
+        claim: `${(w.similarity * 100).toFixed(0)}% holdings match, similar yield`,
+        metricLabel: "Match",
         metricValue: `${(w.similarity * 100).toFixed(0)}%`,
         metricValueTarget: "100%",
         similarity: w.similarity,
@@ -703,7 +757,7 @@ export const ETF_AXES: { id: EtfAxis; label: string; description: string }[] = [
   { id: "yield", label: "Higher yield", description: "Same fund profile, paying more" },
   { id: "expense", label: "Cheaper", description: "Same fund profile, lower expense ratio" },
   { id: "aum", label: "More liquid", description: "Bigger AUM = tighter spreads" },
-  { id: "alt-strategy", label: "Different angle", description: "Fills the same slot via different holdings" },
+  { id: "next-best", label: "Next best", description: "Closest substitute — similar holdings + similar yield" },
 ];
 
 export { STOCK_AXES };

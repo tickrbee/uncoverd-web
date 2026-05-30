@@ -217,15 +217,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // sitemap-file hard limit with a buffer for curated URLs above.
       .limit(45000);
     type R = { symbol: string; is_etf: boolean | null; is_fund: boolean | null; updated_at: string | null };
-    tickerUrls = (stocks as R[] | null ?? []).map((r) => ({
-      url:
-        r.is_etf || r.is_fund
-          ? `${BASE}/etfs/symbol/${r.symbol}`
-          : `${BASE}/stocks/${r.symbol}`,
-      lastModified: r.updated_at ? new Date(r.updated_at) : now,
-      changeFrequency: "daily" as const,
-      priority: 0.6,
-    }));
+    // Some tickers in the DB contain characters that produce invalid sitemap
+    // entries — whitespace, control chars, ^, &, < etc. Filter to safe
+    // ticker shapes: letters/digits + a few common separators (.-/). Also
+    // URL-encode just in case anything unusual sneaks through.
+    const SAFE_SYMBOL = /^[A-Za-z0-9.\-]{1,12}$/;
+    tickerUrls = (stocks as R[] | null ?? [])
+      .filter((r) => r.symbol && SAFE_SYMBOL.test(r.symbol))
+      .map((r) => ({
+        url:
+          r.is_etf || r.is_fund
+            ? `${BASE}/etfs/symbol/${encodeURIComponent(r.symbol)}`
+            : `${BASE}/stocks/${encodeURIComponent(r.symbol)}`,
+        lastModified: r.updated_at ? new Date(r.updated_at) : now,
+        changeFrequency: "daily" as const,
+        priority: 0.6,
+      }));
   } catch {
     // If the DB is unreachable at build time we still ship the curated sitemap.
   }

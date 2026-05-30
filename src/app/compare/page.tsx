@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { ShareButton } from "@/components/share-button";
 import { CompareSearch } from "./compare-search";
 import {
   getStock,
@@ -554,13 +555,24 @@ export default async function ComparePage({
       <SiteHeader />
       <main className="dv-page">
         <section className="dv-compare-hero">
-          <div className="dv-eyebrow">Compare</div>
-          <h1 style={{ margin: "0.4rem 0", fontSize: "2.1rem", letterSpacing: "-0.02em" }}>
-            {headline}
-          </h1>
-          <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem" }}>
-            Side-by-side dividend comparison. Green badges mark the leader on each metric.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <div className="dv-eyebrow">Compare</div>
+              <h1 style={{ margin: "0.4rem 0", fontSize: "2.1rem", letterSpacing: "-0.02em" }}>
+                {headline}
+              </h1>
+              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem" }}>
+                Side-by-side dividend comparison. Green badges mark the leader on each metric.
+              </p>
+            </div>
+            <ShareButton
+              ogImageUrl={`/api/og/compare?${qs}`}
+              shareUrl={`https://uncoverd.org/compare?${qs}`}
+              shareText={`${headline} — dividend comparison via uncoverd`}
+              downloadFileName={`uncoverd-${symbols.join("-vs-")}.png`}
+              label="Share"
+            />
+          </div>
         </section>
 
         {colCount < MAX_SYMBOLS && (
@@ -806,44 +818,6 @@ export default async function ComparePage({
           </section>
         )}
 
-        {/* Share section with OG image preview */}
-        <section className="dv-compare-share" style={{ marginTop: "2.5rem" }}>
-          <div className="dv-compare-share__head">
-            <div>
-              <div className="dv-eyebrow" style={{ fontSize: "0.7rem" }}>Share this comparison</div>
-              <div className="dv-compare-share__title">{headline}</div>
-              <div className="dv-compare-share__url">{`uncoverd.org/compare?${qs}`}</div>
-            </div>
-            <div className="dv-compare-share__buttons">
-              <a
-                className="btn"
-                href={`https://x.com/intent/tweet?text=${encodeURIComponent(`${headline} — dividend comparison`)}&url=${encodeURIComponent(`https://uncoverd.org/compare?${qs}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Share on X
-              </a>
-              <a
-                className="btn btn--ghost"
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://uncoverd.org/compare?${qs}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Share on LinkedIn
-              </a>
-            </div>
-          </div>
-          {/* Live OG image preview — what people see when they share */}
-          <div className="dv-compare-share__preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/og/compare?${qs}`}
-              alt={`${headline} comparison preview`}
-              width={1200}
-              height={630}
-            />
-          </div>
-        </section>
       </main>
       <SiteFooter />
     </>
