@@ -26,6 +26,16 @@ const STATIC_URLS: MetadataRoute.Sitemap = [
   { url: `${BASE}/etfs/which-owns`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/etfs/top-held`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/lists/potential-payers`, changeFrequency: "weekly", priority: 0.85 },
+  { url: `${BASE}/compare`, changeFrequency: "monthly", priority: 0.85 },
+  // High-value comparison URLs. Each "X vs Y" page targets a real long-tail
+  // search ranked by Google's "compare ETFs" intent classifier.
+  { url: `${BASE}/compare?a=SCHD&b=VYM`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${BASE}/compare?a=SCHD&b=DGRO`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${BASE}/compare?a=VYM&b=DGRO`, changeFrequency: "weekly", priority: 0.75 },
+  { url: `${BASE}/compare?a=JEPI&b=JEPQ`, changeFrequency: "weekly", priority: 0.8 },
+  { url: `${BASE}/compare?a=SCHD&b=VYM&c=DGRO`, changeFrequency: "weekly", priority: 0.75 },
+  { url: `${BASE}/compare?a=VIG&b=NOBL`, changeFrequency: "weekly", priority: 0.7 },
+  { url: `${BASE}/compare?a=HDV&b=DGRO`, changeFrequency: "weekly", priority: 0.7 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear()}`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE}/best-dividend-stocks/${new Date().getFullYear() + 1}`, changeFrequency: "weekly", priority: 0.85 },
   { url: `${BASE}/glossary`, changeFrequency: "monthly", priority: 0.7 },

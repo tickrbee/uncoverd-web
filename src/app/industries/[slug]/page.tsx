@@ -65,7 +65,7 @@ export default async function IndustryPage({
   const baseOpts = {
     industryPattern: entry.industryPattern,
     sector: entry.sector,
-    minMarketCap: 50_000_000,
+    minMarketCap: 250_000_000,
     minDividend: 0.01,
     requireUpcomingDividend: true,
     currency,
@@ -85,7 +85,7 @@ export default async function IndustryPage({
         active: type === "active-etfs",
         fund: type === "funds",
         categoryContains: entry.label.split(" ")[0],
-        minMarketCap: 50_000_000,
+        minMarketCap: 100_000_000,
         limit: PAGE_SIZE,
       });
       total = rows.length;

@@ -77,7 +77,7 @@ export default async function SectorPage({
     sector,
     industryPattern: industryFilter,
     minDividend: 0.01,
-    minMarketCap: 100_000_000,
+    minMarketCap: 300_000_000,
     currency,
     country,
   };
@@ -95,7 +95,7 @@ export default async function SectorPage({
         active: type === "active-etfs",
         fund: type === "funds",
         categoryContains: label.split(" ")[0],
-        minMarketCap: 50_000_000,
+        minMarketCap: 100_000_000,
         limit: PAGE_SIZE,
       });
       total = rows.length;

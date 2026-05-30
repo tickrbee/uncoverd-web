@@ -79,7 +79,7 @@ const PICKS: Record<string, Pick> = {
     label: "Best Monthly Dividend Stocks",
     description: "Top-rated monthly dividend payers for steady income — ranked by composite rating.",
     premium: true,
-    fetchOpts: { minDividend: 0.1, minMarketCap: 100_000_000, limit: 500, excludeEtfs: false, requireUpcomingDividend: true },
+    fetchOpts: { minDividend: 0.1, minMarketCap: 250_000_000, limit: 500, excludeEtfs: false, requireUpcomingDividend: true },
     needsMonthlyFilter: true,
     build: (rows) => rows.slice(0, 60),
     rankBy: "composite",

@@ -66,7 +66,7 @@ export default async function MonthlyDividendsPage({
     if (symbols.length > 0) {
       const candidates = await listStocks({
         symbols,
-        minMarketCap: 10_000_000,
+        minMarketCap: 250_000_000,
         limit: 2000,
         excludeEtfs: false,
       });

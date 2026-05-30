@@ -328,6 +328,10 @@ export function SiteHeader() {
             Screener
           </Link>
 
+          <Link href="/compare" className="dv-nav__item dv-nav__item--solo">
+            Compare
+          </Link>
+
           <Link href="/news" className="dv-nav__item dv-nav__item--solo">
             News
           </Link>
@@ -458,6 +462,7 @@ export function SiteHeader() {
               <MobileGroup title="Explore">
                 <Link href="/screener">Screener</Link>
                 <Link href="/screener?type=etfs">ETF Screener</Link>
+                <Link href="/compare">Compare</Link>
                 <Link href="/methodology">Methodology</Link>
                 <Link href="/news">News</Link>
                 <Link href="/about">About</Link>

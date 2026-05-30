@@ -49,7 +49,7 @@ export default async function HighYieldPage({
   try {
     allRows = await listStocks({
       minDividend: 0.5,
-      minMarketCap: 100_000_000,
+      minMarketCap: 300_000_000,
       minYieldPct: 4,
       sortBy: "yield",
       country,

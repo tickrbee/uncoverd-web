@@ -1890,7 +1890,45 @@ export async function listEtfsByCategory(opts: EtfListOptions): Promise<StockRow
     console.error("[data.listEtfsByCategory]", error);
     return [];
   }
-  return (data as TickerRow[] | null)?.map(toStockRow) ?? [];
+  const rows = (data as TickerRow[] | null)?.map(toStockRow) ?? [];
+  // `tickers.last_div` is NULL for most major US ETFs (SCHD, VYM, VTI, etc.)
+  // so the yield computed in toStockRow comes back null and the list shows
+  // empty yield columns. Backfill with TTM (trailing 12 months) sum of
+  // distributions from the dividends table.
+  await enrichEtfYieldsFromDividends(rows);
+  return rows;
+}
+
+// In-place yield enrichment from the dividends table. Used for any list of
+// ETFs where last_div on the tickers row is NULL. Single round-trip even
+// for ~200 rows.
+async function enrichEtfYieldsFromDividends(rows: StockRow[]): Promise<void> {
+  const missing = rows
+    .filter((r) => r.dividend_yield == null && r.price != null && r.price > 0)
+    .map((r) => r.symbol);
+  if (missing.length === 0) return;
+  const sb = getBackendClient();
+  const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
+  const { data } = await sb
+    .from("dividends")
+    .select("symbol,dividend")
+    .in("symbol", missing)
+    .gte("date", cutoff)
+    .gt("dividend", 0)
+    .limit(missing.length * 15);
+  const ttm = new Map<string, number>();
+  for (const r of (data as { symbol: string; dividend: number }[] | null) ?? []) {
+    ttm.set(r.symbol, (ttm.get(r.symbol) ?? 0) + Number(r.dividend));
+  }
+  for (const r of rows) {
+    if (r.dividend_yield != null) continue;
+    if (r.price == null || r.price <= 0) continue;
+    const d = ttm.get(r.symbol);
+    if (d != null && d > 0) {
+      r.dividend_yield = (d / r.price) * 100;
+      r.annual_dividend = d;
+    }
+  }
 }
 
 export async function countEtfsByCategory(opts: EtfListOptions): Promise<number> {

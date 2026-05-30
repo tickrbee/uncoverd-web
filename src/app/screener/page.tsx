@@ -69,7 +69,7 @@ export default async function ScreenerPage({
 
   const baseOpts = {
     sector,
-    minMarketCap: 100_000_000,
+    minMarketCap: 300_000_000,
     minDividend: 0.01,
     currency,
     country,
@@ -97,7 +97,7 @@ export default async function ScreenerPage({
         active: type === "active-etfs" ? true : undefined,
         fund: type === "funds" ? true : undefined,
         categoryContains: sectorCategory,
-        minMarketCap: 50_000_000,
+        minMarketCap: 100_000_000,
       };
       [rows, total] = await Promise.all([
         listEtfsByCategory({ ...etfOpts, offset, limit: PAGE_SIZE }),

@@ -20,32 +20,40 @@ const headingFont = Outfit({
 export const metadata: Metadata = {
   metadataBase: new URL("https://uncoverd.org"),
   title: {
-    default: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    // Front-loaded with the dividend keywords because Google weights the
+    // first words of the title heavily. The old title led with "AI-Powered"
+    // which made the snippet read as a generic AI/portfolio tool rather
+    // than a dividend research platform — the search result on uncoverd.org
+    // was getting filed next to robo-advisors instead of dividend.com.
+    default: `${APP_NAME} — Dividend Stock Research, Ratings & ETF Screener`,
     template: `%s | ${APP_NAME}`,
   },
   description:
-    "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights, track performance, and compete with other investors. AI in finance made simple.",
+    "Dividend stock research platform. Screen 65,000+ stocks and 13,800+ dividend ETFs by yield, payout ratio, growth and rating. Ex-dividend calendar, model portfolios, and ETF comparison tools — built on SEC filings.",
   keywords: [
-    "investment ideas",
-    "best stocks",
-    "portfolio",
-    "AI in finance",
-    "stock analysis",
-    "investment app",
-    "portfolio management",
-    "AI stock recommendations",
-    "investment opportunities",
-    "stock picks",
-    "financial AI",
-    "investment platform",
+    "dividend stocks",
+    "dividend stock screener",
+    "dividend ETF screener",
+    "best dividend stocks",
+    "high yield dividend stocks",
+    "monthly dividend stocks",
+    "dividend aristocrats",
+    "dividend kings",
+    "ex-dividend calendar",
+    "dividend yield",
+    "dividend growth",
+    "REIT dividends",
+    "dividend portfolio",
+    "dividend research",
+    "SCHD VYM JEPI",
   ],
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    title: `${APP_NAME} — Dividend Stock Research, Ratings & ETF Screener`,
     description:
-      "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights and track performance.",
+      "Screen 65,000+ dividend stocks and 13,800+ ETFs by yield, payout ratio, and rating. Ex-dividend calendar, model portfolios, and ETF comparison tools.",
     type: "website",
     url: "https://uncoverd.org",
     siteName: APP_NAME,
@@ -53,9 +61,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} | AI-Powered Investment Ideas & Best Stocks Portfolio`,
+    title: `${APP_NAME} — Dividend Stock Research, Ratings & ETF Screener`,
     description:
-      "Discover the best stocks and investment ideas with AI-powered portfolio analysis. Build your portfolio with intelligent insights.",
+      "Screen 65,000+ dividend stocks and 13,800+ ETFs by yield, payout ratio, and rating. Ex-dividend calendar + ETF compare.",
   },
   robots: {
     index: true,
@@ -90,6 +98,18 @@ export default function RootLayout({
                 }
               })();
             `,
+          }}
+        />
+        {/* Plausible: privacy-friendly analytics. Runs alongside Vercel
+            Analytics — different value props (Plausible: referrer paths,
+            Vercel: speed insights). Both fire client-side. */}
+        <script
+          defer
+          src="https://plausible.io/js/pa-j2Xmu77enuEkN6zc52GXo.js"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`,
           }}
         />
       </head>
