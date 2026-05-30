@@ -100,10 +100,35 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     is_fund: boolean | null;
     isin: string | null;
   };
-  const t = (targets as T[] | null)?.[0] ?? null;
+  let t = (targets as T[] | null)?.[0] ?? null;
   if (!t || t.is_etf || t.is_fund) return null;
   // Don't gate on sector — some major stocks (NFLX) have null sector in
   // the DB. We fall back to industry- or country-based peer lookup below.
+
+  // ISIN canonicalization: many companies have multiple ticker rows in
+  // the DB (ADS.MU for Munich, ADS.HM for Hamburg, etc. — all aliases for
+  // Adidas at ADS.DE). FMP data is typically attributed only to the
+  // primary listing. If the queried symbol has an ISIN but is sparse
+  // (no sector/mkt_cap), swap to the sibling row with the same ISIN that
+  // has the most data — the largest-cap variant tends to be the primary.
+  if (t.isin && (!t.sector || (t.mkt_cap ?? 0) < 100_000_000)) {
+    const { data: siblings } = await sb
+      .from("tickers")
+      .select("symbol,name,sector,industry,mkt_cap,price,last_div,beta,country,exchange_short,is_etf,is_fund,isin")
+      .eq("isin", t.isin)
+      .neq("symbol", symbol)
+      .order("mkt_cap", { ascending: false, nullsFirst: false })
+      .limit(5);
+    const better = (siblings as T[] | null)?.find(
+      (s) => s.sector != null && (s.mkt_cap ?? 0) > (t!.mkt_cap ?? 0),
+    );
+    if (better) {
+      // Use the data-rich sibling but keep the original symbol intact.
+      // Yield/price stay tied to the original (user came to that page)
+      // but sector/industry/cap/isin take over for peer-pool lookup.
+      t = { ...better, symbol: t.symbol };
+    }
+  }
 
   const targetYield =
     t.last_div != null && t.price != null && Number(t.price) > 0
@@ -111,12 +136,10 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
       : null;
   const targetMktCap = t.mkt_cap != null ? Number(t.mkt_cap) : null;
 
-  // 2) Load TARGET enrichment data FIRST, always. Previous version ran
-  // this only after the peer query and bailed out with hardcoded null
-  // values whenever the peer pool was empty — that's why PUM.DE, TE,
-  // and other foreign mid-caps were showing dashes for rating/P/E/etc
-  // on the reference card even though the data existed.
-  const targetEnrichment = await loadStockTargetEnrichment(sb, symbol);
+  // 2) Load TARGET enrichment data FIRST, always. Look up by ISIN siblings
+  // too — if the queried symbol has no rating row but a sibling does,
+  // surface the sibling's data so the reference card shows real numbers.
+  const targetEnrichment = await loadStockTargetEnrichment(sb, symbol, t.isin);
 
   type P = {
     symbol: string;
@@ -514,31 +537,16 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
       : null;
   if (targetYield == null) targetYield = await ttmYield(symbol, t.price);
 
-  if (tHoldings.length === 0) {
-    return {
-      target: {
-        symbol,
-        name: t.name,
-        yieldPct: targetYield,
-        expenseRatio: t.expense_ratio,
-        aum: t.aum,
-        holdingsCount: 0,
-      },
-      alternatives: [],
-    };
-  }
+  // Removed the old early-return for 0-holdings ETFs. We now keep going
+  // and fall back to country + yield-band peer selection so foreign ETFs
+  // without etf_holdings rows (e.g. Korean 360750.KS) still surface
+  // alternatives — they just won't have overlap-based similarity.
 
-  // 2) Pull candidate ETFs (large enough to be relevant)
-  const { data: candidates } = await sb
-    .from("tickers")
-    .select("symbol,name,price,last_div,expense_ratio,aum,country,exchange_short")
-    .eq("is_etf", true)
-    .eq("is_actively_trading", true)
-    .in("country", TARGET_COUNTRIES)
-    .gt("aum", 500_000_000)
-    .neq("symbol", symbol)
-    .order("aum", { ascending: false, nullsFirst: false })
-    .limit(300);
+  // 2) Pull candidate ETFs. Two pools combined:
+  //    a) Global pool: large dividend ETFs across US+EU (the default
+  //       universe — captures the obvious comparables).
+  //    b) Same-country pool: ETFs sharing the target's country (handles
+  //       foreign listings where US peers aren't actually substitutable).
   type C = {
     symbol: string;
     name: string | null;
@@ -549,7 +557,36 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     country: string | null;
     exchange_short: string | null;
   };
-  const candidateRows = (candidates as C[] | null) ?? [];
+  const [globalPool, countryPool] = await Promise.all([
+    sb
+      .from("tickers")
+      .select("symbol,name,price,last_div,expense_ratio,aum,country,exchange_short")
+      .eq("is_etf", true)
+      .eq("is_actively_trading", true)
+      .in("country", TARGET_COUNTRIES)
+      .gt("aum", 500_000_000)
+      .neq("symbol", symbol)
+      .order("aum", { ascending: false, nullsFirst: false })
+      .limit(300),
+    t.country
+      ? sb
+          .from("tickers")
+          .select("symbol,name,price,last_div,expense_ratio,aum,country,exchange_short")
+          .eq("is_etf", true)
+          .eq("is_actively_trading", true)
+          .eq("country", t.country)
+          .gt("aum", 50_000_000)
+          .neq("symbol", symbol)
+          .order("aum", { ascending: false, nullsFirst: false })
+          .limit(150)
+      : Promise.resolve({ data: [] as C[] }),
+  ]);
+  const candidateMap = new Map<string, C>();
+  for (const r of (globalPool.data as C[] | null) ?? []) candidateMap.set(r.symbol, r);
+  for (const r of (countryPool.data as C[] | null) ?? []) {
+    if (!candidateMap.has(r.symbol)) candidateMap.set(r.symbol, r);
+  }
+  const candidateRows = Array.from(candidateMap.values());
   if (candidateRows.length === 0) {
     return {
       target: {
@@ -631,150 +668,168 @@ export async function findEtfAlternatives(symbol: string): Promise<EtfAlternativ
     return y >= target * mult[0] && y <= target * mult[1];
   }
 
-  // Only consider candidates with meaningful overlap.
-  const similar = scored.filter((s) => s.similarity >= 0.4);
-  const alternatives: EtfAlternative[] = [];
+  // For ETFs WITH holdings, "similar" means cosine-overlap >= 0.2 — wider
+  // than before so we get more candidates. For 0-holdings ETFs (Korean
+  // primary listings etc.), we fall back to country + yield band as a
+  // proxy for "same fund profile" since we can't compute overlap.
+  const haveOverlap = tHoldings.length > 0;
+  const similar = haveOverlap
+    ? scored.filter((s) => s.similarity >= 0.2)
+    : scored.filter(
+        (s) =>
+          (s.country === t.country || s.country === "US") &&
+          yieldInBand(s.yieldPct, targetYield, [0.5, 2.0]),
+      );
 
-  // Higher yield among similar — same fund profile, paying more (up to 2x).
+  const alternatives: EtfAlternative[] = [];
+  const usedSyms = new Set<string>();
+
+  function addAlt(opts: {
+    candidate: Scored;
+    axis: EtfAxis;
+    claim: string;
+    metricLabel: string;
+    metricValue: string;
+    metricValueTarget: string;
+  }): void {
+    if (usedSyms.has(opts.candidate.symbol)) return;
+    usedSyms.add(opts.candidate.symbol);
+    alternatives.push({
+      symbol: opts.candidate.symbol,
+      name: opts.candidate.name,
+      axis: opts.axis,
+      claim: opts.claim,
+      metricLabel: opts.metricLabel,
+      metricValue: opts.metricValue,
+      metricValueTarget: opts.metricValueTarget,
+      similarity: opts.candidate.similarity,
+      yieldPct: opts.candidate.yieldPct,
+      expenseRatio:
+        opts.candidate.expense_ratio != null ? Number(opts.candidate.expense_ratio) : null,
+      aum: opts.candidate.aum != null ? Number(opts.candidate.aum) : null,
+    });
+  }
+
+  // Higher yield — multiple alts allowed. We surface up to 2 candidates
+  // per axis instead of 1, deduped across axes by usedSyms.
   {
-    const eligible = similar.filter(
-      (s) =>
-        s.yieldPct != null &&
-        (targetYield == null || s.yieldPct > targetYield * 1.05) &&
-        yieldInBand(s.yieldPct, targetYield, [1.0, 2.0]),
-    );
-    eligible.sort((a, b) => (b.yieldPct ?? 0) - (a.yieldPct ?? 0));
-    const w = eligible[0];
-    if (w) {
-      alternatives.push({
-        symbol: w.symbol,
-        name: w.name,
+    const eligible = similar
+      .filter(
+        (s) =>
+          s.yieldPct != null &&
+          (targetYield == null || s.yieldPct > targetYield * 1.05) &&
+          yieldInBand(s.yieldPct, targetYield, [1.0, 2.5]),
+      )
+      .sort((a, b) => (b.yieldPct ?? 0) - (a.yieldPct ?? 0));
+    for (const w of eligible.slice(0, 2)) {
+      addAlt({
+        candidate: w,
         axis: "yield",
         claim: `Yields ${fmt(w.yieldPct, "pct")} vs ${fmt(targetYield, "pct")}`,
         metricLabel: "Yield",
         metricValue: fmt(w.yieldPct, "pct"),
         metricValueTarget: fmt(targetYield, "pct"),
-        similarity: w.similarity,
-        yieldPct: w.yieldPct,
-        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
-        aum: w.aum != null ? Number(w.aum) : null,
       });
     }
   }
 
-  // Cheaper expense ratio — must hold a SIMILAR yield, otherwise it's just
-  // "different fund". Yield band: [0.7x, 1.5x] of target.
+  // Cheaper expense ratio (similar yield).
   {
-    const eligible = similar.filter(
-      (s) =>
-        s.expense_ratio != null &&
-        (t.expense_ratio == null || Number(s.expense_ratio) < Number(t.expense_ratio) * 0.85) &&
-        yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
-    );
-    eligible.sort((a, b) => Number(a.expense_ratio) - Number(b.expense_ratio));
-    const w = eligible[0];
-    if (w) {
-      alternatives.push({
-        symbol: w.symbol,
-        name: w.name,
+    const eligible = similar
+      .filter(
+        (s) =>
+          s.expense_ratio != null &&
+          (t.expense_ratio == null || Number(s.expense_ratio) < Number(t.expense_ratio) * 0.9) &&
+          yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
+      )
+      .sort((a, b) => Number(a.expense_ratio) - Number(b.expense_ratio));
+    for (const w of eligible.slice(0, 2)) {
+      addAlt({
+        candidate: w,
         axis: "expense",
         claim: `Expense ratio ${fmt(w.expense_ratio, "pct")} vs ${fmt(t.expense_ratio, "pct")}`,
         metricLabel: "Expense ratio",
         metricValue: fmt(w.expense_ratio, "pct"),
         metricValueTarget: fmt(t.expense_ratio, "pct"),
-        similarity: w.similarity,
-        yieldPct: w.yieldPct,
-        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
-        aum: w.aum != null ? Number(w.aum) : null,
       });
     }
   }
 
-  // Larger AUM (more liquid) — yield must be similar.
+  // Larger AUM (more liquid).
   {
-    const eligible = similar.filter(
-      (s) =>
-        s.aum != null &&
-        (t.aum == null || Number(s.aum) > Number(t.aum) * 1.3) &&
-        yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
-    );
-    eligible.sort((a, b) => Number(b.aum) - Number(a.aum));
-    const w = eligible[0];
-    if (w) {
-      alternatives.push({
-        symbol: w.symbol,
-        name: w.name,
+    const eligible = similar
+      .filter(
+        (s) =>
+          s.aum != null &&
+          (t.aum == null || Number(s.aum) > Number(t.aum) * 1.3) &&
+          yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
+      )
+      .sort((a, b) => Number(b.aum) - Number(a.aum));
+    for (const w of eligible.slice(0, 2)) {
+      addAlt({
+        candidate: w,
         axis: "aum",
         claim: `${fmtAum(w.aum)} in AUM vs ${fmtAum(t.aum)}`,
         metricLabel: "AUM",
         metricValue: fmtAum(w.aum),
         metricValueTarget: fmtAum(t.aum),
-        similarity: w.similarity,
-        yieldPct: w.yieldPct,
-        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
-        aum: w.aum != null ? Number(w.aum) : null,
       });
     }
   }
 
-  // Next best — closest overall match: very similar yield + holdings overlap.
-  // Replaces the earlier "alt-strategy" axis which surfaced low-overlap
-  // funds with wildly different yields. This axis is about "if you can't
-  // get this one, this is the closest substitute".
+  // Next best — closest overall match.
   {
-    const usedSyms = new Set(alternatives.map((a) => a.symbol));
+    const targetExp = t.expense_ratio != null ? Number(t.expense_ratio) : null;
     const eligible = scored
       .filter((s) => !usedSyms.has(s.symbol))
-      .filter((s) => s.similarity >= 0.4)
-      .filter((s) => yieldInBand(s.yieldPct, targetYield, [0.8, 1.25]));
-    // Score = similarity * 0.7 + (1 - |expense_ratio - target_expense|) * 0.3
-    // Picks the candidate that overall looks closest to the target.
-    const targetExp = t.expense_ratio != null ? Number(t.expense_ratio) : null;
-    eligible.sort((a, b) => {
-      const aDelta = targetExp != null && a.expense_ratio != null ? Math.abs(Number(a.expense_ratio) - targetExp) : 0;
-      const bDelta = targetExp != null && b.expense_ratio != null ? Math.abs(Number(b.expense_ratio) - targetExp) : 0;
-      const aScore = a.similarity * 0.7 - aDelta * 0.3;
-      const bScore = b.similarity * 0.7 - bDelta * 0.3;
-      return bScore - aScore;
-    });
-    const w = eligible[0];
-    if (w) {
-      alternatives.push({
-        symbol: w.symbol,
-        name: w.name,
+      .filter((s) =>
+        haveOverlap
+          ? s.similarity >= 0.3 && yieldInBand(s.yieldPct, targetYield, [0.7, 1.4])
+          : (s.country === t.country || s.country === "US") &&
+            yieldInBand(s.yieldPct, targetYield, [0.7, 1.4]),
+      )
+      .sort((a, b) => {
+        const aDelta = targetExp != null && a.expense_ratio != null ? Math.abs(Number(a.expense_ratio) - targetExp) : 0;
+        const bDelta = targetExp != null && b.expense_ratio != null ? Math.abs(Number(b.expense_ratio) - targetExp) : 0;
+        const aScore = a.similarity * 0.6 + (haveOverlap ? 0 : 0.3) - aDelta * 0.3;
+        const bScore = b.similarity * 0.6 + (haveOverlap ? 0 : 0.3) - bDelta * 0.3;
+        return bScore - aScore;
+      });
+    for (const w of eligible.slice(0, 2)) {
+      addAlt({
+        candidate: w,
         axis: "next-best",
-        claim: `${(w.similarity * 100).toFixed(0)}% holdings match, similar yield`,
-        metricLabel: "Match",
-        metricValue: `${(w.similarity * 100).toFixed(0)}%`,
-        metricValueTarget: "100%",
-        similarity: w.similarity,
-        yieldPct: w.yieldPct,
-        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
-        aum: w.aum != null ? Number(w.aum) : null,
+        claim: haveOverlap
+          ? `${(w.similarity * 100).toFixed(0)}% holdings match, similar yield`
+          : `Similar yield (${fmt(w.yieldPct, "pct")}) in same group`,
+        metricLabel: haveOverlap ? "Match" : "Yield",
+        metricValue: haveOverlap ? `${(w.similarity * 100).toFixed(0)}%` : fmt(w.yieldPct, "pct"),
+        metricValueTarget: haveOverlap ? "100%" : fmt(targetYield, "pct"),
       });
     }
   }
 
-  // Fallback "Closest peer": if nothing matched the strict axis criteria,
-  // surface the highest-similarity peer regardless of yield/expense
-  // differences. Stops the page from rendering as "No alternatives" for
-  // ETFs that already lead their group on every axis we track.
+  // Final fallback: if STILL nothing, show the biggest same-country ETF
+  // with similar-ish yield (band relaxed to [0.4, 2.5]). Catches very
+  // niche tickers where every axis came up empty.
   if (alternatives.length === 0) {
-    const sortedByOverlap = [...scored].sort((a, b) => b.similarity - a.similarity);
-    const w = sortedByOverlap[0];
-    if (w && w.similarity > 0.1) {
-      alternatives.push({
-        symbol: w.symbol,
-        name: w.name,
+    const fallback = scored
+      .filter((s) => !usedSyms.has(s.symbol))
+      .filter(
+        (s) =>
+          (s.country === t.country || s.country === "US") &&
+          yieldInBand(s.yieldPct, targetYield, [0.4, 2.5]),
+      )
+      .sort((a, b) => Number(b.aum ?? 0) - Number(a.aum ?? 0));
+    const w = fallback[0];
+    if (w) {
+      addAlt({
+        candidate: w,
         axis: "next-best",
-        claim: `Highest overlap with ${symbol} — ${(w.similarity * 100).toFixed(0)}% holdings match`,
-        metricLabel: "Overlap",
-        metricValue: `${(w.similarity * 100).toFixed(0)}%`,
-        metricValueTarget: "100%",
-        similarity: w.similarity,
-        yieldPct: w.yieldPct,
-        expenseRatio: w.expense_ratio != null ? Number(w.expense_ratio) : null,
-        aum: w.aum != null ? Number(w.aum) : null,
+        claim: `Largest ${w.country ?? "US"}-listed ETF with similar yield`,
+        metricLabel: "AUM",
+        metricValue: fmtAum(w.aum),
+        metricValueTarget: fmtAum(t.aum),
       });
     }
   }
@@ -813,6 +868,7 @@ export { STOCK_AXES };
 async function loadStockTargetEnrichment(
   sb: ReturnType<typeof getBackendClient>,
   symbol: string,
+  isin: string | null,
 ): Promise<{
   composite: number | null;
   grade: string | null;
@@ -820,36 +876,83 @@ async function loadStockTargetEnrichment(
   netDebt: number | null;
   return1y: number | null;
 }> {
+  // ISIN siblings: include them so a sparse foreign variant (ADS.MU) can
+  // pull data from the primary listing (ADS.DE). The picker below tries
+  // the original symbol first, then any sibling that has the field.
+  let symbolsToQuery: string[] = [symbol];
+  if (isin) {
+    const { data: siblings } = await sb
+      .from("tickers")
+      .select("symbol,mkt_cap")
+      .eq("isin", isin)
+      .neq("symbol", symbol)
+      .order("mkt_cap", { ascending: false, nullsFirst: false })
+      .limit(5);
+    const sibSyms = ((siblings as { symbol: string }[] | null) ?? []).map((s) => s.symbol);
+    symbolsToQuery = [symbol, ...sibSyms];
+  }
+
   const [rating, ratio, key, returns] = await Promise.all([
     sb
       .from("stock_ratings_daily")
-      .select("composite_total,composite_grade,computed_date")
-      .eq("symbol", symbol)
+      .select("symbol,composite_total,composite_grade,computed_date")
+      .in("symbol", symbolsToQuery)
       .order("computed_date", { ascending: false })
-      .limit(1),
+      .limit(symbolsToQuery.length * 2),
     sb
       .from("ratios_annual")
-      .select("price_to_earnings_ratio,date")
-      .eq("symbol", symbol)
+      .select("symbol,price_to_earnings_ratio,date")
+      .in("symbol", symbolsToQuery)
       .order("date", { ascending: false })
-      .limit(1),
+      .limit(symbolsToQuery.length * 2),
     sb
       .from("key_metrics_annual")
-      .select("net_debt_to_ebitda,date")
-      .eq("symbol", symbol)
+      .select("symbol,net_debt_to_ebitda,date")
+      .in("symbol", symbolsToQuery)
       .order("date", { ascending: false })
-      .limit(1),
-    compute1yReturnsBatch([symbol]),
+      .limit(symbolsToQuery.length * 2),
+    compute1yReturnsBatch(symbolsToQuery),
   ]);
-  const rRow = (rating.data as { composite_total: number | null; composite_grade: string | null }[] | null)?.[0];
-  const pRow = (ratio.data as { price_to_earnings_ratio: number | null }[] | null)?.[0];
-  const kRow = (key.data as { net_debt_to_ebitda: number | null }[] | null)?.[0];
+
+  // Pick the first non-null value across the symbol list, original first.
+  function pickFirst<T>(rows: { symbol: string; value: T | null }[]): T | null {
+    for (const sym of symbolsToQuery) {
+      const r = rows.find((row) => row.symbol === sym && row.value != null);
+      if (r) return r.value;
+    }
+    return null;
+  }
+
+  const ratingRows =
+    ((rating.data as { symbol: string; composite_total: number | null; composite_grade: string | null }[] | null) ?? [])
+      .map((r) => ({ symbol: r.symbol, value: r.composite_total != null ? r : null }));
+  const ratioRows =
+    ((ratio.data as { symbol: string; price_to_earnings_ratio: number | null }[] | null) ?? [])
+      .map((r) => ({ symbol: r.symbol, value: r.price_to_earnings_ratio }));
+  const keyRows =
+    ((key.data as { symbol: string; net_debt_to_ebitda: number | null }[] | null) ?? [])
+      .map((r) => ({ symbol: r.symbol, value: r.net_debt_to_ebitda }));
+
+  const rPicked = pickFirst(ratingRows);
+  const pPicked = pickFirst(ratioRows);
+  const kPicked = pickFirst(keyRows);
+
+  // Return picked value first match. For return1y, try original then siblings.
+  let return1y: number | null = null;
+  for (const sym of symbolsToQuery) {
+    const v = returns.get(sym);
+    if (v != null) {
+      return1y = v;
+      break;
+    }
+  }
+
   return {
-    composite: rRow?.composite_total ?? null,
-    grade: rRow?.composite_grade ?? null,
-    peRatio: pRow?.price_to_earnings_ratio != null ? Number(pRow.price_to_earnings_ratio) : null,
-    netDebt: kRow?.net_debt_to_ebitda != null ? Number(kRow.net_debt_to_ebitda) : null,
-    return1y: returns.get(symbol) ?? null,
+    composite: rPicked?.composite_total ?? null,
+    grade: rPicked?.composite_grade ?? null,
+    peRatio: pPicked != null ? Number(pPicked) : null,
+    netDebt: kPicked != null ? Number(kPicked) : null,
+    return1y,
   };
 }
 
