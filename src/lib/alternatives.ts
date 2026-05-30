@@ -75,15 +75,14 @@ export type StockAlternativeReport = {
 export async function findStockAlternatives(symbol: string): Promise<StockAlternativeReport | null> {
   const sb = getBackendClient();
 
-  // 1) Target ticker. Use limit(1) + array picking because some tickers
-  // have duplicate rows in the DB. NOTE: pe_ratio does NOT exist as a
-  // column on tickers (it lives in ratios_annual). The previous query
-  // selected pe_ratio here and Postgres returned 42703 'column does not
-  // exist', which made the whole alternatives flow return null silently
-  // for every stock. Take P/E from the ratios join below instead.
+  // 1) Target ticker. limit(1) + array picking handles duplicate-row
+  // tickers (cross-listings). Also pull isin so we can exclude other
+  // ticker variants of the same company (AAPL vs AAPL.MX both share
+  // ISIN US0378331005). pe_ratio is NOT a column on tickers — it lives
+  // in ratios_annual and is joined below.
   const { data: targets } = await sb
     .from("tickers")
-    .select("symbol,name,sector,industry,mkt_cap,price,last_div,beta,country,exchange_short,is_etf,is_fund")
+    .select("symbol,name,sector,industry,mkt_cap,price,last_div,beta,country,exchange_short,is_etf,is_fund,isin")
     .eq("symbol", symbol)
     .order("mkt_cap", { ascending: false, nullsFirst: false })
     .limit(1);
@@ -99,6 +98,7 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     exchange_short: string | null;
     is_etf: boolean | null;
     is_fund: boolean | null;
+    isin: string | null;
   };
   const t = (targets as T[] | null)?.[0] ?? null;
   if (!t || t.is_etf || t.is_fund) return null;
@@ -140,7 +140,7 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
 
   let q = sb
     .from("tickers")
-    .select("symbol,name,sector,industry,mkt_cap,price,last_div,country,exchange_short")
+    .select("symbol,name,sector,industry,mkt_cap,price,last_div,country,exchange_short,isin")
     .eq("sector", t.sector)
     .eq("is_actively_trading", true)
     .eq("is_etf", false)
@@ -149,6 +149,11 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     .gte("mkt_cap", minCap)
     .neq("symbol", symbol);
   if (maxCap != null) q = q.lte("mkt_cap", maxCap);
+  // Exclude same-company cross-listings: AAPL has Mexico listing AAPL.MX
+  // with identical ISIN + name. Without this filter, the page recommends
+  // a stock as an alternative to itself.
+  if (t.isin) q = q.neq("isin", t.isin);
+  if (t.name) q = q.neq("name", t.name);
   // Same-industry peers rank higher, but if industry is set we still allow
   // sector-wide candidates; the picker prioritizes industry matches.
   const { data: peerRows } = await q
@@ -165,8 +170,36 @@ export async function findStockAlternatives(symbol: string): Promise<StockAltern
     last_div: number | null;
     country: string | null;
     exchange_short: string | null;
+    isin: string | null;
   };
-  const peers = (peerRows as P[] | null) ?? [];
+  // Dedupe by ISIN within the peer set itself — many companies have
+  // multiple ticker rows (e.g. NVDA's German XETRA listing). Keep the
+  // largest mkt_cap variant per ISIN.
+  const rawPeers = (peerRows as P[] | null) ?? [];
+  const byIsin = new Map<string, P>();
+  const noIsin: P[] = [];
+  for (const p of rawPeers) {
+    if (p.isin) {
+      const existing = byIsin.get(p.isin);
+      if (!existing || (p.mkt_cap ?? 0) > (existing.mkt_cap ?? 0)) {
+        byIsin.set(p.isin, p);
+      }
+    } else {
+      noIsin.push(p);
+    }
+  }
+  // Also dedupe no-ISIN peers by name (handles GOOG/GOOGL where ISIN is
+  // missing but name is identical).
+  const seenNames = new Set<string>();
+  for (const p of Array.from(byIsin.values())) {
+    if (p.name) seenNames.add(p.name);
+  }
+  const peers: P[] = Array.from(byIsin.values());
+  for (const p of noIsin.sort((a, b) => (b.mkt_cap ?? 0) - (a.mkt_cap ?? 0))) {
+    if (p.name && seenNames.has(p.name)) continue;
+    if (p.name) seenNames.add(p.name);
+    peers.push(p);
+  }
   if (peers.length === 0) {
     return {
       target: {
