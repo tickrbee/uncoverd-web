@@ -316,14 +316,18 @@ async function consecutiveIncreaseYears(symbol: string): Promise<number | null> 
   const sb = admin("backend");
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - 60);
+  // Use adj_dividend so stock splits don't create false "cut" years
+  // (a 5:1 split would make the pre-split year look 5x larger).
   const { data } = await sb
     .from("dividends")
-    .select("date,dividend")
+    .select("date,adj_dividend,dividend")
     .eq("symbol", symbol)
     .gte("date", cutoff.toISOString().slice(0, 10))
     .order("date", { ascending: true })
     .limit(400);
-  const rows = (data as { date: string; dividend: number }[]) ?? [];
+  const rows = ((data as { date: string; adj_dividend: number | null; dividend: number }[]) ?? []).map(
+    (r) => ({ date: r.date, dividend: r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend) }),
+  );
   if (rows.length < 4) return null;
   const byYear = new Map<number, number>();
   for (const r of rows) {
@@ -568,14 +572,16 @@ export async function pickFeaturedEtf(): Promise<FeaturedEtfInput | null> {
     const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
     const { data: divs } = await sb
       .from("dividends")
-      .select("dividend,date")
+      .select("adj_dividend,dividend,date")
       .eq("symbol", pick.symbol)
       .gte("date", cutoff)
       .order("date", { ascending: false })
       .limit(15);
-    const rows = (divs as { dividend: number }[]) ?? [];
+    const rows = (divs as { adj_dividend: number | null; dividend: number }[]) ?? [];
     if (rows.length > 0) {
-      ttmDistribution = rows.reduce((s, r) => s + Number(r.dividend || 0), 0);
+      // Prefer adj_dividend (split-adjusted, matches current share basis).
+      // HDV's pre-split `dividend` values would 5x inflate the yield.
+      ttmDistribution = rows.reduce((s, r) => s + (r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend || 0)), 0);
     }
   }
   const yieldPct =

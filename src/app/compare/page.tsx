@@ -273,14 +273,20 @@ async function computeTtmYieldPct(symbol: string, price: number | null): Promise
   const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
   const { data } = await sb
     .from("dividends")
-    .select("dividend")
+    .select("adj_dividend,dividend")
     .eq("symbol", symbol)
     .gte("date", cutoff)
     .gt("dividend", 0)
     .limit(20);
-  const rows = (data as { dividend: number }[] | null) ?? [];
+  // Use adj_dividend (split-adjusted) — raw `dividend` stores pre-split
+  // values, so for HDV (5:1 split) summing raw values gave 13% yield
+  // instead of the real ~3%.
+  const rows = (data as { adj_dividend: number | null; dividend: number }[] | null) ?? [];
   if (rows.length === 0) return null;
-  const ttm = rows.reduce((s, r) => s + Number(r.dividend), 0);
+  const ttm = rows.reduce(
+    (s, r) => s + (r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend)),
+    0,
+  );
   if (ttm <= 0) return null;
   return (ttm / price) * 100;
 }

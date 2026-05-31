@@ -1092,20 +1092,28 @@ async function loadStockPeers(
   return peers;
 }
 
+// Sum TTM (trailing 12 months) per-share distributions, then divide by
+// price for current yield. ALWAYS use adj_dividend — the raw `dividend`
+// column stores pre-split values, so for any ticker with a recent split
+// the yield gets inflated by the split ratio (HDV's 5:1 split made our
+// yield show 13% instead of the real 3%).
 async function ttmYield(symbol: string, price: number | null): Promise<number | null> {
   if (price == null || price <= 0) return null;
   const sb = getBackendClient();
   const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
   const { data } = await sb
     .from("dividends")
-    .select("dividend")
+    .select("adj_dividend,dividend")
     .eq("symbol", symbol)
     .gte("date", cutoff)
     .gt("dividend", 0)
     .limit(20);
-  const rows = (data as { dividend: number }[] | null) ?? [];
+  const rows = (data as { adj_dividend: number | null; dividend: number }[] | null) ?? [];
   if (rows.length === 0) return null;
-  const ttm = rows.reduce((s, r) => s + Number(r.dividend), 0);
+  const ttm = rows.reduce(
+    (s, r) => s + (r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend)),
+    0,
+  );
   return ttm > 0 ? (ttm / price) * 100 : null;
 }
 
@@ -1114,14 +1122,16 @@ async function batchTtmYield(symbols: string[]): Promise<Map<string, number>> {
   const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
   const { data } = await sb
     .from("dividends")
-    .select("symbol,dividend")
+    .select("symbol,adj_dividend,dividend")
     .in("symbol", symbols)
     .gte("date", cutoff)
     .gt("dividend", 0)
     .limit(symbols.length * 15);
   const map = new Map<string, number>();
-  for (const r of (data as { symbol: string; dividend: number }[] | null) ?? []) {
-    map.set(r.symbol, (map.get(r.symbol) ?? 0) + Number(r.dividend));
+  for (const r of (data as { symbol: string; adj_dividend: number | null; dividend: number }[] | null) ?? []) {
+    const val = r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend);
+    if (!isFinite(val) || val <= 0) continue;
+    map.set(r.symbol, (map.get(r.symbol) ?? 0) + val);
   }
   return map;
 }

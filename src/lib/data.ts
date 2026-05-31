@@ -72,7 +72,12 @@ type TickerRow = {
 function toStockRow(t: TickerRow): StockRow {
   const lastDiv = numericOrNull(t.last_div);
   const price = numericOrNull(t.price);
-  const yieldPct = lastDiv != null && price && price > 0 ? (lastDiv / price) * 100 : null;
+  // Sanity cap: any yield >30% is virtually always a data-quality problem
+  // (FMP's last_div sometimes stores pre-split per-share, which inflates
+  // yield for any ticker that's had a stock split). Null it out so the
+  // enrichment pass can recompute via split-adjusted TTM dividends.
+  let yieldPct = lastDiv != null && price && price > 0 ? (lastDiv / price) * 100 : null;
+  if (yieldPct != null && yieldPct > 30) yieldPct = null;
   const change = numericOrNull(t.changes);
   const changePercent = numericOrNull(t.change_percentage);
   return {
@@ -393,6 +398,11 @@ export async function listStocks(opts: ScreenerOptions = {}): Promise<StockRow[]
     return [];
   }
   let rows = (data as TickerRow[] | null)?.map(toStockRow) ?? [];
+
+  // Backfill yield via TTM-adjusted dividends for any row whose
+  // last_div-based yield was nulled out (capped >30%, or last_div NULL).
+  // Same helper used by listEtfsByCategory; works for stocks too.
+  await enrichEtfYieldsFromDividends(rows);
 
   if (opts.minYieldPct != null) {
     rows = rows.filter((r) => r.dividend_yield != null && r.dividend_yield >= opts.minYieldPct!);
@@ -1909,16 +1919,27 @@ async function enrichEtfYieldsFromDividends(rows: StockRow[]): Promise<void> {
   if (missing.length === 0) return;
   const sb = getBackendClient();
   const cutoff = new Date(Date.now() - 365 * 86400 * 1000).toISOString().slice(0, 10);
+  // Use adj_dividend (split-adjusted) when summing TTM. The raw `dividend`
+  // column stores pre-split per-share amounts, so for any ticker that's
+  // had a stock split (e.g. HDV had a 5:1 split — raw dividend $0.84 but
+  // post-split per-share is $0.17), summing raw `dividend` blows the
+  // yield up by the split ratio. adj_dividend always matches the current
+  // share basis that pairs with the current price.
   const { data } = await sb
     .from("dividends")
-    .select("symbol,dividend")
+    .select("symbol,adj_dividend,dividend")
     .in("symbol", missing)
     .gte("date", cutoff)
     .gt("dividend", 0)
     .limit(missing.length * 15);
   const ttm = new Map<string, number>();
-  for (const r of (data as { symbol: string; dividend: number }[] | null) ?? []) {
-    ttm.set(r.symbol, (ttm.get(r.symbol) ?? 0) + Number(r.dividend));
+  for (const r of (data as { symbol: string; adj_dividend: number | null; dividend: number }[] | null) ?? []) {
+    // Prefer adj_dividend; fall back to dividend only if adj is null
+    // (some old rows have NULL adj_dividend; for those the raw is the
+    // best we've got).
+    const val = r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend);
+    if (!isFinite(val) || val <= 0) continue;
+    ttm.set(r.symbol, (ttm.get(r.symbol) ?? 0) + val);
   }
   for (const r of rows) {
     if (r.dividend_yield != null) continue;
