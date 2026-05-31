@@ -948,7 +948,7 @@ async function refreshEtfHoldings(shard: number, shards: number) {
     marketValue?: number;
   };
   type SectorItem = { sector?: string; weightPercentage?: number };
-  type CountryItem = { country?: string; weightPercentage?: number };
+  type CountryItem = { country?: string; weightPercentage?: number | string };
 
   const CONCURRENCY = 3;
   let next = 0;
@@ -1025,6 +1025,8 @@ async function refreshEtfHoldings(shard: number, shards: number) {
         }
 
         // Country weights — geographic allocation. Same shape as sectors.
+        // FMP sometimes returns weightPercentage as a string like "12.34%"
+        // instead of a number; coerce defensively.
         const cres = await fetch(
           `${FMP_STABLE}/etf/country-weightings?symbol=${encodeURIComponent(sym)}&apikey=${FMP_API_KEY}`
         );
@@ -1035,12 +1037,21 @@ async function refreshEtfHoldings(shard: number, shards: number) {
             const seenCountries = new Set<string>();
             const rows = items
               .filter((it) => it.country)
-              .map((it) => ({
-                etf_symbol: sym,
-                country: it.country!,
-                weight_percentage: it.weightPercentage ?? null,
-                updated_at: new Date().toISOString(),
-              }))
+              .map((it) => {
+                const raw = it.weightPercentage;
+                let w: number | null = null;
+                if (typeof raw === "number") w = isFinite(raw) ? raw : null;
+                else if (typeof raw === "string") {
+                  const n = parseFloat(raw.replace(/[%,\s]/g, ""));
+                  w = isFinite(n) ? n : null;
+                }
+                return {
+                  etf_symbol: sym,
+                  country: it.country!,
+                  weight_percentage: w,
+                  updated_at: new Date().toISOString(),
+                };
+              })
               .filter((r) => {
                 if (seenCountries.has(r.country)) return false;
                 seenCountries.add(r.country);
