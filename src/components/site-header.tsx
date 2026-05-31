@@ -27,7 +27,6 @@ type Suggestion = {
 
 export function SiteHeader() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<MenuKey>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -59,7 +58,6 @@ export function SiteHeader() {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setLoading(false);
     });
     const {
       data: { subscription },
@@ -365,22 +363,22 @@ export function SiteHeader() {
           <Link href="/pricing" className="dv-action-link">
             Pricing
           </Link>
-          {!loading && (
+          {/* Render Sign In / Sign Up immediately on first paint. Earlier this
+              was gated on the supabase getSession promise resolving — if that
+              hung, nothing rendered after Pricing. Now: signed-out is the
+              default, the Account swap happens once auth resolves. */}
+          {user ? (
+            <Link href="/account" className="dv-action-link dv-action-link--accent">
+              Account
+            </Link>
+          ) : (
             <>
-              {user ? (
-                <Link href="/account" className="dv-action-link dv-action-link--accent">
-                  Account
-                </Link>
-              ) : (
-                <>
-                  <Link href="/login" className="dv-action-link">
-                    Sign In
-                  </Link>
-                  <Link href="/signup" className="dv-action-link dv-action-link--accent">
-                    Sign Up
-                  </Link>
-                </>
-              )}
+              <Link href="/login" className="dv-action-link">
+                Sign In
+              </Link>
+              <Link href="/signup" className="dv-action-link dv-action-link--accent">
+                Sign Up
+              </Link>
             </>
           )}
         </div>
