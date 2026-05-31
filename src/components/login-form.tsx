@@ -105,7 +105,6 @@ export function LoginForm() {
 
     if (provider === "google") {
       options.queryParams = {
-        hd: "uncoverd.org",
         prompt: "select_account",
       };
     }
