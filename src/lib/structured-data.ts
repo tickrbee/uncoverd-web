@@ -113,7 +113,7 @@ export function etfJsonLd(e: EtfJsonLdInput) {
       e.expense_ratio != null
         ? {
             "@type": "QuantitativeValue",
-            value: e.expense_ratio * 100,
+            value: e.expense_ratio,
             unitText: "PERCENT",
             description: "Expense ratio",
           }

@@ -569,7 +569,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       header: "Expense Ratio",
       className: "dv-th--num",
       sortKey: "pe_ratio",
-      cell: (r) => (r.expense_ratio != null ? `${(r.expense_ratio * 100).toFixed(2)}%` : "—"),
+      cell: (r) => (r.expense_ratio != null ? `${r.expense_ratio.toFixed(2)}%` : "—"),
     },
     {
       header: "Holdings",
@@ -673,7 +673,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       header: "Expense Ratio",
       className: "dv-th--num",
       sortKey: "expense_ratio",
-      cell: (r) => (r.expense_ratio != null ? `${(r.expense_ratio * 100).toFixed(2)}%` : "—"),
+      cell: (r) => (r.expense_ratio != null ? `${r.expense_ratio.toFixed(2)}%` : "—"),
     },
     { header: "Asset Class", sortKey: "asset_class", cell: (r) => r.asset_class ?? "—" },
   ],

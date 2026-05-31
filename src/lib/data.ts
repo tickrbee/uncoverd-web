@@ -505,6 +505,12 @@ export async function getEtfDetail(symbol: string): Promise<EtfDetailRow | null>
   }
   if (!data) return null;
   const base = toStockRow(data as unknown as TickerRow);
+  // Fill in TTM yield from the dividends table when last_div is NULL on the
+  // tickers row (common for ETFs like HDV). Same enrichment used by the
+  // listing pages.
+  if (base.is_etf || base.is_fund) {
+    await enrichEtfYieldsFromDividends([base]);
+  }
   const extra = data as unknown as {
     expense_ratio: number | null;
     aum: number | null;
@@ -788,6 +794,29 @@ export async function getEtfSectorWeights(symbol: string): Promise<EtfSectorWeig
   return (data as EtfSectorWeight[]) ?? [];
 }
 
+export type EtfCountryWeight = {
+  country: string;
+  weight_percentage: number | null;
+};
+
+export async function getEtfCountryWeights(symbol: string): Promise<EtfCountryWeight[]> {
+  const sb = getBackendClient();
+  const { data, error } = await sb
+    .from("etf_country_weightings")
+    .select("country,weight_percentage")
+    .eq("etf_symbol", symbol)
+    .order("weight_percentage", { ascending: false, nullsFirst: false });
+  if (error) {
+    // Treat missing table as "no data yet" — the migration may not be applied
+    // on every environment, and the data is purely additive.
+    if (!String(error.message ?? "").includes("does not exist")) {
+      console.error("[data.getEtfCountryWeights]", error);
+    }
+    return [];
+  }
+  return (data as EtfCountryWeight[]) ?? [];
+}
+
 // Redact sensitive identifiers + premium fields before sending rows to free
 // users. Visual blur alone leaks the real values to anyone who hits "Inspect"
 // in their browser; we have to scrub them out of the payload entirely.
@@ -855,17 +884,18 @@ export function computeEtfRating(
       ? 3 + ((detail.aum - 1_000_000_000) / 49_000_000_000) * 2
       : 5;
 
-  // Cost: lower expense ratio is better. <0.1% → 5, 0.5% → 3, >1% → 1.
+  // Cost: lower expense ratio is better. expense_ratio is stored as a percent
+  // (HDV = 0.08 means 0.08%), so the thresholds are in percent units.
   const costScore =
     detail.expense_ratio == null
       ? null
-      : detail.expense_ratio < 0.001
+      : detail.expense_ratio < 0.1
       ? 5
-      : detail.expense_ratio < 0.005
+      : detail.expense_ratio < 0.5
       ? 4
-      : detail.expense_ratio < 0.01
+      : detail.expense_ratio < 1.0
       ? 3
-      : detail.expense_ratio < 0.02
+      : detail.expense_ratio < 2.0
       ? 2
       : 1;
 

@@ -12,6 +12,7 @@ import {
   historicalPrices,
   getEtfHoldings,
   getEtfSectorWeights,
+  getEtfCountryWeights,
   formatCurrency,
   formatPercent,
   formatDate,
@@ -54,7 +55,7 @@ export async function generateMetadata({
   }
   const name = etf.name ?? upper;
   const yld = etf.dividend_yield != null ? `${etf.dividend_yield.toFixed(2)}%` : null;
-  const exp = etf.expense_ratio != null ? `${(etf.expense_ratio * 100).toFixed(2)}%` : null;
+  const exp = etf.expense_ratio != null ? `${etf.expense_ratio.toFixed(2)}%` : null;
   const aum = etf.aum != null ? `$${(etf.aum / 1e9).toFixed(1)}B AUM` : null;
   const titleParts = [
     `${name} (${upper}) ETF`,
@@ -85,13 +86,14 @@ export default async function EtfDetailPage({
   const symbol = ticker.toUpperCase();
   const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
-  const [etf, dividends, news, prices, holdings, sectorWeights] = await Promise.all([
+  const [etf, dividends, news, prices, holdings, sectorWeights, countryWeights] = await Promise.all([
     getEtfDetail(symbol),
     dividendHistoryBySymbol(symbol, 60),
     newsForSymbol(symbol, 12),
     historicalPrices(symbol, 365 * 5),
     getEtfHoldings(symbol, 50),
     getEtfSectorWeights(symbol),
+    getEtfCountryWeights(symbol),
   ]);
 
   if (!etf) notFound();
@@ -234,7 +236,7 @@ export default async function EtfDetailPage({
             </div>
             <div style={{ color: "rgba(255,255,255,0.8)" }}>
               <strong>Expense ratio:</strong>{" "}
-              {etf.expense_ratio != null ? formatPercent(etf.expense_ratio * 100) : "—"}
+              {etf.expense_ratio != null ? formatPercent(etf.expense_ratio) : "—"}
             </div>
             <div style={{ color: "rgba(255,255,255,0.8)" }}>
               <strong>Rating:</strong>{" "}
@@ -270,7 +272,7 @@ export default async function EtfDetailPage({
               <Stat label="AUM" value={formatCurrency(etf.aum, { abbreviate: true, currency: etf.currency })} />
               <Stat
                 label="Expense ratio"
-                value={etf.expense_ratio != null ? formatPercent(etf.expense_ratio * 100) : "—"}
+                value={etf.expense_ratio != null ? formatPercent(etf.expense_ratio) : "—"}
               />
               <Stat
                 label="Holdings"
@@ -343,6 +345,32 @@ export default async function EtfDetailPage({
                               width: `${Math.min(100, w)}%`,
                               height: "100%",
                               background: "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
+                            }}
+                          />
+                        </div>
+                        <span className="dv-td--num" style={{ fontSize: "0.82rem" }}>{w.toFixed(2)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {countryWeights.length > 0 && (
+              <div className="dv-card" style={{ padding: "1rem", marginTop: "1rem" }}>
+                <h3 style={{ margin: "0 0 0.75rem" }}>Country allocation</h3>
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  {countryWeights.map((c) => {
+                    const w = c.weight_percentage ?? 0;
+                    return (
+                      <div key={c.country} style={{ display: "grid", gridTemplateColumns: "180px 1fr 70px", gap: "0.75rem", alignItems: "center" }}>
+                        <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>{c.country}</span>
+                        <div style={{ background: "rgba(255,255,255,0.05)", height: 8, borderRadius: 4, overflow: "hidden" }}>
+                          <div
+                            style={{
+                              width: `${Math.min(100, w)}%`,
+                              height: "100%",
+                              background: "linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)",
                             }}
                           />
                         </div>

@@ -948,11 +948,13 @@ async function refreshEtfHoldings(shard: number, shards: number) {
     marketValue?: number;
   };
   type SectorItem = { sector?: string; weightPercentage?: number };
+  type CountryItem = { country?: string; weightPercentage?: number };
 
   const CONCURRENCY = 3;
   let next = 0;
   let holdingsInserted = 0;
   let sectorsInserted = 0;
+  let countriesInserted = 0;
   let symbolsProcessed = 0;
   const errors: string[] = [];
 
@@ -1021,6 +1023,36 @@ async function refreshEtfHoldings(shard: number, shards: number) {
             }
           }
         }
+
+        // Country weights — geographic allocation. Same shape as sectors.
+        const cres = await fetch(
+          `${FMP_STABLE}/etf/country-weightings?symbol=${encodeURIComponent(sym)}&apikey=${FMP_API_KEY}`
+        );
+        if (cres.ok) {
+          const items = (await cres.json()) as CountryItem[];
+          if (Array.isArray(items) && items.length > 0) {
+            await sb.from("etf_country_weightings").delete().eq("etf_symbol", sym);
+            const seenCountries = new Set<string>();
+            const rows = items
+              .filter((it) => it.country)
+              .map((it) => ({
+                etf_symbol: sym,
+                country: it.country!,
+                weight_percentage: it.weightPercentage ?? null,
+                updated_at: new Date().toISOString(),
+              }))
+              .filter((r) => {
+                if (seenCountries.has(r.country)) return false;
+                seenCountries.add(r.country);
+                return true;
+              });
+            if (rows.length > 0) {
+              const { error } = await sb.from("etf_country_weightings").insert(rows);
+              if (!error) countriesInserted += rows.length;
+              else errors.push(`${sym} countries: ${error.message}`);
+            }
+          }
+        }
         symbolsProcessed++;
       } catch (e) {
         errors.push(`${sym}: ${String(e)}`);
@@ -1033,6 +1065,7 @@ async function refreshEtfHoldings(shard: number, shards: number) {
   return {
     holdingsInserted,
     sectorsInserted,
+    countriesInserted,
     symbolsProcessed,
     shardSize: subset.length,
     totalEtfs: all.length,
