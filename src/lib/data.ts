@@ -967,14 +967,18 @@ export async function getStockRating(symbol: string): Promise<StockRating | null
 export async function getStockRatings(symbols: string[]): Promise<Map<string, StockRating>> {
   if (symbols.length === 0) return new Map();
   const sb = getBackendClient();
-  // Pull all rows for these symbols in the last 7 days; pick the most recent per symbol.
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  // Pull the latest rating per symbol within a 90-day window. A 7-day window
+  // dropped stocks whose ratings haven't been recomputed recently (AVGO, AMD,
+  // INTC, ADBE, JNJ etc. were 21+ days stale and showed no rating on the
+  // top-held heatmap). 90 days covers virtually all stale stocks while still
+  // bounding the row count we fetch.
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   const { data, error } = await sb
     .from("stock_ratings_daily")
     .select(RATING_COLUMNS)
     .in("symbol", symbols)
-    .gte("computed_date", sevenDaysAgo.toISOString().slice(0, 10))
+    .gte("computed_date", ninetyDaysAgo.toISOString().slice(0, 10))
     .order("computed_date", { ascending: false });
   if (error) {
     console.error("[data.getStockRatings]", error.message ?? error.code ?? JSON.stringify(error));
@@ -1068,16 +1072,16 @@ export async function getStockExtras(symbols: string[]): Promise<Map<string, Sto
     }
   }
 
-  // Merge grower tables (kings → aristocrats → contenders → achievers → challengers).
-  // These cover ~336 elite symbols. For everyone else we'll derive the same
-  // metrics from backend.dividends history below.
+  // Merge grower-table CAGR values only. The `consecutive_increases` column
+  // in public.dividend_kings / _aristocrats / _achievers / _contenders /
+  // _challengers is unreliable — kings all show "2 yrs", aristocrats include
+  // 0-year entries — so we always compute streak years from actual dividend
+  // history below. The MEMBERSHIP of these curated lists is still correct;
+  // we just don't trust the streak column.
   const growerTables = growerRows;
   for (const tableRes of growerTables) {
     for (const r of (tableRes.data as { symbol: string; consecutive_increases: number | null; dividendcagr_1y: number | null; dividendcagr_5y: number | null }[]) ?? []) {
       const e = ensure(r.symbol);
-      if (e.consecutiveIncreases == null && r.consecutive_increases != null) {
-        e.consecutiveIncreases = r.consecutive_increases;
-      }
       if (e.divCagr1y == null && r.dividendcagr_1y != null) e.divCagr1y = Number(r.dividendcagr_1y);
       if (e.divCagr5y == null && r.dividendcagr_5y != null) e.divCagr5y = Number(r.dividendcagr_5y);
     }
@@ -1117,9 +1121,13 @@ async function enrichGrowthFromHistory(
   cutoff.setFullYear(cutoff.getFullYear() - 22);
   const cutoffIso = cutoff.toISOString().slice(0, 10);
 
+  // Pull adj_dividend alongside dividend. Raw `dividend` stores pre-split
+  // per-share values, so a 5:1 split shows up as a year-over-year drop and
+  // would falsely terminate the streak. adj_dividend is split-adjusted and
+  // pairs cleanly across years.
   const { data } = await sb
     .from("dividends")
-    .select("symbol,date,dividend")
+    .select("symbol,date,adj_dividend,dividend")
     .in("symbol", missing)
     .gte("date", cutoffIso)
     .lt("date", today)
@@ -1127,9 +1135,11 @@ async function enrichGrowthFromHistory(
     .limit(missing.length * 80);
 
   const bySym = new Map<string, { date: string; dividend: number }[]>();
-  for (const r of (data as { symbol: string; date: string; dividend: number }[]) ?? []) {
+  for (const r of (data as { symbol: string; date: string; adj_dividend: number | null; dividend: number }[]) ?? []) {
+    const val = r.adj_dividend != null ? Number(r.adj_dividend) : Number(r.dividend);
+    if (!isFinite(val) || val <= 0) continue;
     const arr = bySym.get(r.symbol) ?? [];
-    arr.push({ date: r.date, dividend: Number(r.dividend) || 0 });
+    arr.push({ date: r.date, dividend: val });
     bySym.set(r.symbol, arr);
   }
 
