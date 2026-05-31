@@ -372,9 +372,14 @@ export function SiteHeader() {
                   Account
                 </Link>
               ) : (
-                <Link href="/login" className="dv-action-link dv-action-link--accent">
-                  Log In
-                </Link>
+                <>
+                  <Link href="/login" className="dv-action-link">
+                    Sign In
+                  </Link>
+                  <Link href="/signup" className="dv-action-link dv-action-link--accent">
+                    Sign Up
+                  </Link>
+                </>
               )}
             </>
           )}
@@ -574,7 +579,14 @@ export function SiteHeader() {
                 <Link href="/watchlist">Watchlist</Link>
                 <Link href="/download">App</Link>
                 <Link href="/pricing">Pricing</Link>
-                {user ? <Link href="/account">Account</Link> : <Link href="/login">Log In</Link>}
+                {user ? (
+                  <Link href="/account">Account</Link>
+                ) : (
+                  <>
+                    <Link href="/login">Sign In</Link>
+                    <Link href="/signup">Sign Up</Link>
+                  </>
+                )}
               </MobileGroup>
             </nav>
           </aside>
