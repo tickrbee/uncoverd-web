@@ -468,13 +468,21 @@ export function SiteHeader() {
               const target = e.target as HTMLElement;
               if (target.closest("a")) setMobileOpen(false);
             }}>
-              <MobileGroup title="Explore">
+              {/* Top-level direct links — match the desktop nav's standalone
+                  items (Screener, Compare, Alternatives, News, Watchlist,
+                  App). Anything that's a single link on desktop should be
+                  a single link here too, not buried in a collapsed group. */}
+              <div className="dv-mobile-solo">
                 <Link href="/screener">Screener</Link>
                 <Link href="/screener?type=etfs">ETF Screener</Link>
                 <Link href="/compare">Compare</Link>
                 <Link href="/alternatives">Alternatives</Link>
-                <Link href="/methodology">Methodology</Link>
                 <Link href="/news">News</Link>
+                <Link href="/watchlist">Watchlist</Link>
+                <Link href="/download">App</Link>
+              </div>
+              <MobileGroup title="Explore">
+                <Link href="/methodology">Methodology</Link>
                 <Link href="/about">About</Link>
               </MobileGroup>
               <MobileGroup title="Industries">
