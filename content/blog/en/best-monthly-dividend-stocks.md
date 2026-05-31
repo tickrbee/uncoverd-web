@@ -9,6 +9,7 @@ keywords:
   - stocks that pay monthly dividends
   - monthly dividend stocks list
   - high yield monthly dividend stocks
+translationKey: "best-monthly-dividend"
 cover: "https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg"
 coverAlt: "Stock market prices displayed on an electronic board"
 faqs:
