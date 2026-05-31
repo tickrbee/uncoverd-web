@@ -136,10 +136,19 @@ export async function GET(): Promise<NextResponse> {
 
   // Localized service pages (functional landing pages targeting the foreign
   // calendar keywords).
+  const localeHubs = ["/fr", "/de", "/it", "/es"];
+  for (const p of localeHubs) {
+    entries.push({ loc: `${BASE}${p}`, lastmod: now, changefreq: "weekly", priority: 0.7 });
+  }
   const servicePages = [
     "/fr/calendrier-dividendes",
     "/de/dividendenkalender",
+    "/it/calendario-dividendi",
     "/es/proximos-dividendos",
+    "/fr/meilleures-actions-dividende",
+    "/de/beste-dividenden-aktien",
+    "/it/migliori-azioni-dividendi",
+    "/es/mejores-acciones-dividendos",
   ];
   for (const p of servicePages) {
     entries.push({ loc: `${BASE}${p}`, lastmod: now, changefreq: "daily", priority: 0.8 });

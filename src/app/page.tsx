@@ -16,6 +16,7 @@ import {
   type NewsRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { homeHreflang } from "@/lib/i18n";
 import {
   websiteJsonLd,
   organizationJsonLd,
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   title: { absolute: "uncoverd — Dividend Stock Research & ETF Screener" },
   description:
     "Discover the best dividend stocks with the uncoverd screener, ratings, model portfolios, and ex-dividend calendar.",
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", languages: homeHreflang() },
 };
 
 export const dynamic = "force-dynamic";

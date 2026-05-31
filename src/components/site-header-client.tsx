@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
 import { CurrencyPicker } from "@/components/currency-picker";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import type { User } from "@supabase/supabase-js";
 
 type MenuKey =
@@ -348,6 +349,10 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             News
           </Link>
 
+          <Link href="/blog" className="dv-nav__item dv-nav__item--solo">
+            Blog
+          </Link>
+
           <Link href="/watchlist" className="dv-nav__item dv-nav__item--solo">
             Watchlist
           </Link>
@@ -358,6 +363,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
         </nav>
 
         <div className="dv-actions">
+          <LanguageSwitcher />
           <CurrencyPicker />
           <button
             type="button"
@@ -486,12 +492,19 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/compare">Compare</Link>
                 <Link href="/alternatives">Alternatives</Link>
                 <Link href="/news">News</Link>
+                <Link href="/blog">Blog</Link>
                 <Link href="/watchlist">Watchlist</Link>
                 <Link href="/download">App</Link>
               </div>
               <MobileGroup title="Explore">
                 <Link href="/methodology">Methodology</Link>
                 <Link href="/about">About</Link>
+              </MobileGroup>
+              <MobileGroup title="Languages">
+                <Link href="/fr" hrefLang="fr-FR" lang="fr">🇫🇷 Français</Link>
+                <Link href="/de" hrefLang="de-DE" lang="de">🇩🇪 Deutsch</Link>
+                <Link href="/it" hrefLang="it-IT" lang="it">🇮🇹 Italiano</Link>
+                <Link href="/es" hrefLang="es-ES" lang="es">🇪🇸 Español</Link>
               </MobileGroup>
               <MobileGroup title="Industries">
                 <Link href="/industries/reit">REIT</Link>

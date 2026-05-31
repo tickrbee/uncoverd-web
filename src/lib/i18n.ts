@@ -83,3 +83,12 @@ export function hreflangAlternates(
   }
   return out;
 }
+
+/**
+ * Reciprocal hreflang for the homepage / per-language landing hubs. The English
+ * root and each /<locale> hub are language variants of the same "home" concept,
+ * so they cross-link. Apply to the EN homepage AND every locale hub.
+ */
+export function homeHreflang(): Record<string, string> {
+  return hreflangAlternates({ en: "/", fr: "/", de: "/", it: "/", es: "/" });
+}
