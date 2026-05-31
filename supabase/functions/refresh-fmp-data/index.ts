@@ -208,6 +208,11 @@ async function syncStockList() {
         currency: meta.currency,
         is_actively_trading: true,
         is_etf: false,
+        // Explicitly set is_fund=false on insert. Without it, NULL slips in
+        // and the financials/dividends/prices refresh functions (which use
+        // .eq("is_fund", false)) silently skip the symbol — that's what
+        // caused GOOGL/NFLX to have no financials or rating.
+        is_fund: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

@@ -1072,12 +1072,10 @@ export async function getStockExtras(symbols: string[]): Promise<Map<string, Sto
     }
   }
 
-  // Merge grower-table CAGR values only. The `consecutive_increases` column
-  // in public.dividend_kings / _aristocrats / _achievers / _contenders /
-  // _challengers is unreliable — kings all show "2 yrs", aristocrats include
-  // 0-year entries — so we always compute streak years from actual dividend
-  // history below. The MEMBERSHIP of these curated lists is still correct;
-  // we just don't trust the streak column.
+  // CAGR values from the legacy grower tables are still trusted (they're
+  // sourced separately and look correct). The `consecutive_increases` column
+  // is not — we replace it with the nightly-computed values from
+  // backend.dividend_streaks.
   const growerTables = growerRows;
   for (const tableRes of growerTables) {
     for (const r of (tableRes.data as { symbol: string; consecutive_increases: number | null; dividendcagr_1y: number | null; dividendcagr_5y: number | null }[]) ?? []) {
@@ -1087,8 +1085,17 @@ export async function getStockExtras(symbols: string[]): Promise<Map<string, Sto
     }
   }
 
-  // For symbols still missing growth metrics, derive them from full dividend
-  // history. Cheap and covers every payer in backend.dividends.
+  // Seed consecutive_increases from the nightly streaks table — a single
+  // query covering the whole page. Falls through to history computation
+  // below for any symbol not yet in the table.
+  const streakMap = await fetchStreakRows(symbols);
+  for (const [sym, streak] of streakMap.entries()) {
+    const e = ensure(sym);
+    e.consecutiveIncreases = streak;
+  }
+
+  // For symbols still missing growth metrics (CAGR + any streak gap), derive
+  // them from full dividend history.
   await enrichGrowthFromHistory(symbols, map);
 
   // Returns: compute from historical_prices_stocks. To keep this fast we only
@@ -1802,28 +1809,47 @@ export type GrowerSlug =
   | "contenders"
   | "challengers";
 
-const GROWER_TABLE_MAP: Record<GrowerSlug, string | null> = {
-  aristocrats: "dividend_aristocrats",
-  kings: "dividend_kings",
-  champions: null, // no dedicated table; we fall back to aristocrats
-  achievers: "dividend_achievers",
-  contenders: "dividend_contenders",
-  challengers: "dividend_challengers",
-};
-
+// Dividend Growers are now derived dynamically from the actual dividend
+// history (backend.dividend_streaks, refreshed nightly). The legacy static
+// tables (public.dividend_kings/_aristocrats/_achievers/_contenders/
+// _challengers) were unreliable — kings all showed "2 yrs", achievers and
+// contenders had identical membership, champions had no table.
+//
+// Slug criteria (matches backend.dividend_growers_by_slug):
+//   kings        streak_years >= 50
+//   aristocrats  streak_years >= 25
+//   champions    streak_years >= 25
+//   achievers    streak_years >= 10
+//   contenders   streak_years between 10 and 24
+//   challengers  streak_years between 5 and 9
 export async function listGrowers(slug: GrowerSlug): Promise<{ symbol: string }[]> {
-  const table = GROWER_TABLE_MAP[slug] ?? "dividend_aristocrats";
-  const sb = getAdminClient("public");
-  const { data, error } = await sb
-    .from(table)
-    .select("symbol,consecutive_increases,years_of_growth,dividendcagr_1y,dividendcagr_5y")
-    .order("consecutive_increases", { ascending: false, nullsFirst: false })
-    .limit(300);
+  const sb = getBackendClient();
+  const { data, error } = await sb.rpc("dividend_growers_by_slug", { slug });
   if (error) {
     console.error("[data.listGrowers]", error);
     return [];
   }
   return (data as { symbol: string }[]) ?? [];
+}
+
+// Same shape as the previous grower-table read, but consults
+// backend.dividend_streaks for the consecutive_increases values. Used by
+// getStockExtras to override the broken values from the static tables.
+async function fetchStreakRows(
+  symbols: string[],
+): Promise<Map<string, number>> {
+  if (symbols.length === 0) return new Map();
+  const sb = getBackendClient();
+  const { data, error } = await sb
+    .from("dividend_streaks")
+    .select("symbol,streak_years")
+    .in("symbol", symbols);
+  if (error || !data) return new Map();
+  const m = new Map<string, number>();
+  for (const r of data as { symbol: string; streak_years: number }[]) {
+    m.set(r.symbol, r.streak_years);
+  }
+  return m;
 }
 
 export async function listGrowersWithStocks(slug: GrowerSlug): Promise<StockRow[]> {
