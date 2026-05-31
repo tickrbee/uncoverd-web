@@ -11,7 +11,9 @@ import {
   getEtfHoldings,
   getStockExtras,
   historicalPrices,
+  computeEtfRating,
 } from "@/lib/data";
+import { CompareChart } from "@/components/compare-chart";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { APP_NAME } from "@/lib/branding";
@@ -296,22 +298,32 @@ async function computeTtmYieldPct(symbol: string, price: number | null): Promise
 // for compare-page level of fidelity; tagged honestly as "1Y price" not
 // "1Y total return" to avoid misrepresentation.
 async function computePriceReturns(symbol: string): Promise<{ return1y: number | null; return3y: number | null }> {
-  const days = 365 * 3 + 30; // a little buffer past 3Y
+  const days = 365 * 3 + 30;
   const rows = await historicalPrices(symbol, days);
   if (rows.length < 30) return { return1y: null, return3y: null };
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   const latestClose = Number(sorted[sorted.length - 1].close);
   if (!isFinite(latestClose) || latestClose <= 0) return { return1y: null, return3y: null };
-  function priceAtIndex(idx: number): number | null {
-    if (idx < 0 || idx >= sorted.length) return null;
-    const v = Number(sorted[idx].close);
-    return isFinite(v) && v > 0 ? v : null;
+  // Date-based lookup: find the close on/after a target date. Trading-day
+  // offsets fail when the backfill is just shy of a full 3 years (~750 days
+  // vs 756 expected), which is why the 3y column was "—" for most ETFs.
+  function priceOnOrAfter(targetIso: string): number | null {
+    // Binary search would be nicer but rows are small (~750); linear is fine.
+    for (const r of sorted) {
+      if (r.date >= targetIso) {
+        const v = Number(r.close);
+        return isFinite(v) && v > 0 ? v : null;
+      }
+    }
+    return null;
   }
-  // Approx trading-day offsets — close enough on a 1Y/3Y horizon
-  const oneYIdx = sorted.length - 252;
-  const threeYIdx = sorted.length - 252 * 3;
-  const a = priceAtIndex(oneYIdx);
-  const b = priceAtIndex(threeYIdx);
+  const today = new Date();
+  const oneYAgo = new Date(today);
+  oneYAgo.setFullYear(oneYAgo.getFullYear() - 1);
+  const threeYAgo = new Date(today);
+  threeYAgo.setFullYear(threeYAgo.getFullYear() - 3);
+  const a = priceOnOrAfter(oneYAgo.toISOString().slice(0, 10));
+  const b = priceOnOrAfter(threeYAgo.toISOString().slice(0, 10));
   return {
     return1y: a != null ? ((latestClose - a) / a) * 100 : null,
     return3y: b != null ? ((latestClose - b) / b) * 100 : null,
@@ -344,6 +356,13 @@ async function loadColumn(symbol: string): Promise<ColumnData> {
     if (yieldPct == null) {
       yieldPct = await computeTtmYieldPct(symbol, detail.price);
     }
+    // Compute ETF rating once we have the yield and 1Y return. The rating
+    // function expects dividend_yield + expense_ratio + aum on the detail
+    // object plus the 1Y return externally.
+    const enrichedDetail = etfDetail
+      ? { ...etfDetail, dividend_yield: yieldPct ?? etfDetail.dividend_yield }
+      : null;
+    const rating = enrichedDetail ? computeEtfRating(enrichedDetail, returns.return1y) : null;
     return {
       ...EMPTY_COLUMN(symbol),
       name: detail.name,
@@ -364,6 +383,8 @@ async function loadColumn(symbol: string): Promise<ColumnData> {
       yearHigh: yearStats.high,
       yearLow: yearStats.low,
       pctOff52wHigh: yearStats.pctOff,
+      composite: rating?.composite ?? null,
+      grade: rating?.grade ?? null,
     };
   }
 
@@ -535,7 +556,15 @@ export default async function ComparePage({
     );
   }
 
-  const columns = await Promise.all(symbols.map((s) => loadColumn(s)));
+  const [columns, chartSeries] = await Promise.all([
+    Promise.all(symbols.map((s) => loadColumn(s))),
+    Promise.all(
+      symbols.map(async (s) => {
+        const rows = await historicalPrices(s, 365 * 5).catch(() => []);
+        return { symbol: s, points: rows.map((r) => ({ date: r.date, close: r.close })) };
+      }),
+    ),
+  ]);
   const etfCols = columns.filter((c) => c.kind === "etf");
   const headline = symbols.join(" vs ");
   const qs = buildQueryString(symbols);
@@ -713,6 +742,18 @@ export default async function ComparePage({
           </MetricSection>
         )}
 
+        {/* Price chart: side-by-side normalized lines for all selected symbols.
+            Indexed to 100 at the start of the range so different price levels
+            don't visually dominate. */}
+        {chartSeries.some((s) => s.points.length >= 2) && (
+          <section className="dv-section" style={{ marginTop: "1.5rem" }}>
+            <h2 className="dv-section__title">Price performance</h2>
+            <div className="panel" style={{ padding: "1rem" }}>
+              <CompareChart series={chartSeries} defaultRange="1Y" />
+            </div>
+          </section>
+        )}
+
         {/* Performance section */}
         <MetricSection title="Performance" cols={colCount}>
           <MetricRow
@@ -805,6 +846,15 @@ export default async function ComparePage({
         {/* ETF specifics */}
         {hasEtfs && (
           <MetricSection title="ETF mechanics" cols={colCount}>
+            <MetricRow
+              label="Rating"
+              cols={columns}
+              winnerSymbol={winners.rating}
+              valueFor={(c) => c.composite}
+              format={(v, c) => (c?.grade ? `${c.grade} (${v.toFixed(2)})` : v.toFixed(2))}
+              gradeFor={(c) => c.grade}
+              winnerHint="Composite of yield, AUM, cost, 1Y return"
+            />
             <MetricRow
               label="AUM"
               cols={columns}
