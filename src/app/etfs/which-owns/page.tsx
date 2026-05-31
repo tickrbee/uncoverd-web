@@ -7,6 +7,7 @@ import { EtfHolderSearch } from "@/components/etf-holder-search";
 export const metadata: Metadata = {
   title: "Which ETF owns a stock?",
   description: "Search any ticker or company name to see every ETF that holds it — with weights, AUM, expense ratios, and position market value.",
+  alternates: { canonical: "/etfs/which-owns" },
 };
 
 // Static / pre-rendered: this page has no DB calls itself, only the client

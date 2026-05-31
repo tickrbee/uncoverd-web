@@ -19,6 +19,7 @@ import {
   type StockRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { pickTitle, metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -38,8 +39,11 @@ export async function generateMetadata({
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
   return {
-    title: `Which ETFs own ${upper}?`,
-    description: `Find every ETF that holds ${upper} — weights, AUM, expense ratios, market value of each ETF's position.`,
+    title: pickTitle([`Which ETFs Own ${upper}? — Full Holders List`, `Which ETFs Own ${upper}?`]),
+    description: metaDescription(
+      `Find every ETF that holds ${upper} — with each fund's weight, AUM, expense ratio and the market value of its ${upper} position. Updated regularly on uncoverd.`
+    ),
+    alternates: { canonical: `/etfs/holders/${upper}` },
   };
 }
 

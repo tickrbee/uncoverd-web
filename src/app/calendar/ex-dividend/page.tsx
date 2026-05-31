@@ -20,7 +20,9 @@ import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Ex-Dividend Calendar",
-  description: "Upcoming ex-dividend dates so you can capture every dividend payout.",
+  description:
+    "Upcoming ex-dividend dates, payment dates and amounts for thousands of dividend stocks and ETFs — so you can capture every payout. Updated daily on uncoverd.",
+  alternates: { canonical: "/calendar/ex-dividend" },
 };
 
 export const dynamic = "force-dynamic";

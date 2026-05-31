@@ -17,7 +17,9 @@ import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Monthly Dividend Stocks",
-  description: "Stocks that pay monthly dividends.",
+  description:
+    "Stocks and ETFs that pay dividends every month, ranked by yield, payout ratio and uncoverd rating. Build a monthly dividend income stream with reliable payers.",
+  alternates: { canonical: "/monthly" },
 };
 
 export const dynamic = "force-dynamic";

@@ -13,6 +13,7 @@ import {
   cashFlowAnnual,
   cashFlowQuarterly,
 } from "@/lib/data";
+import { pickTitle, metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -42,8 +43,9 @@ export async function generateMetadata({
   const meta = STATEMENTS[statement as StatementKey];
   if (!meta) return { title: `${upper} Financials` };
   return {
-    title: `${upper} — ${meta.label}`,
-    description: `${upper} ${meta.label.toLowerCase()}: ${meta.description}`,
+    title: pickTitle([`${upper} ${meta.label} — Full History`, `${upper} ${meta.label}`]),
+    description: metaDescription(`${upper} ${meta.label.toLowerCase()}: ${meta.description}`),
+    alternates: { canonical: `/stocks/${upper}/financials/${statement}` },
   };
 }
 

@@ -2567,3 +2567,86 @@ export async function applyDisplayCurrency(rows: StockRow[], display: string | u
 export function yieldFromStock(stock: StockRow): number | null {
   return stock.dividend_yield;
 }
+
+// ============================================================
+// A–Z directory (internal-linking hubs)
+//
+// The Ahrefs audit flagged ~9.7k indexable ticker pages as orphans — they
+// were reachable only from the sitemap, with zero incoming internal links.
+// These two helpers back the /stocks and /etfs browse pages, which list every
+// indexable ticker alphabetically so each detail page gets a real crawlable
+// inlink. Kept deliberately lean (no yield enrichment) since these pages link
+// thousands of rows.
+// ============================================================
+
+export type DirectoryRow = { symbol: string; name: string | null };
+
+// Same market-cap floor the sitemap uses, so the directory and sitemap cover
+// exactly the same set of pages (no orphans, no dead directory links).
+const DIRECTORY_MIN_MKT_CAP = 100_000_000;
+
+// Build the symbol-prefix filter for a bucket. "A".."Z" → starts with that
+// letter; "0" → starts with any digit (covers numeric foreign tickers like
+// 603259.SS that would otherwise have no home in an A–Z index).
+function applyDirectoryBucket<T>(q: T, bucket: string): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query = q as any;
+  if (bucket === "0") {
+    return query.or(
+      "symbol.like.0%,symbol.like.1%,symbol.like.2%,symbol.like.3%,symbol.like.4%,symbol.like.5%,symbol.like.6%,symbol.like.7%,symbol.like.8%,symbol.like.9%",
+    );
+  }
+  return query.ilike("symbol", `${bucket}%`);
+}
+
+function applyDirectoryKind<T>(q: T, kind: "stocks" | "etfs"): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query = q as any;
+  if (kind === "etfs") {
+    return query.or("is_etf.eq.true,is_fund.eq.true");
+  }
+  return query.eq("is_etf", false).eq("is_fund", false);
+}
+
+export async function listDirectory(opts: {
+  kind: "stocks" | "etfs";
+  bucket: string;
+  offset: number;
+  limit: number;
+}): Promise<DirectoryRow[]> {
+  const sb = getBackendClient();
+  let q = sb
+    .from("tickers")
+    .select("symbol,name")
+    .eq("is_actively_trading", true)
+    .gte("mkt_cap", DIRECTORY_MIN_MKT_CAP);
+  q = applyDirectoryKind(q, opts.kind);
+  q = applyDirectoryBucket(q, opts.bucket);
+  q = q.order("symbol", { ascending: true }).range(opts.offset, opts.offset + opts.limit - 1);
+  const { data, error } = await q;
+  if (error) {
+    console.error("[data.listDirectory]", error);
+    return [];
+  }
+  return (data as DirectoryRow[] | null) ?? [];
+}
+
+export async function countDirectory(opts: {
+  kind: "stocks" | "etfs";
+  bucket: string;
+}): Promise<number> {
+  const sb = getBackendClient();
+  let q = sb
+    .from("tickers")
+    .select("symbol", { count: "exact", head: true })
+    .eq("is_actively_trading", true)
+    .gte("mkt_cap", DIRECTORY_MIN_MKT_CAP);
+  q = applyDirectoryKind(q, opts.kind);
+  q = applyDirectoryBucket(q, opts.bucket);
+  const { count, error } = await q;
+  if (error) {
+    console.error("[data.countDirectory]", error);
+    return 0;
+  }
+  return count ?? 0;
+}

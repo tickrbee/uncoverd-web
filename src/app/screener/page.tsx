@@ -28,7 +28,9 @@ import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Dividend Stock Screener",
-  description: "Screen thousands of dividend stocks by yield, market cap, sector and currency.",
+  description:
+    "Screen 65,000+ dividend stocks and ETFs by yield, payout ratio, dividend growth, market cap, sector and currency. Filter, sort and compare income investments on uncoverd.",
+  alternates: { canonical: "/screener" },
 };
 
 export const dynamic = "force-dynamic";

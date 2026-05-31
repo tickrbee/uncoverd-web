@@ -5,9 +5,12 @@ import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = {
-  title: "Rating Methodology — uncoverd",
+  // Plain string → the `%s | uncoverd` template appends the brand. Don't put
+  // "uncoverd" in the string too, or it double-brands ("… — uncoverd | uncoverd").
+  title: "Rating Methodology",
   description:
     "How uncoverd computes its dividend stock and ETF ratings. Composite scoring, dimension definitions, data sources, and update cadence.",
+  alternates: { canonical: "/methodology" },
 };
 
 export default function MethodologyPage() {

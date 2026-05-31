@@ -8,6 +8,7 @@ import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar"
 import { Pager } from "@/components/pager";
 import { listEtfsByCategory, type StockRow } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const c = ETF_CATEGORIES[slug];
   if (!c) return { title: "Dividend ETFs" };
-  return { title: c.label, description: c.description };
+  return {
+    title: c.label,
+    description: metaDescription(
+      `${c.description} Compare ${c.label.toLowerCase()} by yield, expense ratio, AUM and uncoverd rating to find the best income funds.`
+    ),
+    alternates: { canonical: `/etfs/${slug}` },
+  };
 }
 
 export default async function ETFsPage({

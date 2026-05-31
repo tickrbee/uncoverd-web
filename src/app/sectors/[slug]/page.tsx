@@ -24,6 +24,7 @@ import {
 } from "@/lib/data";
 import type { SecurityType } from "@/components/listing-toolbar";
 import { getPremiumStatus } from "@/lib/premium";
+import { metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,10 @@ export async function generateMetadata({
   const label = SECTOR_LABEL_MAP[sector] || sector;
   return {
     title: `${label} Dividend Stocks`,
-    description: `Top dividend-paying ${label.toLowerCase()} stocks.`,
+    description: metaDescription(
+      `Top dividend-paying ${label.toLowerCase()} stocks ranked by yield, payout ratio, growth and uncoverd rating. Compare ${label.toLowerCase()} dividend payers and find the safest income.`
+    ),
+    alternates: { canonical: `/sectors/${slug}` },
   };
 }
 

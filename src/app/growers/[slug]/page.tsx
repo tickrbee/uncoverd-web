@@ -15,6 +15,7 @@ import {
   type StockRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { metaDescription } from "@/lib/seo";
 
 const PAGE_SIZE = 100;
 
@@ -61,7 +62,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const info = GROWER_INFO[slug as GrowerSlug];
   if (!info) return { title: "Dividend Growers" };
-  return { title: info.label, description: info.description };
+  return {
+    title: info.label,
+    description: metaDescription(
+      `${info.description} See the full ${info.label} list with current yields, payout ratios and uncoverd ratings.`
+    ),
+    alternates: { canonical: `/growers/${slug}` },
+  };
 }
 
 export default async function GrowersPage({

@@ -8,6 +8,7 @@ import { APP_NAME } from "@/lib/branding";
 export const metadata: Metadata = {
   title: "About",
   description: `${APP_NAME} is independent dividend-research software, sourced from SEC filings and rebuilt for serious income investors.`,
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

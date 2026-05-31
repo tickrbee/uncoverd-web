@@ -8,6 +8,7 @@ import { APP_NAME } from "@/lib/branding";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: `How ${APP_NAME} collects, uses, and protects your personal data.`,
+  alternates: { canonical: "/legal/privacy" },
 };
 
 const LAST_UPDATED = "2026-05-27";

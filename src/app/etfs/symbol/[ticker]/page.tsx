@@ -18,6 +18,8 @@ import {
   formatDate,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { pickTitle, metaDescription } from "@/lib/seo";
+import { unstable_cache } from "next/cache";
 import {
   breadcrumbList,
   etfJsonLd,
@@ -28,6 +30,28 @@ import {
 
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
+
+// User-independent per-ETF reads are cached in Next's data cache (refreshed
+// every 10 min) so the page's TTFB no longer pays for 7 DB round-trips on
+// every hit — the cause of this route's "Slow page" warning. The page stays
+// dynamic for the per-user premium check; only the data is cached.
+const getEtfCore = unstable_cache(
+  async (symbol: string) => {
+    const [etf, dividends, news, prices, holdings, sectorWeights, countryWeights] =
+      await Promise.all([
+        getEtfDetail(symbol),
+        dividendHistoryBySymbol(symbol, 60),
+        newsForSymbol(symbol, 12),
+        historicalPrices(symbol, 365 * 5),
+        getEtfHoldings(symbol, 50),
+        getEtfSectorWeights(symbol),
+        getEtfCountryWeights(symbol),
+      ]);
+    return { etf, dividends, news, prices, holdings, sectorWeights, countryWeights };
+  },
+  ["etf-detail-core"],
+  { revalidate: 600 },
+);
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -49,25 +73,35 @@ export async function generateMetadata({
   const etf = await getEtfDetail(upper).catch(() => null);
   if (!etf) {
     return {
-      title: `${upper} ETF — Expense Ratio, Holdings, Yield & Distributions`,
-      description: `${upper} ETF profile: expense ratio, AUM, holdings count, yield and distribution history.`,
+      title: pickTitle([`${upper} ETF — Yield, Holdings & Expense Ratio`, `${upper} ETF Profile`]),
+      description: metaDescription(
+        `${upper} ETF profile: expense ratio, AUM, holdings count, distribution yield and full distribution history on uncoverd.`
+      ),
+      alternates: { canonical: `/etfs/symbol/${upper}` },
     };
   }
   const name = etf.name ?? upper;
   const yld = etf.dividend_yield != null ? `${etf.dividend_yield.toFixed(2)}%` : null;
   const exp = etf.expense_ratio != null ? `${etf.expense_ratio.toFixed(2)}%` : null;
   const aum = etf.aum != null ? `$${(etf.aum / 1e9).toFixed(1)}B AUM` : null;
-  const titleParts = [
+  const title = pickTitle([
+    `${name} (${upper}) ETF — ${yld ?? "Yield"} Yield`,
     `${name} (${upper}) ETF`,
-    yld ? `${yld} yield` : null,
-    exp ? `${exp} expense ratio` : null,
-  ].filter(Boolean);
+    `${upper} ETF — Yield, Holdings & Expense Ratio`,
+    `${upper} ETF Profile`,
+  ]);
+  const description = metaDescription(
+    `${name} (${upper}) — ${[yld && `${yld} distribution yield`, exp && `${exp} expense ratio`, aum]
+      .filter(Boolean)
+      .join(", ")}. Holdings, distributions, rating and full ETF profile on uncoverd.`
+  );
   return {
-    title: titleParts.join(" — "),
-    description: `${name} (${upper}) — ${[yld && `${yld} distribution yield`, exp && `${exp} expense ratio`, aum].filter(Boolean).join(", ")}. Holdings, distributions, rating and full ETF profile on uncoverd.`,
+    title: { absolute: title },
+    description,
     alternates: { canonical: `/etfs/symbol/${upper}` },
     openGraph: {
-      title: titleParts.join(" — "),
+      title,
+      description,
       type: "website",
       url: `/etfs/symbol/${upper}`,
     },
@@ -86,15 +120,8 @@ export default async function EtfDetailPage({
   const symbol = ticker.toUpperCase();
   const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
-  const [etf, dividends, news, prices, holdings, sectorWeights, countryWeights] = await Promise.all([
-    getEtfDetail(symbol),
-    dividendHistoryBySymbol(symbol, 60),
-    newsForSymbol(symbol, 12),
-    historicalPrices(symbol, 365 * 5),
-    getEtfHoldings(symbol, 50),
-    getEtfSectorWeights(symbol),
-    getEtfCountryWeights(symbol),
-  ]);
+  const { etf, dividends, news, prices, holdings, sectorWeights, countryWeights } =
+    await getEtfCore(symbol);
 
   if (!etf) notFound();
   if (!etf.is_etf && !etf.is_fund) {
@@ -543,7 +570,7 @@ export default async function EtfDetailPage({
                   <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
                     {n.image && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={n.image} alt="" className="dv-news-card__image" />
+                      <img src={n.image} alt={n.title} className="dv-news-card__image" />
                     )}
                     <div className="dv-news-card__body">
                       <h3 className="dv-news-card__title">{n.title}</h3>

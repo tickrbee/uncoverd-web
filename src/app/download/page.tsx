@@ -6,9 +6,10 @@ import { SiteFooter } from "@/components/site-footer";
 import { AppStoreLinks } from "@/components/app-store-links";
 
 export const metadata: Metadata = {
-  title: "Download the uncoverd Mobile App | AI-Powered Investing",
+  title: "Download the Mobile App",
   description:
     "Download uncoverd — the AI-powered investing app for discovering the best stocks, building your portfolio, and competing with other investors.",
+  alternates: { canonical: "/download" },
 };
 
 export default function DownloadPage() {

@@ -21,6 +21,7 @@ import { getPremiumStatus } from "@/lib/premium";
 export const metadata: Metadata = {
   title: "Stocks that could start paying dividends",
   description: "Profitable, cash-generative US companies that don't yet pay a dividend — ranked by how ready they look to start.",
+  alternates: { canonical: "/lists/potential-payers" },
 };
 
 export const dynamic = "force-dynamic";

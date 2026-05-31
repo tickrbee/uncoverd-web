@@ -19,7 +19,9 @@ import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Declaration Date Calendar",
-  description: "Track recent dividend declarations and get ready for upcoming payouts.",
+  description:
+    "Track recent dividend declarations across thousands of stocks and ETFs, with amounts and ex-dates, so you're ready for upcoming payouts. Updated daily on uncoverd.",
+  alternates: { canonical: "/calendar/declaration" },
 };
 
 export const dynamic = "force-dynamic";

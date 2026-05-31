@@ -19,7 +19,9 @@ import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Yields Over 4% — High Dividend Stocks",
-  description: "Dividend-paying stocks with forward yields above 4%.",
+  description:
+    "High-yield dividend stocks with forward yields above 4%, ranked by payout safety and uncoverd rating so you can spot quality income — not yield traps.",
+  alternates: { canonical: "/high-yield" },
 };
 
 export const dynamic = "force-dynamic";

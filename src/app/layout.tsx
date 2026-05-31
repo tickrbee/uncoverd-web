@@ -47,9 +47,12 @@ export const metadata: Metadata = {
     "dividend research",
     "SCHD VYM JEPI",
   ],
-  alternates: {
-    canonical: "/",
-  },
+  // NOTE: we intentionally do NOT set a global `alternates.canonical` here.
+  // A canonical defined in the root layout is inherited by every page that
+  // doesn't override it, which made dozens of pages (methodology, legal/*,
+  // about, sectors, news…) declare the homepage as their canonical — telling
+  // Google they were duplicates of "/". Each page now sets its own
+  // self-referential canonical instead. The homepage's lives in app/page.tsx.
   openGraph: {
     title: `${APP_NAME} — Dividend Stock Research, Ratings & ETF Screener`,
     description:

@@ -8,6 +8,7 @@ import { APP_NAME } from "@/lib/branding";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: `Terms governing your use of the ${APP_NAME} dividend research platform.`,
+  alternates: { canonical: "/legal/terms" },
 };
 
 const LAST_UPDATED = "2026-05-27";

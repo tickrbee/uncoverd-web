@@ -20,6 +20,7 @@ import { getPremiumStatus } from "@/lib/premium";
 export const metadata: Metadata = {
   title: "Stocks most held by ETFs",
   description: "The 500 stocks held by the most ETFs in our database. Paginated for speed; click any ticker to see exactly which funds hold it.",
+  alternates: { canonical: "/etfs/top-held" },
 };
 
 export const dynamic = "force-dynamic";

@@ -7,6 +7,7 @@ import { APP_NAME } from "@/lib/branding";
 export const metadata: Metadata = {
   title: "Investment Disclaimer",
   description: `${APP_NAME} provides educational research, not investment advice. Read the full disclaimer.`,
+  alternates: { canonical: "/legal/disclaimer" },
 };
 
 const LAST_UPDATED = "2026-05-27";

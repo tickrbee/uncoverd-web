@@ -21,6 +21,7 @@ import {
 } from "@/lib/data";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { getPremiumStatus } from "@/lib/premium";
+import { metaDescription } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -138,7 +139,11 @@ export async function generateMetadata({
   const { slug } = await params;
   const pick = PICKS[slug];
   if (!pick) return { title: "Picks" };
-  return { title: pick.label, description: pick.description };
+  return {
+    title: pick.label,
+    description: metaDescription(pick.description),
+    alternates: { canonical: `/picks/${slug}` },
+  };
 }
 
 export default async function PicksPage({

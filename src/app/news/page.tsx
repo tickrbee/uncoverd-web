@@ -7,7 +7,9 @@ import { latestNews, formatDate, SECTOR_LABEL_MAP, SECTOR_SLUG_MAP, type NewsRow
 
 export const metadata: Metadata = {
   title: "Dividend & Market News",
-  description: "Latest dividend declarations, market commentary, and stock news.",
+  description:
+    "Latest dividend declarations, increases, cuts and market commentary for income investors — updated hourly and tracked against uncoverd ratings.",
+  alternates: { canonical: "/news" },
 };
 
 export const dynamic = "force-dynamic";
@@ -89,7 +91,7 @@ export default async function NewsPage({
               <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
                 {n.image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={n.image} alt="" className="dv-news-card__image" />
+                  <img src={n.image} alt={n.title} className="dv-news-card__image" />
                 )}
                 <div className="dv-news-card__body">
                   <h3 className="dv-news-card__title">{n.title}</h3>

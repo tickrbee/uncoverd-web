@@ -23,9 +23,12 @@ import {
 } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  title: "uncoverd — Dividend stock research, screener, and model portfolios",
+  // `absolute` bypasses the `%s | uncoverd` template so the brand isn't
+  // repeated (the title already starts with "uncoverd").
+  title: { absolute: "uncoverd — Dividend Stock Research & ETF Screener" },
   description:
     "Discover the best dividend stocks with the uncoverd screener, ratings, model portfolios, and ex-dividend calendar.",
+  alternates: { canonical: "/" },
 };
 
 export const dynamic = "force-dynamic";
@@ -165,7 +168,7 @@ export default async function HomePage() {
               <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
                 {n.image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={n.image} alt="" className="dv-news-card__image" />
+                  <img src={n.image} alt={n.title} className="dv-news-card__image" />
                 )}
                 <div className="dv-news-card__body">
                   <h3 className="dv-news-card__title">{n.title}</h3>

@@ -35,9 +35,83 @@ import {
   formatDate,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
+import { pickTitle, metaDescription } from "@/lib/seo";
+import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
+
+// The page stays dynamic because it reads the per-user premium/auth cookie for
+// the paywall. But the ~14 user-independent DB reads below — the real cost
+// behind the audit's "Slow page" warnings — are now served from Next's data
+// cache and refreshed every 10 min. This restores the `revalidate = 600`
+// intent that `force-dynamic` was silently overriding, without touching the
+// paywall or the auth header. Premium gating still happens per request.
+const getStockCore = unstable_cache(
+  async (symbol: string) => {
+    const [
+      stock,
+      rating,
+      dividends,
+      news,
+      prices,
+      incomeAnnual,
+      incomeQuarterly,
+      balanceAnnual,
+      balanceQuarterly,
+      cashFlowAnnualRows,
+      cashFlowQuarterlyRows,
+      ratios,
+    ] = await Promise.all([
+      getStock(symbol),
+      getStockRating(symbol),
+      dividendHistoryBySymbol(symbol, 40),
+      newsForSymbol(symbol, 12),
+      historicalPrices(symbol, 365 * 10),
+      incomeStatementAnnual(symbol, 5),
+      incomeStatementQuarterly(symbol, 8),
+      balanceSheetAnnual(symbol, 5),
+      balanceSheetQuarterly(symbol, 8),
+      cashFlowAnnual(symbol, 5),
+      cashFlowQuarterly(symbol, 8),
+      ratiosLatest(symbol),
+    ]);
+    return {
+      stock,
+      rating,
+      dividends,
+      news,
+      prices,
+      incomeAnnual,
+      incomeQuarterly,
+      balanceAnnual,
+      balanceQuarterly,
+      cashFlowAnnualRows,
+      cashFlowQuarterlyRows,
+      ratios,
+    };
+  },
+  ["stock-detail-core"],
+  { revalidate: 600 },
+);
+
+const getStockRecovery = unstable_cache(
+  (symbol: string) => avgRecoveryDays(symbol, 8),
+  ["stock-detail-recovery"],
+  { revalidate: 600 },
+);
+
+const getStockRelated = unstable_cache(
+  async (symbol: string, sector: string | null) => {
+    const [peerStocks, topEtfHolders] = await Promise.all([
+      getPeerStocksInSector(symbol, sector, 6),
+      getTopEtfHoldersPreview(symbol, 6),
+    ]);
+    return { peerStocks, topEtfHolders };
+  },
+  ["stock-detail-related"],
+  { revalidate: 600 },
+);
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -65,32 +139,43 @@ export async function generateMetadata({
   const stock = await getStock(upper).catch(() => null);
   if (!stock) {
     return {
-      title: `${upper} — Dividend, Yield & Price`,
-      description: `${upper} dividend history, yield, payout ratio, and price.`,
+      title: pickTitle([`${upper} Dividend — Yield, Payout & History`, `${upper} Dividend`]),
+      description: metaDescription(
+        `${upper} dividend history, forward yield, payout ratio, ex-dividend dates and price on uncoverd.`
+      ),
+      alternates: { canonical: `/stocks/${upper}` },
     };
   }
   const company = stock.name ?? upper;
   const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
   const annual = stock.annual_dividend != null ? `$${stock.annual_dividend.toFixed(2)}` : null;
   const sector = stock.sector;
-  const titleParts = [
-    `${company} (${upper})`,
-    yld ? `${yld} dividend yield` : "dividend history",
-  ];
-  const descParts = [
-    yld
-      ? `${company} (${upper}) — ${yld} forward dividend yield${annual ? `, ${annual} annual payout` : ""}.`
-      : `${company} (${upper}) dividend research.`,
-    sector ? `Sector: ${sector}.` : "",
-    "See ratings, ex-dividend calendar, payout history and full financials on uncoverd.",
-  ].filter(Boolean);
+  // Richest → shortest. pickTitle returns the first that fits in 60 chars so
+  // long company names (or foreign tickers like 603259.SS) don't overflow.
+  const title = pickTitle([
+    `${company} (${upper}) — ${yld ?? "Dividend"} Dividend Yield`,
+    `${company} (${upper}) Dividend Yield`,
+    `${upper} Dividend — ${yld ?? "Yield"} Yield, Payout & History`,
+    `${upper} Dividend Yield & History`,
+  ]);
+  const description = metaDescription(
+    [
+      yld
+        ? `${company} (${upper}) — ${yld} forward dividend yield${annual ? `, ${annual} annual payout` : ""}.`
+        : `${company} (${upper}) dividend research.`,
+      sector ? `Sector: ${sector}.` : "",
+      "Ratings, ex-dividend calendar, payout history and full financials on uncoverd.",
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
   return {
-    title: titleParts.join(" — "),
-    description: descParts.join(" "),
+    title: { absolute: title },
+    description,
     alternates: { canonical: `/stocks/${upper}` },
     openGraph: {
-      title: `${company} (${upper})${yld ? ` — ${yld} dividend yield` : ""}`,
-      description: descParts.join(" "),
+      title,
+      description,
       type: "website",
       url: `/stocks/${upper}`,
     },
@@ -109,7 +194,7 @@ export default async function StockPage({
   const symbol = ticker.toUpperCase();
   const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
-  const [
+  const {
     stock,
     rating,
     dividends,
@@ -122,32 +207,15 @@ export default async function StockPage({
     cashFlowAnnualRows,
     cashFlowQuarterlyRows,
     ratios,
-    recoveryDays,
-  ] = await Promise.all([
-    getStock(symbol),
-    getStockRating(symbol),
-    dividendHistoryBySymbol(symbol, 40),
-    newsForSymbol(symbol, 12),
-    historicalPrices(symbol, 365 * 10),
-    incomeStatementAnnual(symbol, 5),
-    incomeStatementQuarterly(symbol, 8),
-    balanceSheetAnnual(symbol, 5),
-    balanceSheetQuarterly(symbol, 8),
-    cashFlowAnnual(symbol, 5),
-    cashFlowQuarterly(symbol, 8),
-    ratiosLatest(symbol),
-    active === "capture" ? avgRecoveryDays(symbol, 8) : Promise.resolve(null),
-  ]);
+  } = await getStockCore(symbol);
+  const recoveryDays = active === "capture" ? await getStockRecovery(symbol) : null;
 
   if (!stock) notFound();
   const premium = await getPremiumStatus();
   const isPositive = (stock.change_percent ?? 0) >= 0;
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
-  const [peerStocks, topEtfHolders] = await Promise.all([
-    getPeerStocksInSector(symbol, stock.sector ?? null, 6),
-    getTopEtfHoldersPreview(symbol, 6),
-  ]);
+  const { peerStocks, topEtfHolders } = await getStockRelated(symbol, stock.sector ?? null);
 
   // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
   // <script type="application/ld+json"> tags in the <head>-equivalent slot
@@ -458,7 +526,7 @@ export default async function StockPage({
                   <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
                     {n.image && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={n.image} alt="" className="dv-news-card__image" />
+                      <img src={n.image} alt={n.title} className="dv-news-card__image" />
                     )}
                     <div className="dv-news-card__body">
                       <h3 className="dv-news-card__title">{n.title}</h3>

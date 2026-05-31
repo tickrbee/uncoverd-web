@@ -21,6 +21,8 @@ export async function SiteFooter() {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <div className="site-footer__links">
+          <Link href="/stocks">Browse Stocks A–Z</Link>
+          <Link href="/etfs">Browse ETFs A–Z</Link>
           <Link href="/about">About</Link>
           <Link href="/methodology">Methodology</Link>
           <Link href="/glossary">Glossary</Link>

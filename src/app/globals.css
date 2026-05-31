@@ -3050,6 +3050,24 @@ a {
   color: var(--text-secondary);
 }
 
+/* A–Z ticker directory listing (the /stocks and /etfs browse hubs). A
+   responsive multi-column layout so a few hundred ticker links stay scannable. */
+.dv-az-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 280px 4;
+  column-gap: 1.5rem;
+}
+.dv-az-list li {
+  break-inside: avoid;
+  padding: 0.2rem 0;
+}
+.dv-az-list li span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 /* Tabs */
 .dv-tabs {
   display: flex;

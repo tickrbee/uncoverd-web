@@ -23,6 +23,7 @@ import {
 } from "@/lib/data";
 import type { SecurityType } from "@/components/listing-toolbar";
 import { getPremiumStatus } from "@/lib/premium";
+import { metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const entry = INDUSTRY_SLUG_MAP[slug];
   if (!entry) return { title: "Industry Dividends" };
-  return { title: `${entry.label} Dividend Stocks`, description: `Top dividend-paying ${entry.label.toLowerCase()} stocks.` };
+  return {
+    title: `${entry.label} Dividend Stocks`,
+    description: metaDescription(
+      `Top dividend-paying ${entry.label.toLowerCase()} stocks ranked by yield, payout ratio, growth and uncoverd rating. Compare ${entry.label.toLowerCase()} dividend payers and find the safest income.`
+    ),
+    alternates: { canonical: `/industries/${slug}` },
+  };
 }
 
 export default async function IndustryPage({

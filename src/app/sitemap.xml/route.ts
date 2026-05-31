@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GLOSSARY } from "@/lib/glossary";
+import { DIRECTORY_BUCKETS } from "@/lib/directory";
 
 // Custom sitemap.xml route. We bypass Next.js's built-in sitemap generator
 // because it's not escaping `&` in URL fields — every `/compare?a=X&b=Y`
@@ -116,9 +117,19 @@ export async function GET(): Promise<NextResponse> {
     { path: `/best-dividend-stocks/${year}`, freq: "weekly", pri: 0.9 },
     { path: `/best-dividend-stocks/${year + 1}`, freq: "weekly", pri: 0.85 },
     { path: "/glossary", freq: "monthly", pri: 0.7 },
+    { path: "/stocks", freq: "weekly", pri: 0.7 },
+    { path: "/etfs", freq: "weekly", pri: 0.7 },
   ];
   for (const u of staticUrls) {
     entries.push({ loc: `${BASE}${u.path}`, lastmod: now, changefreq: u.freq, priority: u.pri });
+  }
+
+  // A–Z directory browse pages — the crawl path that gives every ticker
+  // detail page an internal inlink (de-orphans the ~9.7k ticker pages).
+  for (const b of DIRECTORY_BUCKETS) {
+    const letter = b.toLowerCase();
+    entries.push({ loc: `${BASE}/stocks/browse/${letter}`, lastmod: now, changefreq: "weekly", priority: 0.6 });
+    entries.push({ loc: `${BASE}/etfs/browse/${letter}`, lastmod: now, changefreq: "weekly", priority: 0.6 });
   }
 
   for (const g of GLOSSARY) {
