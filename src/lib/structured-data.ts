@@ -250,6 +250,33 @@ export function organizationJsonLd() {
   };
 }
 
+// Article schema for blog posts. Eligible for Google article rich results and
+// parsed by AI engines as an authored source.
+export function articleJsonLd(input: {
+  url: string;
+  title: string;
+  description: string;
+  datePublished: string;
+  dateModified?: string;
+  inLanguage: string;
+  image?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "@id": `${input.url}#article`,
+    mainEntityOfPage: input.url,
+    headline: input.title,
+    description: input.description,
+    inLanguage: input.inLanguage,
+    datePublished: input.datePublished,
+    dateModified: input.dateModified ?? input.datePublished,
+    image: input.image ?? `${BASE}/opengraph-image`,
+    author: { "@id": `${BASE}/#organization`, "@type": "Organization", name: APP_NAME },
+    publisher: { "@id": `${BASE}/#organization` },
+  };
+}
+
 // Small helper to serialize JSON-LD into a script element string.
 export function jsonLdScript(obj: unknown): string {
   return JSON.stringify(obj).replace(/</g, "\\u003c");

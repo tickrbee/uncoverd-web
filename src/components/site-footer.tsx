@@ -23,6 +23,7 @@ export async function SiteFooter() {
         <div className="site-footer__links">
           <Link href="/stocks">Browse Stocks A–Z</Link>
           <Link href="/etfs">Browse ETFs A–Z</Link>
+          <Link href="/blog">Blog</Link>
           <Link href="/about">About</Link>
           <Link href="/methodology">Methodology</Link>
           <Link href="/glossary">Glossary</Link>
@@ -32,6 +33,20 @@ export async function SiteFooter() {
           <Link href="/legal/privacy">Privacy Policy</Link>
           <Link href="/legal/disclaimer">Investment Disclaimer</Link>
           {signedIn ? <Link href="/account">Account</Link> : <Link href="/login">Sign in</Link>}
+        </div>
+
+        {/* Localized hubs — kept as a separate row so crawlers reach the
+            non-English service pages (they have no English equivalent). */}
+        <div className="site-footer__links site-footer__links--intl">
+          <Link href="/fr/calendrier-dividendes" hrefLang="fr-FR" lang="fr">
+            Calendrier dividendes 🇫🇷
+          </Link>
+          <Link href="/de/dividendenkalender" hrefLang="de-DE" lang="de">
+            Dividendenkalender 🇩🇪
+          </Link>
+          <Link href="/es/proximos-dividendos" hrefLang="es-ES" lang="es">
+            Próximos dividendos 🇪🇸
+          </Link>
         </div>
 
         <div className="site-footer__social">

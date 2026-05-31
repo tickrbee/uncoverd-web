@@ -52,3 +52,13 @@ export function isDescriptionHealthy(text: string): boolean {
   const n = text.trim().length;
   return n >= DESC_MIN && n <= DESC_MAX;
 }
+
+/**
+ * Append Pexels' on-the-fly compression + resize params to a base image URL so
+ * we serve a right-sized, compressed JPEG instead of the multi-MB original
+ * (addresses the "compressed / width-height / responsive image" SEO checks).
+ */
+export function pexelsImage(base: string, width = 1200): string {
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}auto=compress&cs=tinysrgb&fit=crop&w=${width}`;
+}

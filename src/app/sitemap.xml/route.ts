@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { GLOSSARY } from "@/lib/glossary";
 import { DIRECTORY_BUCKETS } from "@/lib/directory";
+import { getAllPosts } from "@/lib/content";
+import { ALL_LOCALES, localePrefix } from "@/lib/i18n";
 
 // Custom sitemap.xml route. We bypass Next.js's built-in sitemap generator
 // because it's not escaping `&` in URL fields — every `/compare?a=X&b=Y`
@@ -130,6 +132,34 @@ export async function GET(): Promise<NextResponse> {
     const letter = b.toLowerCase();
     entries.push({ loc: `${BASE}/stocks/browse/${letter}`, lastmod: now, changefreq: "weekly", priority: 0.6 });
     entries.push({ loc: `${BASE}/etfs/browse/${letter}`, lastmod: now, changefreq: "weekly", priority: 0.6 });
+  }
+
+  // Localized service pages (functional landing pages targeting the foreign
+  // calendar keywords).
+  const servicePages = [
+    "/fr/calendrier-dividendes",
+    "/de/dividendenkalender",
+    "/es/proximos-dividendos",
+  ];
+  for (const p of servicePages) {
+    entries.push({ loc: `${BASE}${p}`, lastmod: now, changefreq: "daily", priority: 0.8 });
+  }
+
+  // Blog: index + every post, per locale (only locales that actually have
+  // posts, so we don't list empty/noindex indexes).
+  for (const loc of ALL_LOCALES) {
+    const posts = getAllPosts(loc);
+    if (posts.length === 0) continue;
+    const prefix = localePrefix(loc);
+    entries.push({ loc: `${BASE}${prefix}/blog`, lastmod: now, changefreq: "weekly", priority: 0.7 });
+    for (const post of posts) {
+      entries.push({
+        loc: `${BASE}${prefix}/blog/${post.slug}`,
+        lastmod: post.updated ?? post.date ?? now,
+        changefreq: "monthly",
+        priority: 0.65,
+      });
+    }
   }
 
   for (const g of GLOSSARY) {
