@@ -472,6 +472,54 @@ export function SiteHeader() {
                 <Link href="/news">News</Link>
                 <Link href="/about">About</Link>
               </MobileGroup>
+              <MobileGroup title="Industries">
+                <Link href="/industries/reit">REIT</Link>
+                <Link href="/industries/mlp">MLP</Link>
+                <Link href="/industries/bdc">BDC</Link>
+                <Link href="/industries/clean-energy">Clean Energy</Link>
+                <Link href="/industries/uranium">Uranium</Link>
+                <Link href="/industries/lithium">Lithium</Link>
+                <Link href="/industries/precious-metals">Precious Metals</Link>
+                <Link href="/industries/water">Water</Link>
+                <Link href="/industries/natural-resources">Natural Resources</Link>
+                <Link href="/industries/energy-infrastructure">Energy Infrastructure</Link>
+                <Link href="/industries/semiconductors">Semiconductors</Link>
+                <Link href="/industries/software">Software</Link>
+                <Link href="/industries/ecommerce">eCommerce</Link>
+                <Link href="/industries/transportation">Transportation</Link>
+                <Link href="/industries/autos">Autos</Link>
+                <Link href="/industries/airlines">Airlines</Link>
+                <Link href="/industries/shipping">Shipping</Link>
+                <Link href="/industries/cruise-lines">Cruise Lines</Link>
+                <Link href="/industries/hotels">Hotels</Link>
+                <Link href="/industries/retail">Retail</Link>
+                <Link href="/industries/iron-steel">Iron &amp; Steel</Link>
+                <Link href="/industries/chemicals">Chemicals</Link>
+                <Link href="/industries/pharma">Pharma</Link>
+                <Link href="/industries/insurance">Insurance</Link>
+                <Link href="/industries/aerospace-defense">Aerospace &amp; Defense</Link>
+              </MobileGroup>
+              <MobileGroup title="Sectors">
+                <Link href="/sectors/financials">Financials</Link>
+                <Link href="/sectors/real-estate">Real Estate</Link>
+                <Link href="/sectors/communications">Communications</Link>
+                <Link href="/sectors/consumer-discretionary">Consumer Discretionary</Link>
+                <Link href="/sectors/consumer-staples">Consumer Staples</Link>
+                <Link href="/sectors/energy">Energy</Link>
+                <Link href="/sectors/health-care">Health Care</Link>
+                <Link href="/sectors/industrials">Industrials</Link>
+                <Link href="/sectors/technology">Technology</Link>
+                <Link href="/sectors/materials">Materials</Link>
+                <Link href="/sectors/utilities">Utilities</Link>
+              </MobileGroup>
+              <MobileGroup title="Payout Changes">
+                <Link href="/payout-changes/increasing">Increasing Dividend</Link>
+                <Link href="/payout-changes/decreasing">Decreasing Dividend</Link>
+                <Link href="/payout-changes/initiating">Initiating Dividend</Link>
+                <Link href="/payout-changes/suspending">Suspending Dividend</Link>
+                <Link href="/payout-changes/special">Special Dividend</Link>
+                <Link href="/lists/potential-payers">Future Dividend Payers</Link>
+              </MobileGroup>
               <MobileGroup title="Lists & Picks">
                 <Link href="/picks/best-dividend-stocks">Best Dividend Stocks</Link>
                 <Link href="/picks/best-high-yield">Best High Yield</Link>
@@ -479,11 +527,25 @@ export function SiteHeader() {
                 <Link href="/picks/best-dividend-protection">Best Dividend Protection</Link>
                 <Link href="/picks/best-monthly-dividend">Best Monthly Dividend</Link>
                 <Link href="/picks/dividend-capture">Best Dividend Capture</Link>
+                <Link href="/picks/best/financials">Best Financials</Link>
+                <Link href="/picks/best/real-estate">Best Real Estate</Link>
+                <Link href="/picks/best/communications">Best Communications</Link>
+                <Link href="/picks/best/consumer-discretionary">Best Consumer Disc.</Link>
+                <Link href="/picks/best/consumer-staples">Best Consumer Staples</Link>
+                <Link href="/picks/best/energy">Best Energy</Link>
+                <Link href="/picks/best/health-care">Best Health Care</Link>
+                <Link href="/picks/best/industrials">Best Industrial</Link>
+                <Link href="/picks/best/technology">Best Technology</Link>
+                <Link href="/picks/best/materials">Best Materials</Link>
+                <Link href="/picks/best/utilities">Best Utilities</Link>
               </MobileGroup>
               <MobileGroup title="Calendar">
                 <Link href="/calendar/ex-dividend?range=week">This Week's Ex-Dates</Link>
                 <Link href="/calendar/ex-dividend?range=month">This Month's Ex-Dates</Link>
-                <Link href="/calendar/declaration?range=month">Recent Declarations</Link>
+                <Link href="/calendar/ex-dividend?range=year">This Year's Ex-Dates</Link>
+                <Link href="/calendar/declaration?range=week">Last Week's Declarations</Link>
+                <Link href="/calendar/declaration?range=month">Last Month's Declarations</Link>
+                <Link href="/calendar/declaration?range=quarter">Last Three Months</Link>
               </MobileGroup>
               <MobileGroup title="Income">
                 <Link href="/monthly">Monthly Dividend Stocks</Link>
@@ -491,20 +553,26 @@ export function SiteHeader() {
                 <Link href="/high-yield">Yields over 4%</Link>
               </MobileGroup>
               <MobileGroup title="ETFs">
-                <Link href="/etfs/top-held">Most Held by ETFs</Link>
-                <Link href="/etfs/which-owns">Which ETF Owns…</Link>
+                <Link href="/screener?type=etfs">All Dividend ETFs</Link>
+                <Link href="/etfs/which-owns">Which ETF owns a stock?</Link>
+                <Link href="/etfs/top-held">Most held by ETFs</Link>
+                <Link href="/screener?type=etfs&sector=real-estate">REIT ETFs</Link>
+                <Link href="/screener?type=etfs&sector=energy">Energy ETFs</Link>
+                <Link href="/screener?type=etfs&sector=technology">Technology ETFs</Link>
+                <Link href="/screener?type=etfs&sector=health-care">Healthcare ETFs</Link>
                 <Link href="/lists/potential-payers">Future Dividend Payers</Link>
               </MobileGroup>
               <MobileGroup title="Dividend Growers">
                 <Link href="/growers/aristocrats">Aristocrats (25+ yrs)</Link>
                 <Link href="/growers/kings">Kings (50+ yrs)</Link>
-                <Link href="/growers/champions">Champions</Link>
-                <Link href="/growers/contenders">Contenders</Link>
-                <Link href="/growers/challengers">Challengers</Link>
-                <Link href="/growers/achievers">Achievers</Link>
+                <Link href="/growers/champions">Champions (25+ yrs)</Link>
+                <Link href="/growers/contenders">Contenders (10–24 yrs)</Link>
+                <Link href="/growers/challengers">Challengers (5–9 yrs)</Link>
+                <Link href="/growers/achievers">Achievers (10+ yrs)</Link>
               </MobileGroup>
               <MobileGroup title="Account">
                 <Link href="/watchlist">Watchlist</Link>
+                <Link href="/download">App</Link>
                 <Link href="/pricing">Pricing</Link>
                 {user ? <Link href="/account">Account</Link> : <Link href="/login">Log In</Link>}
               </MobileGroup>
