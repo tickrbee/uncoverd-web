@@ -706,19 +706,22 @@ function PayoutsTab({
   ratios: Awaited<ReturnType<typeof ratiosLatest>>;
 }) {
   const lastDiv = dividends[0];
+  // Use adj_dividend (split-adjusted) for TTM total — raw `dividend` stores
+  // pre-split per-share, so any ticker with a recent split shows an
+  // inflated total here (HDV showed $3.96 TTM when real is $0.79).
   const totalTtm = dividends
     .filter((d) => {
       const t = new Date(d.date).getTime();
       return t > Date.now() - 365 * 24 * 60 * 60 * 1000;
     })
-    .reduce((sum, d) => sum + (Number(d.dividend) || 0), 0);
+    .reduce((sum, d) => sum + (Number(d.adj_dividend ?? d.dividend) || 0), 0);
 
   return (
     <section className="dv-section">
       <h2 className="dv-section__title">Payouts — {symbol}</h2>
       <div className="dv-card-grid">
         <Stat label="Next/Last Ex-Date" value={lastDiv ? formatDate(lastDiv.date) : "—"} />
-        <Stat label="Last Dividend" value={lastDiv ? formatCurrency(lastDiv.dividend, { currency: stock.currency }) : "—"} />
+        <Stat label="Last Dividend" value={lastDiv ? formatCurrency(lastDiv.adj_dividend ?? lastDiv.dividend, { currency: stock.currency }) : "—"} />
         <Stat label="Frequency" value={lastDiv?.frequency ?? "—"} />
         <Stat label="Trailing 12-mo Total" value={formatCurrency(totalTtm, { currency: stock.currency })} />
         <Stat
@@ -748,7 +751,7 @@ function PayoutsTab({
                   <td>{formatDate(d.record_date)}</td>
                   <td>{formatDate(d.payment_date)}</td>
                   <td>{d.frequency ?? "—"}</td>
-                  <td className="dv-td--num">{formatCurrency(d.dividend, { currency: stock.currency })}</td>
+                  <td className="dv-td--num">{formatCurrency(d.adj_dividend ?? d.dividend, { currency: stock.currency })}</td>
                 </tr>
               ))}
             </tbody>
@@ -768,11 +771,14 @@ function DivGrowthTab({
   dividends: Awaited<ReturnType<typeof dividendHistoryBySymbol>>;
   ratios: Awaited<ReturnType<typeof ratiosLatest>>;
 }) {
-  // Group dividends by year and sum
+  // Group dividends by year and sum. Use adj_dividend so a stock split
+  // doesn't create a fake "cut year" in the CAGR — pre-split years show
+  // inflated totals vs post-split if we use raw `dividend`, breaking
+  // growth-rate calculations.
   const byYear = new Map<number, number>();
   for (const d of dividends) {
     const y = new Date(d.date).getFullYear();
-    byYear.set(y, (byYear.get(y) ?? 0) + Number(d.dividend || 0));
+    byYear.set(y, (byYear.get(y) ?? 0) + Number(d.adj_dividend ?? d.dividend ?? 0));
   }
   const years = Array.from(byYear.entries()).sort((a, b) => a[0] - b[0]);
 
