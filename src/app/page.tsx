@@ -10,6 +10,8 @@ import {
   isoToday,
   isoDaysFromNow,
   getStockRatings,
+  redactRowsForFree,
+  gatedMap,
   formatDate,
   type StockRow,
   type DividendEvent,
@@ -50,7 +52,10 @@ export default async function HomePage() {
   }
 
   const premium = await getPremiumStatus();
-  const ratings = await getStockRatings(topYielders.map((r) => r.symbol));
+  // Gate premium data server-side so it isn't in free/bot HTML (the table still
+  // shows blurred placeholders as the upgrade funnel).
+  const ratings = gatedMap(await getStockRatings(topYielders.map((r) => r.symbol)), premium.isPremium);
+  const safeTopYielders = redactRowsForFree(topYielders, premium.isPremium);
 
   // Resolve company names so the calendar shows "AAPL — Apple Inc." instead of
   // just bare tickers.
@@ -145,7 +150,7 @@ export default async function HomePage() {
         </div>
 
         <h2 className="dv-section-title">Top dividend stocks right now</h2>
-        <DividendTable rows={topYielders} ratings={ratings} isPremium={premium.isPremium} />
+        <DividendTable rows={safeTopYielders} ratings={ratings} isPremium={premium.isPremium} />
         <p style={{ marginTop: "0.75rem" }}>
           <Link href="/screener" className="dv-action-link dv-action-link--accent">
             See the full screener →

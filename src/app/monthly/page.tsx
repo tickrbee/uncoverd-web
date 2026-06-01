@@ -11,6 +11,8 @@ import {
   getStockRatings,
   nextDividendBySymbols,
   getStockExtras,
+  redactRowsForFree,
+  gatedMap,
   type StockRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
@@ -95,6 +97,13 @@ export default async function MonthlyDividendsPage({
     needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
   ]);
 
+  // Gate premium data server-side (keeps the blurred-placeholder funnel).
+  const isPrem = premium.isPremium;
+  const safeRows = redactRowsForFree(rows, isPrem);
+  const safeRatings = gatedMap(ratings, isPrem);
+  const safeExtras = gatedMap(extras, isPrem);
+  const safeUpcoming = gatedMap(upcomingDividends, isPrem);
+
   return (
     <>
       <SiteHeader />
@@ -107,15 +116,15 @@ export default async function MonthlyDividendsPage({
         <ColumnTabs active={view} baseHref="/monthly" />
         <ListingToolbar
           active={type}
-          rows={rows}
+          rows={safeRows}
           isPremium={premium.isPremium}
           csvFilename={`uncoverd-monthly-${type}.csv`}
         />
         <DividendTable
-          rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
+          rows={safeRows}
+          ratings={safeRatings}
+          upcomingDividends={safeUpcoming}
+          extras={safeExtras}
           isPremium={premium.isPremium}
           view={view}
         />

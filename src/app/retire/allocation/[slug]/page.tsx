@@ -9,6 +9,8 @@ import {
   allocationPortfolio,
   getStockRatings,
   nextDividendBySymbols,
+  redactRowsForFree,
+  gatedMap,
   type AllocationKind,
   type StockRow,
 } from "@/lib/data";
@@ -92,6 +94,10 @@ export default async function AllocationPage({
     getStockRatings(rows.map((r) => r.symbol)),
     nextDividendBySymbols(rows.map((r) => r.symbol)),
   ]);
+  // Gate premium data server-side (keeps the blurred-placeholder funnel).
+  rows = redactRowsForFree(rows, premium.isPremium);
+  const safeRatings = gatedMap(ratings, premium.isPremium);
+  const safeUpcoming = gatedMap(upcomingDividends, premium.isPremium);
 
   return (
     <>
@@ -111,8 +117,8 @@ export default async function AllocationPage({
         ) : (
           <DividendTable
             rows={rows}
-            ratings={ratings}
-            upcomingDividends={upcomingDividends}
+            ratings={safeRatings}
+            upcomingDividends={safeUpcoming}
             isPremium={premium.isPremium}
             view={view}
           />

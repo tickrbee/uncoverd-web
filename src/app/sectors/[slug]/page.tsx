@@ -18,6 +18,8 @@ import {
   getStockExtras,
   applyDisplayCurrency,
   getDisplayCurrency,
+  redactRowsForFree,
+  gatedMap,
   SECTOR_SLUG_MAP,
   SECTOR_LABEL_MAP,
   type StockRow,
@@ -120,6 +122,12 @@ export default async function SectorPage({
   ]);
   rows = await applyDisplayCurrency(rows, displayCurrency);
 
+  // Gate premium data server-side (keeps the blurred-placeholder funnel).
+  rows = redactRowsForFree(rows, premium.isPremium);
+  const safeRatings = gatedMap(ratings, premium.isPremium);
+  const safeExtras = gatedMap(extras, premium.isPremium);
+  const safeUpcoming = gatedMap(upcomingDividends, premium.isPremium);
+
   const params2 = new URLSearchParams();
   if (view !== "overview") params2.set("view", view);
   if (currency) params2.set("currency", currency);
@@ -183,9 +191,9 @@ export default async function SectorPage({
         <CountryFilter active={country} />
         <DividendTable
           rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
+          ratings={safeRatings}
+          upcomingDividends={safeUpcoming}
+          extras={safeExtras}
           isPremium={premium.isPremium}
           view={view}
         />

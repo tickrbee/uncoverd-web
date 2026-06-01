@@ -13,6 +13,8 @@ import {
   getStockExtras,
   applyDisplayCurrency,
   getDisplayCurrency,
+  redactRowsForFree,
+  gatedMap,
   type StockRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
@@ -74,7 +76,14 @@ export default async function HighYieldPage({
     needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
     getDisplayCurrency(),
   ]);
-  const displayRows = await applyDisplayCurrency(rows, displayCurrency);
+  // Gate premium data server-side so it never reaches free/bot HTML (keeps the
+  // blurred-placeholder funnel; premium users get the real values).
+  const isPrem = premium.isPremium;
+  const safeRows = redactRowsForFree(rows, isPrem);
+  const displayRows = await applyDisplayCurrency(safeRows, displayCurrency);
+  const safeRatings = gatedMap(ratings, isPrem);
+  const safeExtras = gatedMap(extras, isPrem);
+  const safeUpcoming = gatedMap(upcomingDividends, isPrem);
 
   return (
     <>
@@ -88,16 +97,16 @@ export default async function HighYieldPage({
         <ColumnTabs active={view} baseHref="/high-yield" />
         <ListingToolbar
           active="stocks"
-          rows={rows}
+          rows={safeRows}
           isPremium={premium.isPremium}
           csvFilename="uncoverd-high-yield.csv"
         />
         <CountryFilter active={country} />
         <DividendTable
           rows={displayRows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
+          ratings={safeRatings}
+          upcomingDividends={safeUpcoming}
+          extras={safeExtras}
           isPremium={premium.isPremium}
           view={view}
         />

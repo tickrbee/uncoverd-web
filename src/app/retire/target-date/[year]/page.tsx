@@ -9,6 +9,8 @@ import {
   targetDatePortfolio,
   getStockRatings,
   nextDividendBySymbols,
+  redactRowsForFree,
+  gatedMap,
   type StockRow,
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
@@ -66,6 +68,10 @@ export default async function TargetDatePage({
     getStockRatings(rows.map((r) => r.symbol)),
     nextDividendBySymbols(rows.map((r) => r.symbol)),
   ]);
+  // Gate premium data server-side (keeps the blurred-placeholder funnel).
+  rows = redactRowsForFree(rows, premium.isPremium);
+  const safeRatings = gatedMap(ratings, premium.isPremium);
+  const safeUpcoming = gatedMap(upcomingDividends, premium.isPremium);
 
   const nowYear = new Date().getFullYear();
   const diff = parseInt(year, 10) - nowYear;
@@ -90,8 +96,8 @@ export default async function TargetDatePage({
         />
         <DividendTable
           rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
+          ratings={safeRatings}
+          upcomingDividends={safeUpcoming}
           isPremium={premium.isPremium}
           view={view}
         />

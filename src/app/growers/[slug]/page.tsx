@@ -11,6 +11,8 @@ import {
   getStockRatings,
   nextDividendBySymbols,
   getStockExtras,
+  redactRowsForFree,
+  gatedMap,
   type GrowerSlug,
   type StockRow,
 } from "@/lib/data";
@@ -105,6 +107,13 @@ export default async function GrowersPage({
     needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
   ]);
 
+  // Gate premium data server-side (keeps the blurred-placeholder funnel).
+  const isPrem = premium.isPremium;
+  const safeRows = redactRowsForFree(rows, isPrem);
+  const safeRatings = gatedMap(ratings, isPrem);
+  const safeExtras = gatedMap(extras, isPrem);
+  const safeUpcoming = gatedMap(upcomingDividends, isPrem);
+
   return (
     <>
       <SiteHeader />
@@ -113,20 +122,20 @@ export default async function GrowersPage({
         <ColumnTabs active={view} baseHref={`/growers/${slug}`} />
         <ListingToolbar
           active="stocks"
-          rows={rows}
+          rows={safeRows}
           isPremium={premium.isPremium}
           csvFilename={`uncoverd-${slug}.csv`}
           hideSecurityType
         />
-        {rows.length === 0 ? (
+        {safeRows.length === 0 ? (
           <div className="dv-empty">List is being assembled. Check back soon.</div>
         ) : (
           <>
             <DividendTable
-              rows={rows}
-              ratings={ratings}
-              upcomingDividends={upcomingDividends}
-              extras={extras}
+              rows={safeRows}
+              ratings={safeRatings}
+              upcomingDividends={safeUpcoming}
+              extras={safeExtras}
               isPremium={premium.isPremium}
               view={view}
             />
