@@ -14,6 +14,7 @@ export function SiteFooter() {
           <Link href="/etfs">Browse ETFs A–Z</Link>
           <Link href="/blog">Blog</Link>
           <Link href="/about">About</Link>
+          <Link href="/tools/dividend-calculator">Dividend Calculator</Link>
           <Link href="/methodology">Methodology</Link>
           <Link href="/glossary">Glossary</Link>
           <Link href="/pricing">Pricing</Link>

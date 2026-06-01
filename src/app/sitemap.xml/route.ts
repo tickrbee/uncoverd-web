@@ -121,6 +121,7 @@ export async function GET(): Promise<NextResponse> {
     { path: "/glossary", freq: "monthly", pri: 0.7 },
     { path: "/stocks", freq: "weekly", pri: 0.7 },
     { path: "/etfs", freq: "weekly", pri: 0.7 },
+    { path: "/tools/dividend-calculator", freq: "monthly", pri: 0.8 },
   ];
   for (const u of staticUrls) {
     entries.push({ loc: `${BASE}${u.path}`, lastmod: now, changefreq: u.freq, priority: u.pri });

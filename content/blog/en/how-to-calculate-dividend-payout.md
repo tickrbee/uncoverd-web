@@ -58,6 +58,7 @@ If a company earns **$4.00 per share** and pays **$2.00**, the payout ratio is *
 
 Rather than pulling these figures from filings by hand, you can see the dividend, yield, and payout ratio for any company on its profile page, or screen thousands of stocks at once:
 
+- [Dividend calculator](/tools/dividend-calculator) — compute income, yield and DRIP growth
 - [Open the dividend screener](/screener) to filter by yield, payout ratio and rating
 - [Browse all dividend stocks A–Z](/stocks)
 - [See this month's ex-dividend dates](/calendar/ex-dividend)
