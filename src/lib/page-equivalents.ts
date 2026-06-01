@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, localePrefix, type Locale } from "@/lib/i18n";
+import { sectorEquivalent } from "@/lib/i18n-taxonomy";
 
 // Cross-language equivalents for the pages that have localized versions, so the
 // language switcher can translate the CURRENT page instead of always dumping
@@ -52,6 +53,9 @@ const GROUPS: Partial<Record<Locale, string>>[] = [
  */
 export function localizedHref(pathname: string, target: Locale): string {
   const clean = pathname.replace(/\/+$/, "") || "/";
+  // Table-driven categories (sectors today; growers/industries next) first.
+  const sector = sectorEquivalent(clean, target);
+  if (sector) return sector;
   for (const group of GROUPS) {
     const match = Object.values(group).includes(clean);
     if (match && group[target]) return group[target] as string;

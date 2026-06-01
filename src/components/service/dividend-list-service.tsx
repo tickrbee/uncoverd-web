@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { HtmlLang } from "@/components/html-lang";
-import { listStocks, formatPercent, formatCurrency } from "@/lib/data";
+import { listStocks, formatPercent, formatCurrency, type ScreenerOptions } from "@/lib/data";
 import { faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { pexelsImage } from "@/lib/seo";
@@ -24,13 +24,15 @@ export type ListStrings = {
 
 export async function DividendListService({
   locale,
-  country,
+  query,
   strings,
   cover,
   coverAlt,
 }: {
   locale: Locale;
-  country: string; // ISO 3166 alpha-2 (FR, DE, ES, IT)
+  // Any screener filter: { country: "FR" } for the index lists, { sector } /
+  // { industryPattern } for the sector & industry landing pages, etc.
+  query: Partial<ScreenerOptions>;
   strings: ListStrings;
   cover?: string;
   coverAlt?: string;
@@ -38,12 +40,12 @@ export async function DividendListService({
   let rows: Awaited<ReturnType<typeof listStocks>> = [];
   try {
     rows = await listStocks({
-      country,
       minDividend: 0.01,
       minMarketCap: 500_000_000,
       minYieldPct: 2,
       sortBy: "yield",
       limit: 30,
+      ...query,
     });
   } catch {
     rows = [];

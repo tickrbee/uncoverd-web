@@ -27,6 +27,7 @@ import {
 import type { SecurityType } from "@/components/listing-toolbar";
 import { getPremiumStatus } from "@/lib/premium";
 import { metaDescription } from "@/lib/seo";
+import { SECTORS, sectorHreflang } from "@/lib/i18n-taxonomy";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +43,17 @@ export async function generateMetadata({
   const sector = SECTOR_SLUG_MAP[slug];
   if (!sector) return { title: "Sector Dividends" };
   const label = SECTOR_LABEL_MAP[sector] || sector;
+  const taxo = SECTORS.find((s) => s.key === slug);
   return {
     title: `${label} Dividend Stocks`,
     description: metaDescription(
       `Top dividend-paying ${label.toLowerCase()} stocks ranked by yield, payout ratio, growth and uncoverd rating. Compare ${label.toLowerCase()} dividend payers and find the safest income.`
     ),
-    alternates: { canonical: `/sectors/${slug}` },
+    alternates: {
+      canonical: `/sectors/${slug}`,
+      // Reciprocal hreflang to the localized /secteurs, /sektoren, … versions.
+      languages: taxo ? sectorHreflang(taxo) : undefined,
+    },
   };
 }
 

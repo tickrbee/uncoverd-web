@@ -61,7 +61,7 @@ export default function BesteDividendenAktienPage() {
   return (
     <DividendListService
       locale="de"
-      country="DE"
+      query={{ country: "DE" }}
       strings={STRINGS}
       cover={COVER}
       coverAlt="Börsenkurse und Finanzdaten"

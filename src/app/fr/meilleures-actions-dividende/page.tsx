@@ -61,7 +61,7 @@ export default function MeilleuresActionsDividendePage() {
   return (
     <DividendListService
       locale="fr"
-      country="FR"
+      query={{ country: "FR" }}
       strings={STRINGS}
       cover={COVER}
       coverAlt="Graphique boursier et données financières"
