@@ -16,7 +16,7 @@ const GROUPS: Partial<Record<Locale, string>>[] = [
     es: "/es/proximos-dividendos",
   },
   {
-    en: "/screener",
+    en: "/picks/best-dividend-stocks",
     fr: "/fr/meilleures-actions-dividende",
     de: "/de/beste-dividenden-aktien",
     it: "/it/migliori-azioni-dividendi",
@@ -61,4 +61,28 @@ export function localizedHref(pathname: string, target: Locale): string {
     if (match && group[target]) return group[target] as string;
   }
   return target === DEFAULT_LOCALE ? "/" : localePrefix(target);
+}
+
+/** The active locale implied by a pathname's first segment. */
+export function localeFromPath(pathname: string): Locale {
+  const seg = pathname.split("/")[1];
+  return seg === "fr" || seg === "de" || seg === "it" || seg === "es" ? seg : DEFAULT_LOCALE;
+}
+
+/**
+ * Locale-aware href for NAVIGATION: given an English target href and the
+ * current locale, return the localized equivalent if one exists, otherwise the
+ * original English href unchanged (so links to not-yet-localized pages still
+ * work instead of dumping the user on the hub). Query strings are left as-is.
+ */
+export function localeNavHref(href: string, locale: Locale): string {
+  if (locale === DEFAULT_LOCALE || !href.startsWith("/")) return href;
+  const [path] = href.split("?");
+  const clean = path.replace(/\/+$/, "") || "/";
+  const sector = sectorEquivalent(clean, locale);
+  if (sector) return sector;
+  for (const group of GROUPS) {
+    if (Object.values(group).includes(clean) && group[locale]) return group[locale] as string;
+  }
+  return href; // not localized yet → keep English target
 }

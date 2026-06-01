@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useRouter } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
