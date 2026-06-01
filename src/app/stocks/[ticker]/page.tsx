@@ -6,7 +6,12 @@ import { SiteFooter } from "@/components/site-footer";
 import { PriceChart } from "@/components/price-chart";
 import { FinancialsSection } from "@/components/financials-section";
 import { FinancialsTab } from "@/components/financials-tab";
-import { PremiumLock } from "@/components/premium-lock";
+import { Stat } from "@/components/stat";
+import {
+  StockDetailTabs,
+  type TabDef,
+  type StockPremiumProps,
+} from "@/components/stock-detail-tabs";
 import {
   breadcrumbList,
   stockJsonLd,
@@ -16,7 +21,6 @@ import {
 } from "@/lib/structured-data";
 import {
   getStock,
-  getStockRating,
   dividendHistoryBySymbol,
   newsForSymbol,
   historicalPrices,
@@ -27,31 +31,35 @@ import {
   cashFlowAnnual,
   cashFlowQuarterly,
   ratiosLatest,
-  avgRecoveryDays,
   getPeerStocksInSector,
   getTopEtfHoldersPreview,
   formatCurrency,
   formatPercent,
   formatDate,
 } from "@/lib/data";
-import { getPremiumStatus } from "@/lib/premium";
 import { pickTitle, metaDescription } from "@/lib/seo";
 import { unstable_cache } from "next/cache";
 
-export const dynamic = "force-dynamic";
+// ISR + statically cacheable: this page reads no per-request cookies (auth/
+// premium moved client-side), so Vercel's CDN serves it to everyone — bots and
+// logged-out visitors get instant cached HTML, eliminating the force-dynamic
+// "never cached" problem that was driving Googlebot re-crawls and serverless
+// cost. Premium data is fetched client-side via /api/stocks/premium and never
+// enters the cached HTML. The heavy DB reads are still memoised below.
 export const revalidate = 600;
+export const dynamicParams = true;
 
-// The page stays dynamic because it reads the per-user premium/auth cookie for
-// the paywall. But the ~14 user-independent DB reads below — the real cost
-// behind the audit's "Slow page" warnings — are now served from Next's data
-// cache and refreshed every 10 min. This restores the `revalidate = 600`
-// intent that `force-dynamic` was silently overriding, without touching the
-// paywall or the auth header. Premium gating still happens per request.
+// Prerender none at build (65k tickers), but exporting generateStaticParams is
+// what flips this dynamic-param route into ISR mode: on-demand renders are then
+// cached + revalidated (s-maxage) instead of served no-store on every request.
+export function generateStaticParams() {
+  return [];
+}
+
 const getStockCore = unstable_cache(
   async (symbol: string) => {
     const [
       stock,
-      rating,
       dividends,
       news,
       prices,
@@ -64,7 +72,6 @@ const getStockCore = unstable_cache(
       ratios,
     ] = await Promise.all([
       getStock(symbol),
-      getStockRating(symbol),
       dividendHistoryBySymbol(symbol, 40),
       newsForSymbol(symbol, 12),
       historicalPrices(symbol, 365 * 10),
@@ -78,7 +85,6 @@ const getStockCore = unstable_cache(
     ]);
     return {
       stock,
-      rating,
       dividends,
       news,
       prices,
@@ -95,12 +101,6 @@ const getStockCore = unstable_cache(
   { revalidate: 600 },
 );
 
-const getStockRecovery = unstable_cache(
-  (symbol: string) => avgRecoveryDays(symbol, 8),
-  ["stock-detail-recovery"],
-  { revalidate: 600 },
-);
-
 const getStockRelated = unstable_cache(
   async (symbol: string, sector: string | null) => {
     const [peerStocks, topEtfHolders] = await Promise.all([
@@ -113,18 +113,19 @@ const getStockRelated = unstable_cache(
   { revalidate: 600 },
 );
 
-const TABS = [
+// Premium tabs are fetched + rendered client-side (StockDetailTabs); the rest
+// are server-rendered into the cached HTML.
+const TABS: TabDef[] = [
   { key: "overview", label: "Overview" },
-  { key: "ratings", label: "Ratings" },
-  { key: "recommendation", label: "Recommendation" },
+  { key: "ratings", label: "Ratings", premium: true },
+  { key: "recommendation", label: "Recommendation", premium: true },
   { key: "payouts", label: "Payouts" },
   { key: "div-growth", label: "Div Growth" },
-  { key: "capture", label: "Capture Strategy" },
+  { key: "capture", label: "Capture Strategy", premium: true },
   { key: "financials", label: "Financials" },
   { key: "news", label: "News & Research" },
   { key: "profile", label: "Profile" },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
+];
 
 export async function generateMetadata({
   params,
@@ -184,19 +185,14 @@ export async function generateMetadata({
 
 export default async function StockPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ ticker: string }>;
-  searchParams: Promise<{ tab?: string }>;
 }) {
   const { ticker } = await params;
-  const { tab } = await searchParams;
   const symbol = ticker.toUpperCase();
-  const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
   const {
     stock,
-    rating,
     dividends,
     news,
     prices,
@@ -208,10 +204,8 @@ export default async function StockPage({
     cashFlowQuarterlyRows,
     ratios,
   } = await getStockCore(symbol);
-  const recoveryDays = active === "capture" ? await getStockRecovery(symbol) : null;
 
   if (!stock) notFound();
-  const premium = await getPremiumStatus();
   const isPositive = (stock.change_percent ?? 0) >= 0;
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
@@ -255,6 +249,164 @@ export default async function StockPage({
     has_dividends: dividends.length > 0,
   });
   const faqSchema = faqJsonLd(faqs);
+
+  // Public tab panels — server-rendered into the cached HTML. Premium tabs
+  // (ratings/recommendation/capture) are handled client-side by StockDetailTabs.
+  const panels: Record<string, React.ReactNode> = {
+    overview: (
+      <>
+        <section className="dv-section">
+          <div className="panel" style={{ padding: "1rem" }}>
+            <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" />
+          </div>
+        </section>
+        <div className="dv-card-grid">
+          <Stat label="Dividend Yield" value={formatPercent(stock.dividend_yield)} />
+          <Stat label="Annual Dividend" value={formatCurrency(stock.annual_dividend, { currency: stock.currency })} />
+          <Stat
+            label="Payout Ratio"
+            value={ratios?.dividend_payout_ratio != null ? formatPercent(ratios.dividend_payout_ratio * 100) : "—"}
+          />
+          <Stat label="P/E Ratio" value={ratios?.price_to_earnings_ratio?.toFixed(2) ?? "—"} />
+          <Stat label="Market Cap" value={formatCurrency(stock.market_cap, { abbreviate: true, currency: stock.currency })} />
+          <Stat label="Beta" value={stock.beta?.toFixed(2) ?? "—"} />
+          <Stat label="52-Week Range" value={stock.range ?? "—"} />
+          <Stat label="Volume" value={stock.volume ? stock.volume.toLocaleString() : "—"} />
+        </div>
+        {stock.description && (
+          <section className="dv-section">
+            <h2 className="dv-section__title">About {stock.name}</h2>
+            <div className="dv-prose">
+              <p>{stock.description.slice(0, 600)}{stock.description.length > 600 ? "…" : ""}</p>
+              <Link href={`/stocks/${symbol}?tab=profile`} className="dv-action-link dv-action-link--accent">
+                Full profile →
+              </Link>
+              {" · "}
+              <Link href={`/etfs/holders/${symbol}`} className="dv-action-link dv-action-link--accent">
+                Which ETFs own {symbol}? →
+              </Link>
+            </div>
+          </section>
+        )}
+        {faqs.length > 0 && (
+          <section className="dv-section">
+            <h2 className="dv-section__title">Frequently asked about {symbol}</h2>
+            <div className="dv-faq-list">
+              {faqs.map((qa, i) => (
+                <details key={i} className="dv-faq-item">
+                  <summary>{qa.q}</summary>
+                  <p>{qa.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
+        {(peerStocks.length > 0 || topEtfHolders.length > 0) && (
+          <section className="dv-section">
+            <h2 className="dv-section__title">Related</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+              {peerStocks.length > 0 && (
+                <div style={{ padding: "1rem 1.1rem", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}>
+                  <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>
+                    Other dividend stocks in {stock.sector ?? "this sector"}
+                  </h3>
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                    {peerStocks.map((p) => (
+                      <li key={p.symbol} style={{ padding: "0.25rem 0" }}>
+                        <Link href={`/stocks/${p.symbol}`} className="dv-action-link">{p.symbol}</Link>
+                        {p.name && <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}> — {p.name}</span>}
+                        {p.dividend_yield != null && (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginLeft: "0.4rem" }}>
+                            ({p.dividend_yield.toFixed(2)}%)
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {topEtfHolders.length > 0 && (
+                <div style={{ padding: "1rem 1.1rem", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)" }}>
+                  <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>Top ETFs holding {symbol}</h3>
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                    {topEtfHolders.map((h) => (
+                      <li key={h.etf_symbol} style={{ padding: "0.25rem 0" }}>
+                        <Link href={`/etfs/symbol/${h.etf_symbol}`} className="dv-action-link">{h.etf_symbol}</Link>
+                        {h.etf_name && <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}> — {h.etf_name}</span>}
+                        {h.weight_percentage != null && (
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginLeft: "0.4rem" }}>
+                            ({h.weight_percentage.toFixed(2)}%)
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  <p style={{ marginTop: "0.6rem", marginBottom: 0, fontSize: "0.82rem" }}>
+                    <Link href={`/etfs/holders/${symbol}`} className="dv-action-link">See all ETFs holding {symbol} →</Link>
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+      </>
+    ),
+    payouts: <PayoutsTab symbol={symbol} dividends={dividends} stock={stock} ratios={ratios} />,
+    "div-growth": <DivGrowthTab symbol={symbol} dividends={dividends} ratios={ratios} />,
+    financials: (
+      <FinancialsTab
+        symbol={symbol}
+        annual={{ income: incomeAnnual, balance: balanceAnnual, cashFlow: cashFlowAnnualRows }}
+        quarterly={{ income: incomeQuarterly, balance: balanceQuarterly, cashFlow: cashFlowQuarterlyRows }}
+      />
+    ),
+    news: (
+      <section className="dv-section">
+        <h2 className="dv-section__title">News &amp; Research for {symbol}</h2>
+        {news.length === 0 ? (
+          <div className="dv-empty">No news available for {symbol}.</div>
+        ) : (
+          <div className="dv-news-grid">
+            {news.map((n) => (
+              <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
+                {n.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={n.image} alt={n.title} className="dv-news-card__image" />
+                )}
+                <div className="dv-news-card__body">
+                  <h3 className="dv-news-card__title">{n.title}</h3>
+                  <p className="dv-news-card__meta">{n.publisher ?? n.site ?? "—"} · {formatDate(n.published_date)}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
+    ),
+    profile: (
+      <ProfileTab
+        symbol={symbol}
+        stock={stock}
+        financialsContent={
+          <FinancialsSection
+            annual={{ income: incomeAnnual, balance: balanceAnnual, cashFlow: cashFlowAnnualRows }}
+            quarterly={{ income: incomeQuarterly, balance: balanceQuarterly, cashFlow: cashFlowQuarterlyRows }}
+          />
+        }
+      />
+    ),
+  };
+
+  const premiumProps: StockPremiumProps = {
+    symbol,
+    dividendYield: stock.dividend_yield,
+    currency: stock.currency,
+    payoutRatio: ratios?.dividend_payout_ratio ?? null,
+    peRatio: ratios?.price_to_earnings_ratio ?? null,
+    lastDividend: dividends[0]
+      ? { date: dividends[0].date, dividend: dividends[0].dividend, frequency: dividends[0].frequency }
+      : null,
+  };
 
   return (
     <>
@@ -314,245 +466,7 @@ export default async function StockPage({
           </div>
         </section>
 
-        <nav className="dv-tabs" aria-label="Stock detail tabs">
-          {TABS.map((t) => (
-            <Link
-              key={t.key}
-              href={`/stocks/${symbol}${t.key === "overview" ? "" : `?tab=${t.key}`}`}
-              className={`dv-tab ${active === t.key ? "dv-tab--active" : ""}`}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
-
-        {active === "overview" && (
-          <>
-            <section className="dv-section">
-              <div className="panel" style={{ padding: "1rem" }}>
-                <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" />
-              </div>
-            </section>
-            <div className="dv-card-grid">
-              <Stat label="Dividend Yield" value={formatPercent(stock.dividend_yield)} />
-              <Stat label="Annual Dividend" value={formatCurrency(stock.annual_dividend, { currency: stock.currency })} />
-              <Stat
-                label="Payout Ratio"
-                value={
-                  ratios?.dividend_payout_ratio != null
-                    ? formatPercent(ratios.dividend_payout_ratio * 100)
-                    : "—"
-                }
-              />
-              <Stat label="P/E Ratio" value={ratios?.price_to_earnings_ratio?.toFixed(2) ?? "—"} />
-              <Stat
-                label="Market Cap"
-                value={formatCurrency(stock.market_cap, { abbreviate: true, currency: stock.currency })}
-              />
-              <Stat label="Beta" value={stock.beta?.toFixed(2) ?? "—"} />
-              <Stat label="52-Week Range" value={stock.range ?? "—"} />
-              <Stat label="Volume" value={stock.volume ? stock.volume.toLocaleString() : "—"} />
-            </div>
-            {stock.description && (
-              <section className="dv-section">
-                <h2 className="dv-section__title">About {stock.name}</h2>
-                <div className="dv-prose">
-                  <p>{stock.description.slice(0, 600)}{stock.description.length > 600 ? "…" : ""}</p>
-                  <Link href={`/stocks/${symbol}?tab=profile`} className="dv-action-link dv-action-link--accent">
-                    Full profile →
-                  </Link>
-                  {" · "}
-                  <Link href={`/etfs/holders/${symbol}`} className="dv-action-link dv-action-link--accent">
-                    Which ETFs own {symbol}? →
-                  </Link>
-                </div>
-              </section>
-            )}
-            {faqs.length > 0 && (
-              <section className="dv-section">
-                <h2 className="dv-section__title">Frequently asked about {symbol}</h2>
-                <div className="dv-faq-list">
-                  {faqs.map((qa, i) => (
-                    <details key={i} className="dv-faq-item">
-                      <summary>{qa.q}</summary>
-                      <p>{qa.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </section>
-            )}
-            {(peerStocks.length > 0 || topEtfHolders.length > 0) && (
-              <section className="dv-section">
-                <h2 className="dv-section__title">Related</h2>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "1rem",
-                  }}
-                >
-                  {peerStocks.length > 0 && (
-                    <div
-                      style={{
-                        padding: "1rem 1.1rem",
-                        background: "rgba(255,255,255,0.02)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    >
-                      <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>
-                        Other dividend stocks in {stock.sector ?? "this sector"}
-                      </h3>
-                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                        {peerStocks.map((p) => (
-                          <li key={p.symbol} style={{ padding: "0.25rem 0" }}>
-                            <Link href={`/stocks/${p.symbol}`} className="dv-action-link">
-                              {p.symbol}
-                            </Link>
-                            {p.name && (
-                              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                                {" "}— {p.name}
-                              </span>
-                            )}
-                            {p.dividend_yield != null && (
-                              <span
-                                style={{
-                                  color: "var(--text-secondary)",
-                                  fontSize: "0.82rem",
-                                  marginLeft: "0.4rem",
-                                }}
-                              >
-                                ({p.dividend_yield.toFixed(2)}%)
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {topEtfHolders.length > 0 && (
-                    <div
-                      style={{
-                        padding: "1rem 1.1rem",
-                        background: "rgba(255,255,255,0.02)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    >
-                      <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>
-                        Top ETFs holding {symbol}
-                      </h3>
-                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                        {topEtfHolders.map((h) => (
-                          <li key={h.etf_symbol} style={{ padding: "0.25rem 0" }}>
-                            <Link href={`/etfs/symbol/${h.etf_symbol}`} className="dv-action-link">
-                              {h.etf_symbol}
-                            </Link>
-                            {h.etf_name && (
-                              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                                {" "}— {h.etf_name}
-                              </span>
-                            )}
-                            {h.weight_percentage != null && (
-                              <span
-                                style={{
-                                  color: "var(--text-secondary)",
-                                  fontSize: "0.82rem",
-                                  marginLeft: "0.4rem",
-                                }}
-                              >
-                                ({h.weight_percentage.toFixed(2)}%)
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                      <p style={{ marginTop: "0.6rem", marginBottom: 0, fontSize: "0.82rem" }}>
-                        <Link href={`/etfs/holders/${symbol}`} className="dv-action-link">
-                          See all ETFs holding {symbol} →
-                        </Link>
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-
-        {active === "ratings" && (
-          <RatingsTab symbol={symbol} rating={rating} isPremium={premium.isPremium} />
-        )}
-
-        {active === "recommendation" && (
-          <RecommendationTab symbol={symbol} rating={rating} ratios={ratios} stock={stock} isPremium={premium.isPremium} />
-        )}
-
-        {active === "payouts" && (
-          <PayoutsTab symbol={symbol} dividends={dividends} stock={stock} ratios={ratios} />
-        )}
-
-        {active === "div-growth" && (
-          <DivGrowthTab symbol={symbol} dividends={dividends} ratios={ratios} />
-        )}
-
-        {active === "capture" && (
-          <CaptureTab
-            symbol={symbol}
-            dividends={dividends}
-            stock={stock}
-            recoveryDays={recoveryDays}
-            isPremium={premium.isPremium}
-          />
-        )}
-
-        {active === "financials" && (
-          <FinancialsTab
-            symbol={symbol}
-            annual={{ income: incomeAnnual, balance: balanceAnnual, cashFlow: cashFlowAnnualRows }}
-            quarterly={{ income: incomeQuarterly, balance: balanceQuarterly, cashFlow: cashFlowQuarterlyRows }}
-            isPremium={premium.isPremium}
-          />
-        )}
-
-        {active === "news" && (
-          <section className="dv-section">
-            <h2 className="dv-section__title">News &amp; Research for {symbol}</h2>
-            {news.length === 0 ? (
-              <div className="dv-empty">No news available for {symbol}.</div>
-            ) : (
-              <div className="dv-news-grid">
-                {news.map((n) => (
-                  <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" className="dv-news-card">
-                    {n.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={n.image} alt={n.title} className="dv-news-card__image" />
-                    )}
-                    <div className="dv-news-card__body">
-                      <h3 className="dv-news-card__title">{n.title}</h3>
-                      <p className="dv-news-card__meta">
-                        {n.publisher ?? n.site ?? "—"} · {formatDate(n.published_date)}
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {active === "profile" && (
-          <ProfileTab
-            symbol={symbol}
-            stock={stock}
-            financialsContent={
-              <FinancialsSection
-                annual={{ income: incomeAnnual, balance: balanceAnnual, cashFlow: cashFlowAnnualRows }}
-                quarterly={{ income: incomeQuarterly, balance: balanceQuarterly, cashFlow: cashFlowQuarterlyRows }}
-              />
-            }
-          />
-        )}
+        <StockDetailTabs tabs={TABS} panels={panels} premium={premiumProps} />
 
         <p style={{ marginTop: "1.5rem" }}>
           <Link href="/screener" className="dv-action-link">
@@ -562,203 +476,6 @@ export default async function StockPage({
       </main>
       <SiteFooter />
     </>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="dv-stat-card">
-      <p className="dv-stat-card__label">{label}</p>
-      <p className="dv-stat-card__value">{value}</p>
-    </div>
-  );
-}
-
-function RatingsTab({
-  symbol,
-  rating,
-  isPremium,
-}: {
-  symbol: string;
-  rating: Awaited<ReturnType<typeof getStockRating>>;
-  isPremium: boolean;
-}) {
-  if (!rating || rating.composite_total == null) {
-    return <div className="dv-empty">No ratings available yet for {symbol}.</div>;
-  }
-  const cards = [
-    {
-      key: "overall",
-      label: "Overall",
-      grade: rating.composite_grade,
-      score: rating.composite_total,
-      max: 20,
-      blurb:
-        "Composite of the five pillars below (Value + Growth + Profitability + Momentum + Health, each 0–4). 17–20 = A, 14–16 = B, 12–13 = C, 10–11 = D, below = F.",
-    },
-    {
-      key: "value",
-      label: "Value",
-      score: rating.value_score,
-      max: 5,
-      blurb: "How cheap the stock looks vs peers in its industry — combines P/E, P/B and dividend-yield percentile.",
-    },
-    {
-      key: "growth",
-      label: "Growth",
-      score: rating.growth_score,
-      max: 5,
-      blurb: "5-year revenue + EPS + dividend CAGR scored against industry peers. Rewards consistent compounding.",
-    },
-    {
-      key: "profit",
-      label: "Profitability",
-      score: rating.profit_score,
-      max: 5,
-      blurb: "Net margin, ROE and return on invested capital — how much profit the business squeezes out of its sales and capital.",
-    },
-    {
-      key: "momentum",
-      label: "Momentum",
-      score: rating.momentum_score,
-      max: 5,
-      blurb: "1-year and 3-month total return percentile vs peers. High momentum = market is bidding the stock up.",
-    },
-    {
-      key: "health",
-      label: "Health",
-      score: rating.health_score,
-      max: 5,
-      blurb: "Balance-sheet strength: net debt / EBITDA, interest coverage, dividend payout ratio. Lower-leverage and well-covered dividends score higher.",
-    },
-  ];
-  return (
-    <section className="dv-section">
-      <h2 className="dv-section__title">uncoverd Ratings — {symbol}</h2>
-      <div className="dv-card-grid">
-        {cards.map((c) => (
-          <RatingCard
-            key={c.key}
-            label={c.label}
-            score={c.score ?? null}
-            grade={c.grade}
-            max={c.max}
-            blur={!isPremium}
-            blurb={c.blurb}
-          />
-        ))}
-      </div>
-      <p style={{ marginTop: "1rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-        Full methodology:{" "}
-        <Link href="/methodology" className="dv-action-link">
-          How uncoverd ratings are calculated →
-        </Link>
-      </p>
-      {!isPremium && (
-        <div className="dv-premium-gate" style={{ marginTop: "1rem" }}>
-          <span className="dv-premium-badge">Premium</span>
-          <h2>Unlock the ratings for {symbol}</h2>
-          <p>See Value, Growth, Profitability, Momentum, and Health scores plus the composite grade.</p>
-          <div className="dv-premium-gate__actions">
-            <Link href="/pricing" className="btn">
-              See Premium Plans
-            </Link>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RecommendationTab({
-  symbol,
-  rating,
-  ratios,
-  stock,
-  isPremium,
-}: {
-  symbol: string;
-  rating: Awaited<ReturnType<typeof getStockRating>>;
-  ratios: Awaited<ReturnType<typeof ratiosLatest>>;
-  stock: NonNullable<Awaited<ReturnType<typeof getStock>>>;
-  isPremium: boolean;
-}) {
-  const score = rating?.composite_total ?? null;
-  const verdict =
-    score == null
-      ? "Insufficient data"
-      : score >= 17
-      ? "Strong Buy"
-      : score >= 14
-      ? "Buy"
-      : score >= 12
-      ? "Hold"
-      : score >= 10
-      ? "Reduce"
-      : "Avoid";
-  const verdictColor =
-    score == null
-      ? "var(--text-muted)"
-      : score >= 14
-      ? "var(--positive)"
-      : score >= 12
-      ? "#fbbf24"
-      : "var(--negative)";
-
-  return (
-    <section className="dv-section">
-      <h2 className="dv-section__title">Recommendation — {symbol}</h2>
-      {!isPremium ? (
-        <div className="dv-premium-gate">
-          <span className="dv-premium-badge">Premium</span>
-          <h2>Buy/Sell recommendations are a Premium feature</h2>
-          <p>
-            Premium subscribers see an actionable verdict (Strong Buy / Buy / Hold / Reduce / Avoid) derived from
-            uncoverd&apos;s composite rating and key fundamentals.
-          </p>
-          <div className="dv-premium-gate__actions">
-            <Link href="/pricing" className="btn">See Premium Plans</Link>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="dv-stat-card" style={{ maxWidth: 320, padding: "1.25rem" }}>
-            <p className="dv-stat-card__label">Current verdict</p>
-            <p className="dv-stat-card__value" style={{ color: verdictColor, fontSize: "1.75rem" }}>
-              {verdict}
-            </p>
-            <p className="dv-stat-card__label" style={{ marginTop: "0.35rem" }}>
-              Based on uncoverd composite {score ?? "—"} / 20
-            </p>
-          </div>
-          <div className="dv-prose" style={{ marginTop: "1rem" }}>
-            <h3 style={{ marginTop: 0 }}>Why?</h3>
-            <ul>
-              <li>
-                Composite rating: <strong>{rating?.composite_grade ?? "—"}</strong> ({score ?? "—"} / 20)
-              </li>
-              <li>
-                Current yield: <strong>{formatPercent(stock.dividend_yield)}</strong>
-              </li>
-              <li>
-                Payout ratio:{" "}
-                <strong>
-                  {ratios?.dividend_payout_ratio != null
-                    ? formatPercent(ratios.dividend_payout_ratio * 100)
-                    : "—"}
-                </strong>
-              </li>
-              <li>
-                P/E: <strong>{ratios?.price_to_earnings_ratio?.toFixed(2) ?? "—"}</strong>
-              </li>
-            </ul>
-            <p>
-              This view is a rules-based summary of uncoverd&apos;s ratings — not personalized investment advice.
-            </p>
-          </div>
-        </>
-      )}
-    </section>
   );
 }
 
@@ -918,97 +635,6 @@ function DivGrowthTab({
   );
 }
 
-function CaptureTab({
-  symbol,
-  dividends,
-  stock,
-  recoveryDays,
-  isPremium,
-}: {
-  symbol: string;
-  dividends: Awaited<ReturnType<typeof dividendHistoryBySymbol>>;
-  stock: NonNullable<Awaited<ReturnType<typeof getStock>>>;
-  recoveryDays: number | null;
-  isPremium: boolean;
-}) {
-  if (!isPremium) {
-    return (
-      <section className="dv-section">
-        <h2 className="dv-section__title">Dividend Capture Strategy — {symbol}</h2>
-        <div className="dv-premium-gate">
-          <span className="dv-premium-badge">Premium</span>
-          <h2>Capture-strategy analysis is a Premium feature</h2>
-          <p>
-            Premium subscribers see the average post-ex-dividend price-recovery days for{" "}
-            {symbol} plus an actionable verdict on whether this stock is a good
-            capture-trading candidate.
-          </p>
-          <div className="dv-premium-gate__actions">
-            <Link href="/pricing" className="btn">
-              See Premium Plans
-            </Link>
-          </div>
-        </div>
-      </section>
-    );
-  }
-  const lastDiv = dividends[0];
-  // Verdict based on actual computed recovery days
-  let verdict = "—";
-  let verdictColor = "var(--text-muted)";
-  if (recoveryDays != null) {
-    if (recoveryDays <= 5) {
-      verdict = "Excellent candidate";
-      verdictColor = "var(--positive)";
-    } else if (recoveryDays <= 15) {
-      verdict = "Good candidate";
-      verdictColor = "#34d399";
-    } else if (recoveryDays <= 40) {
-      verdict = "Moderate";
-      verdictColor = "#fbbf24";
-    } else {
-      verdict = "Poor candidate";
-      verdictColor = "var(--negative)";
-    }
-  }
-
-  return (
-    <section className="dv-section">
-      <h2 className="dv-section__title">Dividend Capture Strategy — {symbol}</h2>
-      <div className="dv-card-grid">
-        <Stat label="Next/Last Ex-Date" value={lastDiv ? formatDate(lastDiv.date) : "—"} />
-        <Stat
-          label="Last Dividend"
-          value={lastDiv ? formatCurrency(lastDiv.dividend, { currency: stock.currency }) : "—"}
-        />
-        <Stat label="Yield (FWD)" value={formatPercent(stock.dividend_yield)} />
-        <Stat
-          label="Avg Recovery (last 8 ex-dates)"
-          value={recoveryDays != null ? `${recoveryDays} trading days` : "—"}
-        />
-        <div className="dv-stat-card">
-          <p className="dv-stat-card__label">Capture Verdict</p>
-          <p className="dv-stat-card__value" style={{ color: verdictColor, fontSize: "1.15rem" }}>
-            {verdict}
-          </p>
-        </div>
-        <Stat label="Frequency" value={lastDiv?.frequency ?? "—"} />
-      </div>
-      <div className="dv-prose" style={{ marginTop: "1rem" }}>
-        <p>
-          The dividend-capture strategy is to buy just before the ex-dividend date, collect the dividend, then sell
-          once the price recovers. The recovery days shown above are computed from the actual price action across the
-          last 8 ex-dividend events for {symbol}: number of trading days until the close returned to the pre-ex price.
-        </p>
-        <p>
-          Lower is better. Under 5 days is excellent; over 40 days suggests the dividend isn&apos;t being absorbed
-          quickly by the market and capture trading is risky.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function ProfileTab({
   symbol,
   stock,
@@ -1048,75 +674,5 @@ function ProfileTab({
       </h2>
       {financialsContent}
     </section>
-  );
-}
-
-function RatingCard({
-  label,
-  score,
-  grade,
-  max,
-  blur,
-  blurb,
-}: {
-  label: string;
-  score: number | null;
-  grade?: string | null;
-  max: number;
-  blur?: boolean;
-  blurb?: string;
-}) {
-  if (score == null) {
-    return (
-      <div className="dv-stat-card">
-        <p className="dv-stat-card__label">{label}</p>
-        <p className="dv-stat-card__value" style={{ color: "var(--text-muted)" }}>
-          —
-        </p>
-        {blurb && (
-          <p className="dv-stat-card__blurb" style={{ marginTop: "0.4rem", fontSize: "0.72rem", color: "var(--text-muted)", lineHeight: 1.35 }}>
-            {blurb}
-          </p>
-        )}
-      </div>
-    );
-  }
-  const ratio = score / max;
-  const color = ratio >= 0.8 ? "var(--positive)" : ratio >= 0.6 ? "#34d399" : ratio >= 0.45 ? "#fbbf24" : "var(--negative)";
-  const gradeNode = (
-    <span className="dv-stat-card__value" style={{ color, display: "inline-block" }}>
-      {grade ?? score.toFixed(0)}
-    </span>
-  );
-  const scoreNode = (
-    <span className="dv-stat-card__label" style={{ display: "inline-block" }}>
-      {score.toFixed(0)} / {max}
-    </span>
-  );
-  return (
-    <div className="dv-stat-card">
-      <p className="dv-stat-card__label">{label}</p>
-      <p style={{ margin: 0 }}>
-        {blur ? <PremiumLock isPremium={false} inline>{gradeNode}</PremiumLock> : gradeNode}
-      </p>
-      <p style={{ marginTop: "0.25rem", marginBottom: 0 }}>
-        {blur ? <PremiumLock isPremium={false} inline>{scoreNode}</PremiumLock> : scoreNode}
-      </p>
-      {blurb && (
-        <p
-          className="dv-stat-card__blurb"
-          style={{
-            marginTop: "0.6rem",
-            fontSize: "0.72rem",
-            color: "var(--text-muted)",
-            lineHeight: 1.4,
-            borderTop: "1px solid var(--border-subtle)",
-            paddingTop: "0.5rem",
-          }}
-        >
-          {blurb}
-        </p>
-      )}
-    </div>
   );
 }

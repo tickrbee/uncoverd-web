@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PremiumLock } from "@/components/premium-lock";
+import { usePremiumStatus } from "@/components/use-premium-status";
 import type { IncomeStatementRow, BalanceSheetRow, CashFlowRow } from "@/lib/data";
 
 function abbrev(v: number | null | undefined): string {
@@ -40,6 +41,11 @@ export type FinancialsTabProps = {
 };
 
 export function FinancialsTab({ symbol, annual, quarterly, isPremium }: FinancialsTabProps) {
+  // On the statically cached stock page no `isPremium` prop is passed, so fall
+  // back to a client-side premium check (keeps the page cacheable while still
+  // giving paying users the real "See all" links).
+  const live = usePremiumStatus();
+  const effectivePremium = isPremium ?? live.isPremium;
   const noData =
     annual.income.length === 0 &&
     annual.balance.length === 0 &&
@@ -61,9 +67,9 @@ export function FinancialsTab({ symbol, annual, quarterly, isPremium }: Financia
     <section className="dv-section">
       <h2 className="dv-section__title">Financials — {symbol}</h2>
       <div className="dv-fin-grid">
-        <IncomeChart symbol={symbol} annual={annual.income} quarterly={quarterly.income} isPremium={isPremium} />
-        <BalanceSheetChart symbol={symbol} annual={annual.balance} quarterly={quarterly.balance} isPremium={isPremium} />
-        <CashFlowChart symbol={symbol} annual={annual.cashFlow} quarterly={quarterly.cashFlow} isPremium={isPremium} />
+        <IncomeChart symbol={symbol} annual={annual.income} quarterly={quarterly.income} isPremium={effectivePremium} />
+        <BalanceSheetChart symbol={symbol} annual={annual.balance} quarterly={quarterly.balance} isPremium={effectivePremium} />
+        <CashFlowChart symbol={symbol} annual={annual.cashFlow} quarterly={quarterly.cashFlow} isPremium={effectivePremium} />
       </div>
     </section>
   );

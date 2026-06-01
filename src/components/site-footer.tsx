@@ -1,22 +1,11 @@
-// Server component — reads the auth user via cookies (same source as the
-// SiteHeader server shell) and decides whether to render "Account" or
-// "Sign in". Earlier this was a client component with a hard-coded "Log in"
-// link, which meant logged-in users saw a phantom Sign-in link in the
-// footer that did nothing useful for them.
+// Footer shell. Like the header, it no longer reads the auth cookie on the
+// server (that would block CDN caching). The signed-in/out link is resolved
+// client-side via FooterAuthLink.
 
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { FooterAuthLink } from "@/components/footer-auth-link";
 
-export async function SiteFooter() {
-  let signedIn = false;
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-    signedIn = !!data.user;
-  } catch {
-    // Fall back to signed-out state if cookies are unavailable.
-  }
-
+export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer__inner">
@@ -32,7 +21,7 @@ export async function SiteFooter() {
           <Link href="/legal/terms">Terms</Link>
           <Link href="/legal/privacy">Privacy Policy</Link>
           <Link href="/legal/disclaimer">Investment Disclaimer</Link>
-          {signedIn ? <Link href="/account">Account</Link> : <Link href="/login">Sign in</Link>}
+          <FooterAuthLink />
         </div>
 
         {/* Localized hubs — kept as a separate row so crawlers reach the
