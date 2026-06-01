@@ -3206,6 +3206,35 @@ a {
   margin: 0.3rem 0;
 }
 
+/* Localized homepage feature cards */
+.dv-feature-card {
+  display: block;
+  padding: 1.2rem 1.3rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.dv-feature-card:hover {
+  border-color: var(--positive);
+  transform: translateY(-2px);
+}
+.dv-feature-card__title {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.dv-feature-card__arrow {
+  color: var(--positive);
+}
+.dv-feature-card__desc {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 /* Language switcher (header) */
 .dv-lang {
   position: relative;

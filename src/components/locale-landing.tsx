@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { PageHeader } from "@/components/page-header";
 import { HtmlLang } from "@/components/html-lang";
 import { getAllPosts } from "@/lib/content";
 import { HTML_LANG, localePrefix, type Locale } from "@/lib/i18n";
@@ -9,10 +8,9 @@ import { formatPostDate } from "@/components/blog/blog-strings";
 
 export type LandingLink = { href: string; label: string; desc: string };
 
-// The "homepage" for a localized section (/fr, /de, /it, /es). Gives each
-// language a real entry point linking its service pages + blog, so users and
-// crawlers can reach the localized content (and a language switcher can land
-// somewhere meaningful).
+// Localized homepage for /fr, /de, /it, /es. Built to read like a home page
+// (hero + feature grid + a small latest-articles strip), not a blog index —
+// it's the destination when a user switches the site language from the root.
 export function LocaleLanding({
   locale,
   title,
@@ -29,14 +27,31 @@ export function LocaleLanding({
   blogLabel: string;
 }) {
   const prefix = localePrefix(locale);
-  const posts = getAllPosts(locale).slice(0, 6);
+  const posts = getAllPosts(locale).slice(0, 3);
+  const ctas = links.slice(0, 2);
 
   return (
     <>
       {locale !== "en" && <HtmlLang lang={HTML_LANG[locale]} />}
       <SiteHeader />
       <main className="dv-page">
-        <PageHeader eyebrow={tagline} title={title} description={intro} />
+        <section
+          className="dv-page-header"
+          style={{ background: "linear-gradient(135deg, #022c22 0%, #064e3b 35%, #0a0a0a 100%)" }}
+        >
+          <p className="dv-eyebrow">{tagline}</p>
+          <h1>{title}</h1>
+          <p style={{ color: "rgba(255,255,255,0.85)", marginTop: "0.6rem", maxWidth: 640, lineHeight: 1.5 }}>
+            {intro}
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1.1rem" }}>
+            {ctas.map((c, i) => (
+              <Link key={c.href} href={c.href} className={i === 0 ? "btn" : "btn btn--ghost"}>
+                {c.label}
+              </Link>
+            ))}
+          </div>
+        </section>
 
         <section className="dv-section">
           <div
@@ -47,16 +62,11 @@ export function LocaleLanding({
             }}
           >
             {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="dv-blog-card"
-                style={{ display: "block", padding: "1.1rem 1.2rem" }}
-              >
-                <h2 style={{ margin: "0 0 0.4rem", fontSize: "1.05rem" }}>{l.label}</h2>
-                <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                  {l.desc}
-                </p>
+              <Link key={l.href} href={l.href} className="dv-feature-card">
+                <h2 className="dv-feature-card__title">
+                  {l.label} <span className="dv-feature-card__arrow">→</span>
+                </h2>
+                <p className="dv-feature-card__desc">{l.desc}</p>
               </Link>
             ))}
           </div>
