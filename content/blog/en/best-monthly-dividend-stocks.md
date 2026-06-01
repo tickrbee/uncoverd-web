@@ -12,6 +12,11 @@ keywords:
 translationKey: "best-monthly-dividend"
 cover: "https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg"
 coverAlt: "Stock market prices displayed on an electronic board"
+definition: "Monthly dividend stocks pay a dividend every month rather than quarterly — most are REITs, BDCs and closed-end or covered-call funds."
+keyTakeaways:
+  - "Monthly payers cluster in REITs, BDCs and some funds; Realty Income (O), STAG and Main Street Capital (MAIN) are well-known examples."
+  - "A monthly schedule smooths cash flow and lets you reinvest more often, but the frequency alone doesn't make a stock safer."
+  - "Judge a monthly payer like any dividend stock: payout coverage, yield in context, distribution history and balance sheet."
 faqs:
   - q: "Which stocks pay monthly dividends?"
     a: "Monthly payers are concentrated among REITs, BDCs and some closed-end funds — Realty Income (O), STAG Industrial (STAG) and Main Street Capital (MAIN) are well-known examples. You can see the full, current list on the monthly dividend screener."

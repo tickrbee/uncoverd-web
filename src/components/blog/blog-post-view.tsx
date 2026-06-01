@@ -34,6 +34,9 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
     { name: t.blogTitle, url: `${url.replace(`/blog/${post.meta.slug}`, "/blog")}` },
     { name: post.meta.title, url },
   ]);
+  const dateLine = post.meta.updated
+    ? `${t.updated} ${formatPostDate(post.meta.updated, locale)}`
+    : `${t.published} ${formatPostDate(post.meta.date, locale)}`;
 
   return (
     <>
@@ -53,11 +56,7 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
               </Link>
             </p>
             <h1>{post.meta.title}</h1>
-            <p style={{ color: "rgba(255,255,255,0.8)", marginTop: "0.5rem", fontSize: "0.9rem" }}>
-              {post.meta.updated
-                ? `${t.updated} ${formatPostDate(post.meta.updated, locale)}`
-                : `${t.published} ${formatPostDate(post.meta.date, locale)}`}
-            </p>
+            <p className="dv-byline">{dateLine}</p>
           </header>
 
           {post.meta.cover && (
@@ -71,6 +70,28 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
                 className="dv-blog-hero"
                 fetchPriority="high"
               />
+            </section>
+          )}
+
+          {post.meta.definition && (
+            <section className="dv-section">
+              <div className="dv-definition">
+                <span className="dv-definition__label">{t.definitionLabel}</span>
+                <p>{post.meta.definition}</p>
+              </div>
+            </section>
+          )}
+
+          {post.meta.keyTakeaways && post.meta.keyTakeaways.length > 0 && (
+            <section className="dv-section">
+              <div className="dv-takeaways">
+                <h2 className="dv-takeaways__title">{t.keyTakeawaysHeading}</h2>
+                <ul>
+                  {post.meta.keyTakeaways.map((k, i) => (
+                    <li key={i}>{k}</li>
+                  ))}
+                </ul>
+              </div>
             </section>
           )}
 

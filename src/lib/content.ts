@@ -25,6 +25,12 @@ export type PostMeta = {
   // Pexels' compression/size params so we don't ship a multi-MB original.
   cover?: string;
   coverAlt?: string;
+  // Editorial (Investopedia-style) elements rendered as styled boxes/byline.
+  author?: string;
+  reviewedBy?: string;
+  factCheckedBy?: string;
+  definition?: string; // short "Definition" callout near the top
+  keyTakeaways?: string[]; // "Key takeaways" box
 };
 
 export type Post = { meta: PostMeta; body: string };
@@ -66,6 +72,11 @@ export function getPost(locale: Locale, slug: string): Post | null {
       : undefined,
     cover: data.cover ? String(data.cover) : undefined,
     coverAlt: data.coverAlt ? String(data.coverAlt) : undefined,
+    author: data.author ? String(data.author) : undefined,
+    reviewedBy: data.reviewedBy ? String(data.reviewedBy) : undefined,
+    factCheckedBy: data.factCheckedBy ? String(data.factCheckedBy) : undefined,
+    definition: data.definition ? String(data.definition) : undefined,
+    keyTakeaways: Array.isArray(data.keyTakeaways) ? data.keyTakeaways.map(String) : undefined,
   };
   return { meta, body: content };
 }

@@ -11,6 +11,12 @@ keywords:
   - dividend yield calculator
 cover: "https://images.pexels.com/photos/273153/pexels-photo-273153.jpeg"
 coverAlt: "Calculator and pen resting on a financial statement"
+definition: "Dividend payout is the cash a company pays shareholders per share; the payout ratio is that dividend as a share of earnings, and the yield is the dividend as a percentage of the share price."
+keyTakeaways:
+  - "Dividend per share = total dividends ÷ shares outstanding; your income = dividend per share × shares you own."
+  - "Dividend yield = annual dividend per share ÷ share price."
+  - "Payout ratio = dividends per share ÷ earnings per share — a quick read on how safe the dividend is."
+  - "A payout ratio of 30–60% is healthy for most companies; REITs and utilities sustainably run higher."
 faqs:
   - q: "What is a good dividend payout ratio?"
     a: "For most companies a payout ratio between 30% and 60% is considered healthy — enough to return cash to shareholders while retaining capital to grow. REITs and utilities sustainably run higher (70–90%) because of their business models."

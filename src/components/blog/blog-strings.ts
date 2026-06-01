@@ -11,6 +11,12 @@ type Strings = {
   updated: string;
   faqHeading: string;
   home: string;
+  by: string;
+  reviewedBy: string;
+  factCheckedBy: string;
+  defaultAuthor: string;
+  definitionLabel: string;
+  keyTakeawaysHeading: string;
 };
 
 export const BLOG_STRINGS: Record<Locale, Strings> = {
@@ -24,6 +30,12 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     updated: "Updated",
     faqHeading: "Frequently asked questions",
     home: "Home",
+    by: "By",
+    reviewedBy: "Reviewed by",
+    factCheckedBy: "Fact checked by",
+    defaultAuthor: "uncoverd Research Team",
+    definitionLabel: "Definition",
+    keyTakeawaysHeading: "Key takeaways",
   },
   fr: {
     blogTitle: "Blog Dividendes",
@@ -35,6 +47,12 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     updated: "Mis à jour le",
     faqHeading: "Questions fréquentes",
     home: "Accueil",
+    by: "Par",
+    reviewedBy: "Revu par",
+    factCheckedBy: "Vérifié par",
+    defaultAuthor: "L'équipe de recherche uncoverd",
+    definitionLabel: "Définition",
+    keyTakeawaysHeading: "Points clés",
   },
   de: {
     blogTitle: "Dividenden-Blog",
@@ -46,6 +64,12 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     updated: "Aktualisiert am",
     faqHeading: "Häufig gestellte Fragen",
     home: "Startseite",
+    by: "Von",
+    reviewedBy: "Geprüft von",
+    factCheckedBy: "Fakten geprüft von",
+    defaultAuthor: "uncoverd Research-Team",
+    definitionLabel: "Definition",
+    keyTakeawaysHeading: "Das Wichtigste in Kürze",
   },
   it: {
     blogTitle: "Blog Dividendi",
@@ -57,6 +81,12 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     updated: "Aggiornato il",
     faqHeading: "Domande frequenti",
     home: "Home",
+    by: "Di",
+    reviewedBy: "Revisionato da",
+    factCheckedBy: "Verificato da",
+    defaultAuthor: "Team di ricerca uncoverd",
+    definitionLabel: "Definizione",
+    keyTakeawaysHeading: "Punti chiave",
   },
   es: {
     blogTitle: "Blog de Dividendos",
@@ -68,6 +98,12 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     updated: "Actualizado el",
     faqHeading: "Preguntas frecuentes",
     home: "Inicio",
+    by: "Por",
+    reviewedBy: "Revisado por",
+    factCheckedBy: "Verificado por",
+    defaultAuthor: "Equipo de investigación de uncoverd",
+    definitionLabel: "Definición",
+    keyTakeawaysHeading: "Puntos clave",
   },
 };
 
