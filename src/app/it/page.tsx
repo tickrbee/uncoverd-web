@@ -18,6 +18,11 @@ const LINKS: LandingLink[] = [
     desc: "Classifica dei titoli italiani ordinati per rendimento.",
   },
   {
+    href: "/it/azioni-dividendo-mensile",
+    label: "Azioni con dividendo mensile",
+    desc: "Le azioni che pagano un dividendo ogni mese.",
+  },
+  {
     href: "/it/blog",
     label: "Blog dividendi",
     desc: "Guide e analisi per investire nei dividendi.",

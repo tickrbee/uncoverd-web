@@ -18,6 +18,11 @@ const LINKS: LandingLink[] = [
     desc: "Rangliste deutscher Aktien sortiert nach Rendite.",
   },
   {
+    href: "/de/monatliche-dividenden-aktien",
+    label: "Aktien mit monatlicher Dividende",
+    desc: "Aktien, die jeden Monat eine Dividende zahlen.",
+  },
+  {
     href: "/de/blog",
     label: "Dividenden-Blog",
     desc: "Ratgeber und Analysen zum Dividenden-Investieren.",

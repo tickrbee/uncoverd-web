@@ -18,6 +18,11 @@ const LINKS: LandingLink[] = [
     desc: "Palmarès des actions françaises classées par rendement.",
   },
   {
+    href: "/fr/actions-dividende-mensuel",
+    label: "Actions à dividende mensuel",
+    desc: "Les actions qui versent un dividende chaque mois.",
+  },
+  {
     href: "/fr/blog",
     label: "Blog dividendes",
     desc: "Guides et analyses pour investir dans les dividendes.",

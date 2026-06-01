@@ -18,6 +18,11 @@ const LINKS: LandingLink[] = [
     desc: "Ranking de acciones españolas ordenadas por rentabilidad.",
   },
   {
+    href: "/es/acciones-dividendo-mensual",
+    label: "Acciones con dividendo mensual",
+    desc: "Las acciones que pagan dividendo cada mes.",
+  },
+  {
     href: "/es/blog",
     label: "Blog de dividendos",
     desc: "Guías y análisis para invertir en dividendos.",

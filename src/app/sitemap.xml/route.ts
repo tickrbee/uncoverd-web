@@ -150,6 +150,10 @@ export async function GET(): Promise<NextResponse> {
     "/de/beste-dividenden-aktien",
     "/it/migliori-azioni-dividendi",
     "/es/mejores-acciones-dividendos",
+    "/fr/actions-dividende-mensuel",
+    "/de/monatliche-dividenden-aktien",
+    "/it/azioni-dividendo-mensile",
+    "/es/acciones-dividendo-mensual",
   ];
   for (const p of servicePages) {
     entries.push({ loc: `${BASE}${p}`, lastmod: now, changefreq: "daily", priority: 0.8 });

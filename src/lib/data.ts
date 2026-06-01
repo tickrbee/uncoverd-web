@@ -2650,3 +2650,25 @@ export async function countDirectory(opts: {
   }
   return count ?? 0;
 }
+
+// Monthly-dividend-paying stocks (used by /monthly and the localized monthly
+// service pages). Monthly payers are mostly US REITs/BDCs/funds, so this is
+// not country-filtered — it returns the global set, largest first.
+export async function listMonthlyPayers(limit = 40): Promise<StockRow[]> {
+  const sb = getBackendClient();
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 18);
+  const { data } = await sb
+    .from("dividends")
+    .select("symbol")
+    .ilike("frequency", "Monthly")
+    .gte("date", cutoff.toISOString().slice(0, 10))
+    .limit(5000);
+  const symbols = Array.from(new Set(((data as { symbol: string }[]) ?? []).map((r) => r.symbol)));
+  if (symbols.length === 0) return [];
+  const rows = await listStocks({ symbols, minMarketCap: 100_000_000, limit: 2000, excludeEtfs: false });
+  return rows
+    .filter((r) => !r.is_etf && !r.is_fund)
+    .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0))
+    .slice(0, limit);
+}
