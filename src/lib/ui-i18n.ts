@@ -167,6 +167,19 @@ export function payoutChrome(locale: Locale): { premiumTitleSuffix: string; prem
   }
 }
 
+// When the Stocks/ETFs toggle is on ETFs, the title/description should reflect
+// ETFs rather than stocks (used by the sector & industry views).
+export function etfHeaderParts(locale: Locale, label: string): { title: string; description: string } {
+  const l = label.toLowerCase();
+  switch (locale) {
+    case "fr": return { title: `ETF à dividende — ${label}`, description: `Les ETF à dividende du secteur ${l}, classés par taille.` };
+    case "de": return { title: `${label}-Dividenden-ETFs`, description: `Dividenden-ETFs der Branche ${label}, nach Größe sortiert.` };
+    case "it": return { title: `ETF a dividendo — ${label}`, description: `Gli ETF a dividendo del settore ${l}, ordinati per dimensione.` };
+    case "es": return { title: `ETF por dividendo — ${label}`, description: `Los ETF por dividendo del sector ${l}, ordenados por tamaño.` };
+    default: return { title: `${label} Dividend ETFs`, description: `Dividend ETFs in ${l}, ranked by size.` };
+  }
+}
+
 export function monthlyHeader(locale: Locale): PageHeaderStrings {
   switch (locale) {
     case "fr": return { eyebrow: "Dividendes mensuels", title: "Actions à dividende mensuel", description: "Des actions qui versent un dividende chaque mois. Construisez un revenu mensuel régulier." };

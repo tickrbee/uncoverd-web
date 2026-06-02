@@ -27,7 +27,7 @@ import {
 import { getPremiumStatus } from "@/lib/premium";
 import { SECTORS, sectorUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
-import { chromeStrings, sectorHeader, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
+import { chromeStrings, sectorHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
 
 const PAGE_SIZE = 100;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
@@ -56,7 +56,6 @@ export async function SectorView({
   const label = locale === "en" ? englishLabel : taxo?.label[locale] ?? englishLabel;
   const basePath = taxo ? sectorUrl(locale, taxo) : `/sectors/${slug}`;
   const chrome = chromeStrings(locale);
-  const header = sectorHeader(locale, label);
 
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
@@ -66,6 +65,9 @@ export async function SectorView({
   const validTypes = new Set(["stocks", "etfs", "active-etfs", "funds"]);
   const type: SecurityType = sp.type && validTypes.has(sp.type) ? (sp.type as SecurityType) : "stocks";
   const industryFilter = sp.industry || undefined;
+  const header = type === "stocks"
+    ? sectorHeader(locale, label)
+    : { ...sectorHeader(locale, label), ...etfHeaderParts(locale, label) };
   // Blue-chip (national index) approximation: country + market-cap floor.
   const minMarketCap = sp.tier === "large" ? BLUE_CHIP_MIN_MARKET_CAP : 300_000_000;
 

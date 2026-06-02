@@ -24,7 +24,7 @@ import {
 import { getPremiumStatus } from "@/lib/premium";
 import { INDUSTRIES, industryUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
-import { industryHeader, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
+import { industryHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
 
 const PAGE_SIZE = 100;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
@@ -49,7 +49,6 @@ export async function IndustryView({
   const taxo = INDUSTRIES.find((i) => i.key === slug);
   const label = locale === "en" ? entry.label : taxo?.label[locale] ?? entry.label;
   const basePath = taxo ? industryUrl(locale, taxo) : `/industries/${slug}`;
-  const header = industryHeader(locale, label);
 
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
@@ -58,6 +57,10 @@ export async function IndustryView({
   const country = sp.country ?? "US";
   const validTypes = new Set(["stocks", "etfs", "active-etfs", "funds"]);
   const type: SecurityType = sp.type && validTypes.has(sp.type) ? (sp.type as SecurityType) : "stocks";
+  // Title/description reflect the active security type.
+  const header = type === "stocks"
+    ? industryHeader(locale, label)
+    : { ...industryHeader(locale, label), ...etfHeaderParts(locale, label) };
   const minMarketCap = sp.tier === "large" ? BLUE_CHIP_MIN_MARKET_CAP : 250_000_000;
 
   const baseOpts = {
