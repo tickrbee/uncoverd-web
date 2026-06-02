@@ -13,6 +13,7 @@ import {
   type PayoutChangeKind,
 } from "@/lib/data";
 import { cachedPayoutChanges as payoutChanges } from "@/lib/cached-data";
+import { tickerHref } from "@/lib/format";
 import { getPremiumStatus } from "@/lib/premium";
 import { PAYOUTS } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
@@ -78,7 +79,7 @@ export async function PayoutChangesView({
                 events.map((d, i) => (
                   <tr key={`${d.symbol}-${d.date}-${i}`}>
                     <td>
-                      <Link href={`/stocks/${d.symbol}`} className="dv-ticker">
+                      <Link href={tickerHref(d.symbol)} className="dv-ticker">
                         <span className="dv-ticker__name">{d.symbol}</span>
                         <span className="dv-ticker__meta">{d.name ?? ""}</span>
                       </Link>

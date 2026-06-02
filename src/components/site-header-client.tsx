@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { CurrencyPicker } from "@/components/currency-picker";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLocale } from "@/lib/use-locale";
+import { tickerHref } from "@/lib/format";
 import { SECTORS, INDUSTRIES, GROWERS, PAYOUTS, GROWER_YEARS } from "@/lib/i18n-taxonomy";
 import type { Locale } from "@/lib/i18n";
 import type { User } from "@supabase/supabase-js";
@@ -195,7 +196,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
     if (!q) return;
     const upper = q.toUpperCase().replace(/[^A-Z.\-]/g, "");
     if (upper.length >= 1 && upper.length <= 6) {
-      router.push(`/stocks/${upper}`);
+      router.push(tickerHref(upper));
     } else {
       router.push(`/search?q=${encodeURIComponent(q)}`);
     }
@@ -203,7 +204,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
   }
 
   function goToResult(s: Suggestion) {
-    const path = s.is_etf || s.is_fund ? `/etfs/symbol/${s.symbol}` : `/stocks/${s.symbol}`;
+    const path = tickerHref(s.symbol, s.is_etf, s.is_fund);
     router.push(path);
     closeSearch();
   }

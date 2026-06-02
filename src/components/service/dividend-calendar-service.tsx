@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { HtmlLang } from "@/components/html-lang";
 import { dividendCalendar, isoToday, isoDaysFromNow } from "@/lib/data";
+import { tickerHref } from "@/lib/format";
 import { faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { pexelsImage } from "@/lib/seo";
@@ -113,7 +114,7 @@ export async function DividendCalendarService({
                     {events.map((e, i) => (
                       <tr key={`${e.symbol}-${e.date}-${i}`}>
                         <td>
-                          <Link href={`/stocks/${e.symbol}`} className="dv-action-link">
+                          <Link href={tickerHref(e.symbol)} className="dv-action-link">
                             {e.symbol}
                           </Link>
                         </td>

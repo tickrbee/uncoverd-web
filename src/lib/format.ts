@@ -1,5 +1,14 @@
 // Pure formatting helpers — safe to import from client components.
 
+// Detail-page URL for a ticker. ETFs/funds (and US mutual funds — 5-letter …X
+// symbols, often mis-flagged as stocks) live at /etfs/symbol; /stocks 404s for
+// them. Pass is_etf/is_fund when known; otherwise the symbol heuristic catches
+// mutual funds (but not short ETF tickers, which need the flags).
+export function tickerHref(symbol: string, isEtf?: boolean | null, isFund?: boolean | null): string {
+  if (isEtf || isFund || /^[A-Z]{4}X$/.test(symbol)) return `/etfs/symbol/${symbol}`;
+  return `/stocks/${symbol}`;
+}
+
 const CURRENCY_PREFIX: Record<string, string> = {
   USD: "$",
   CAD: "C$",

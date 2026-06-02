@@ -15,6 +15,7 @@ import {
   type PayoutChangeEvent,
 } from "@/lib/data";
 import { cachedDividendCalendar as dividendCalendar } from "@/lib/cached-data";
+import { tickerHref } from "@/lib/format";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
@@ -158,7 +159,7 @@ export async function CalendarView({ locale, sp }: { locale: Locale; sp: Calenda
                     return (
                       <tr key={`${d.symbol}-${d.date}-${i}`}>
                         <td>
-                          <Link href={`/stocks/${d.symbol}`} className="dv-ticker">
+                          <Link href={tickerHref(d.symbol)} className="dv-ticker">
                             <span className="dv-ticker__name">{d.symbol}</span>
                             <span className="dv-ticker__meta">{names.get(d.symbol) ?? ""}</span>
                           </Link>

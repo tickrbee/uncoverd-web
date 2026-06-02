@@ -8,7 +8,7 @@ import { PremiumLock } from "@/components/premium-lock";
 import { th } from "@/lib/table-i18n";
 import { tabLabel } from "@/lib/ui-i18n";
 import { useLocale } from "@/lib/use-locale";
-import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
+import { formatCurrency, formatPercent, formatDate, tickerHref } from "@/lib/format";
 import type { StockRow, StockRating, DividendEvent, StockExtras } from "@/lib/types";
 
 export type ColumnView =
@@ -136,7 +136,7 @@ function priceCell(row: StockRow): React.ReactNode {
 }
 
 function nameCell(row: StockRow, isPremium?: boolean): React.ReactNode {
-  const href = row.is_etf || row.is_fund ? `/etfs/symbol/${row.symbol}` : `/stocks/${row.symbol}`;
+  const href = tickerHref(row.symbol, row.is_etf, row.is_fund);
   // Free users: both the ticker symbol AND the company name are blurred.
   // Clicking either opens the upgrade prompt. The cell is fully gated so the
   // listing is browse-able but every identifier is paywalled.
@@ -1055,7 +1055,7 @@ export function CalendarTable({
             {rows.map((row, idx) => (
               <tr key={`${row.symbol}-${row.exDate}-${idx}`}>
                 <td>
-                  <Link href={`/stocks/${row.symbol}`} className="dv-ticker">
+                  <Link href={tickerHref(row.symbol)} className="dv-ticker">
                     <span className="dv-ticker__name">{row.symbol}</span>
                     {row.name && <span className="dv-ticker__meta">{row.name}</span>}
                   </Link>

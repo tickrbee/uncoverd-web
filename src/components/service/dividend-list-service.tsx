@@ -6,6 +6,7 @@ import { listStocks, formatPercent, formatCurrency, type ScreenerOptions } from 
 import { faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { pexelsImage } from "@/lib/seo";
+import { tickerHref } from "@/lib/format";
 
 // Reusable localized "best dividend stocks" service page. Targets the
 // country-index keywords (meilleures actions à dividende / CAC 40, beste
@@ -118,7 +119,7 @@ export async function DividendListService({
                     {rows.map((r) => (
                       <tr key={r.symbol}>
                         <td>
-                          <Link href={`/stocks/${r.symbol}`} className="dv-action-link">
+                          <Link href={tickerHref(r.symbol, r.is_etf, r.is_fund)} className="dv-action-link">
                             {r.symbol}
                           </Link>
                         </td>

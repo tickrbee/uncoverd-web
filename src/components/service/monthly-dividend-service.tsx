@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { HtmlLang } from "@/components/html-lang";
 import { listMonthlyPayers, formatPercent, formatCurrency } from "@/lib/data";
+import { tickerHref } from "@/lib/format";
 import { faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { pexelsImage } from "@/lib/seo";
@@ -89,7 +90,7 @@ export async function MonthlyDividendService({
                     {rows.map((r) => (
                       <tr key={r.symbol}>
                         <td>
-                          <Link href={`/stocks/${r.symbol}`} className="dv-action-link">
+                          <Link href={tickerHref(r.symbol, r.is_etf, r.is_fund)} className="dv-action-link">
                             {r.symbol}
                           </Link>
                         </td>

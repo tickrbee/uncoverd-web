@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
 import { Pager } from "@/components/pager";
-import { formatDate, formatCurrency } from "@/lib/format";
+import { formatDate, formatCurrency, tickerHref } from "@/lib/format";
 import type { PayoutChangeEvent } from "@/lib/data";
 import { useLocale } from "@/lib/use-locale";
 import { th } from "@/lib/table-i18n";
@@ -84,7 +84,7 @@ export function DeclarationView({
                 {items.map((d, i) => (
                   <tr key={`${d.symbol}-${d.date}-${i}`}>
                     <td>
-                      <Link href={`/stocks/${d.symbol}`} className="dv-ticker">
+                      <Link href={tickerHref(d.symbol)} className="dv-ticker">
                         <span className="dv-ticker__name">{d.symbol}</span>
                         <span className="dv-ticker__meta">{d.name ?? ""}</span>
                       </Link>
