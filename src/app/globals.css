@@ -3277,15 +3277,23 @@ a {
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
-.dv-lang__menu a {
+.dv-lang__menu a,
+.dv-lang__menu button {
   display: block;
+  width: 100%;
+  text-align: left;
   padding: 0.45rem 0.6rem;
+  border: 0;
   border-radius: var(--radius-sm);
+  background: none;
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
 }
-.dv-lang__menu a:hover {
+.dv-lang__menu a:hover,
+.dv-lang__menu button:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary, #fff);
 }
