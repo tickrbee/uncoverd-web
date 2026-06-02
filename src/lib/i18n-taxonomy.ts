@@ -248,7 +248,7 @@ export const GROWERS: TaxoEntry[] = [
 ];
 
 // Consecutive-years phrase per grower key (localized inline below).
-const GROWER_YEARS: Record<string, string> = {
+export const GROWER_YEARS: Record<string, string> = {
   aristocrats: "25+", kings: "50+", champions: "25+",
   contenders: "10–24", challengers: "5–9", achievers: "10+",
 };
