@@ -98,10 +98,10 @@ export async function GET(): Promise<NextResponse> {
   const staticUrls: { path: string; freq: Entry["changefreq"]; pri: number }[] = [
     { path: "", freq: "weekly", pri: 1 },
     { path: "/screener", freq: "daily", pri: 0.95 },
-    { path: "/screener?type=etfs", freq: "daily", pri: 0.9 },
-    { path: "/calendar/ex-dividend?range=week", freq: "daily", pri: 0.9 },
-    { path: "/calendar/ex-dividend?range=month", freq: "daily", pri: 0.85 },
-    { path: "/calendar/declaration?range=month", freq: "daily", pri: 0.8 },
+    // Canonical base URLs only — the ?type/?range variants canonicalize to
+    // these, so listing them would be "non-canonical page in sitemap".
+    { path: "/calendar/ex-dividend", freq: "daily", pri: 0.9 },
+    { path: "/calendar/declaration", freq: "daily", pri: 0.8 },
     { path: "/high-yield", freq: "daily", pri: 0.9 },
     { path: "/monthly", freq: "weekly", pri: 0.85 },
     { path: "/news", freq: "hourly", pri: 0.85 },

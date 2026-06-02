@@ -54,11 +54,14 @@ export const metadata: Metadata = {
   // Google they were duplicates of "/". Each page now sets its own
   // self-referential canonical instead. The homepage's lives in app/page.tsx.
   openGraph: {
+    // NO `url` here on purpose: a site-wide og:url is inherited by every page
+    // that doesn't override it, making og:url = the homepage on 5k+ pages
+    // (Ahrefs "Open Graph URL not matching canonical"). Pages that want og:url
+    // set it themselves (= their canonical); the rest simply omit it.
     title: `${APP_NAME} — Dividend Stock Research, Ratings & ETF Screener`,
     description:
       "Screen 65,000+ dividend stocks and 13,800+ ETFs by yield, payout ratio, and rating. Ex-dividend calendar, model portfolios, and ETF comparison tools.",
     type: "website",
-    url: "https://uncoverd.org",
     siteName: APP_NAME,
     locale: "en_US",
   },

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   description:
     "Discover the best dividend stocks with the uncoverd screener, ratings, model portfolios, and ex-dividend calendar.",
   alternates: { canonical: "/", languages: homeHreflang() },
+  openGraph: { url: "https://uncoverd.org", type: "website" },
 };
 
 export const dynamic = "force-dynamic";

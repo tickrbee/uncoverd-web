@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SectorView, type SectorSearch } from "@/components/views/sector-view";
 import { sectorBySlug, sectorHreflang, SECTOR_PATH } from "@/lib/i18n-taxonomy";
-import { OG_LOCALE, localizedUrl } from "@/lib/i18n";
+import { OG_LOCALE } from "@/lib/i18n";
 import { metaDescription } from "@/lib/seo";
 import { sectorHeader } from "@/lib/ui-i18n";
 
@@ -18,12 +18,12 @@ export async function generateMetadata({
   const entry = sectorBySlug(LOCALE, slug);
   if (!entry) return {};
   const h = sectorHeader(LOCALE, entry.label[LOCALE]);
-  const path = `/${SECTOR_PATH[LOCALE]}/${entry.slug[LOCALE]}`;
+  const path = `/${LOCALE}/${SECTOR_PATH[LOCALE]}/${entry.slug[LOCALE]}`;
   return {
     title: { absolute: `${h.title} | uncoverd` },
     description: metaDescription(h.description),
     alternates: { canonical: path, languages: sectorHreflang(entry) },
-    openGraph: { title: h.title, type: "website", url: localizedUrl(LOCALE, path), locale: OG_LOCALE[LOCALE] },
+    openGraph: { title: h.title, type: "website", url: `https://uncoverd.org${path}`, locale: OG_LOCALE[LOCALE] },
   };
 }
 
