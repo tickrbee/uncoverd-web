@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { PageHeader } from "@/components/page-header";
-import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
-import { Pager } from "@/components/pager";
+import { DeclarationView, type DeclarationItem } from "@/components/views/declaration-view";
 import {
   declarationCalendar,
   isoDaysFromNow,
   isoToday,
-  formatDate,
-  formatCurrency,
   type DividendEvent,
   type PayoutChangeEvent,
 } from "@/lib/data";
@@ -25,15 +20,10 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-export const revalidate = 1800;
 
-const RANGES = {
-  week: { label: "Last Week", daysBack: 7 },
-  month: { label: "Last Month", daysBack: 30 },
-  quarter: { label: "Last Three Months", daysBack: 90 },
-} as const;
-
+const RANGES = { week: 7, month: 30, quarter: 90 } as const;
 type RangeKey = keyof typeof RANGES;
+const PAGE_SIZE = 100;
 
 async function enrichWithNames(events: DividendEvent[]) {
   if (events.length === 0) return new Map<string, string>();
@@ -47,8 +37,6 @@ async function enrichWithNames(events: DividendEvent[]) {
   return map;
 }
 
-const PAGE_SIZE = 100;
-
 export default async function DeclarationCalendarPage({
   searchParams,
 }: {
@@ -56,7 +44,7 @@ export default async function DeclarationCalendarPage({
 }) {
   const sp = await searchParams;
   const rangeKey: RangeKey = sp.range && sp.range in RANGES ? (sp.range as RangeKey) : "month";
-  const daysBack = RANGES[rangeKey].daysBack;
+  const daysBack = RANGES[rangeKey];
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
 
   let allItems: DividendEvent[] = [];
@@ -73,6 +61,16 @@ export default async function DeclarationCalendarPage({
   const names = await enrichWithNames(items);
   const premium = await getPremiumStatus();
 
+  const rows: DeclarationItem[] = items.map((d) => ({
+    symbol: d.symbol,
+    name: names.get(d.symbol) ?? null,
+    frequency: d.frequency ?? null,
+    declaration_date: d.declaration_date,
+    date: d.date,
+    payment_date: d.payment_date,
+    dividend: d.dividend,
+  }));
+
   const csvEvents: PayoutChangeEvent[] = items.map((d) => ({
     symbol: d.symbol,
     name: names.get(d.symbol) ?? null,
@@ -88,74 +86,15 @@ export default async function DeclarationCalendarPage({
   return (
     <>
       <SiteHeader />
-      <main className="dv-page">
-        <PageHeader
-          eyebrow="Calendar"
-          title={`Declaration Dates — ${RANGES[rangeKey].label}`}
-          description="Track recent dividend declarations and get ready for upcoming payouts."
-        />
-
-        <div className="dv-filters">
-          {(Object.keys(RANGES) as RangeKey[]).map((k) => (
-            <Link
-              key={k}
-              href={`/calendar/declaration?range=${k}`}
-              className={`dv-chip ${rangeKey === k ? "dv-chip--active" : ""}`}
-            >
-              {RANGES[k].label}
-            </Link>
-          ))}
-        </div>
-
-        <PayoutChangesToolbar events={csvEvents} isPremium={premium.isPremium} csvFilename="uncoverd-declarations.csv" />
-
-        {items.length === 0 ? (
-          <div className="dv-empty">No declarations in this range.</div>
-        ) : (
-          <div className="dv-table-wrap">
-            <div className="dv-table-scroll">
-              <table className="dv-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Frequency</th>
-                    <th>Declared</th>
-                    <th>Ex-Div Date</th>
-                    <th>Pay Date</th>
-                    <th className="dv-th--num">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((d, i) => (
-                    <tr key={`${d.symbol}-${d.date}-${i}`}>
-                      <td>
-                        <Link href={`/stocks/${d.symbol}`} className="dv-ticker">
-                          <span className="dv-ticker__name">{d.symbol}</span>
-                          <span className="dv-ticker__meta">{names.get(d.symbol) ?? ""}</span>
-                        </Link>
-                      </td>
-                      <td>{d.frequency ?? "—"}</td>
-                      <td style={{ background: "rgba(52,211,153,0.08)" }}>{formatDate(d.declaration_date)}</td>
-                      <td>{formatDate(d.date)}</td>
-                      <td>{formatDate(d.payment_date)}</td>
-                      <td className="dv-td--num">{formatCurrency(d.dividend)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-          {total.toLocaleString()} declarations · Page {page} of {totalPages}
-        </p>
-        <Pager
-          page={page}
-          totalPages={totalPages}
-          baseHref={`/calendar/declaration?range=${rangeKey}`}
-        />
-      </main>
+      <DeclarationView
+        items={rows}
+        csvEvents={csvEvents}
+        isPremium={premium.isPremium}
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        rangeKey={rangeKey}
+      />
       <SiteFooter />
     </>
   );

@@ -230,6 +230,46 @@ export function calendarEmpty(locale: Locale): string {
   }
 }
 
+// Declaration calendar (client-translated; no /xx/ URL).
+export const DECLARATION_RANGE_LABELS: Record<Locale, { week: string; month: string; quarter: string }> = {
+  en: { week: "Last Week", month: "Last Month", quarter: "Last Three Months" },
+  fr: { week: "Semaine dernière", month: "Mois dernier", quarter: "Trois derniers mois" },
+  de: { week: "Letzte Woche", month: "Letzter Monat", quarter: "Letzte drei Monate" },
+  it: { week: "Settimana scorsa", month: "Mese scorso", quarter: "Ultimi tre mesi" },
+  es: { week: "Semana pasada", month: "Mes pasado", quarter: "Últimos tres meses" },
+};
+
+export function declarationHeader(locale: Locale, rangeLabel: string): PageHeaderStrings {
+  switch (locale) {
+    case "fr": return { eyebrow: "Calendrier", title: `Dates de déclaration — ${rangeLabel}`, description: "Suivez les déclarations de dividendes récentes et préparez-vous aux prochains versements." };
+    case "de": return { eyebrow: "Kalender", title: `Ankündigungstermine — ${rangeLabel}`, description: "Verfolgen Sie aktuelle Dividendenankündigungen und bereiten Sie sich auf kommende Ausschüttungen vor." };
+    case "it": return { eyebrow: "Calendario", title: `Date di annuncio — ${rangeLabel}`, description: "Segui i recenti annunci di dividendi e preparati ai prossimi pagamenti." };
+    case "es": return { eyebrow: "Calendario", title: `Fechas de anuncio — ${rangeLabel}`, description: "Sigue los anuncios de dividendos recientes y prepárate para los próximos pagos." };
+    default: return { eyebrow: "Calendar", title: `Declaration Dates — ${rangeLabel}`, description: "Track recent dividend declarations and get ready for upcoming payouts." };
+  }
+}
+
+export function declarationSummary(locale: Locale, total: number, page: number, totalPages: number): string {
+  const n = total.toLocaleString();
+  switch (locale) {
+    case "fr": return `${n} déclarations · Page ${page} sur ${totalPages}`;
+    case "de": return `${n} Ankündigungen · Seite ${page} von ${totalPages}`;
+    case "it": return `${n} annunci · Pagina ${page} di ${totalPages}`;
+    case "es": return `${n} anuncios · Página ${page} de ${totalPages}`;
+    default: return `${n} declarations · Page ${page} of ${totalPages}`;
+  }
+}
+
+export function declarationEmpty(locale: Locale): string {
+  switch (locale) {
+    case "fr": return "Aucune déclaration sur cette période.";
+    case "de": return "Keine Ankündigungen in diesem Zeitraum.";
+    case "it": return "Nessun annuncio in questo periodo.";
+    case "es": return "No hay anuncios en este periodo.";
+    default: return "No declarations in this range.";
+  }
+}
+
 export function highYieldHeader(locale: Locale): PageHeaderStrings {
   switch (locale) {
     case "fr": return { eyebrow: "Haut rendement", title: "Actions à fort dividende (rendement > 4 %)", description: "Actions à dividende dont le rendement dépasse 4 %, classées du plus élevé au plus faible." };
