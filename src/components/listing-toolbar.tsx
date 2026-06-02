@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { StockRow } from "@/lib/data";
 import { useLocale } from "@/lib/use-locale";
 import { chromeStrings } from "@/lib/ui-i18n";
+import { tHeader } from "@/lib/page-header-i18n";
 
 export type SecurityType = "stocks" | "etfs" | "active-etfs" | "funds";
 
@@ -199,6 +200,7 @@ const EMPTY: FilterState = {
 
 function FilterPanel({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const locale = useLocale();
   const [s, setS] = useState<FilterState>(EMPTY);
 
   function update<K extends keyof FilterState>(k: K, v: FilterState[K]) {
@@ -218,7 +220,7 @@ function FilterPanel({ onClose }: { onClose: () => void }) {
     <div className="dv-modal-backdrop" onClick={onClose}>
       <div className="dv-modal" onClick={(e) => e.stopPropagation()}>
         <div className="dv-modal__header">
-          <h2>All Filters</h2>
+          <h2>{tHeader("All Filters", locale)}</h2>
           <button type="button" onClick={onClose} className="dv-modal__close" aria-label="Close">
             ×
           </button>
@@ -251,7 +253,7 @@ function FilterPanel({ onClose }: { onClose: () => void }) {
                 onChange={(e) => update("minMarketCap", e.target.value)}
                 className="login-input"
               >
-                <option value="">Any size</option>
+                <option value="">{tHeader("Any size", locale)}</option>
                 <option value="100000000">$100M+</option>
                 <option value="500000000">$500M+</option>
                 <option value="1000000000">$1B+</option>
@@ -262,27 +264,27 @@ function FilterPanel({ onClose }: { onClose: () => void }) {
             </Field>
             <Field label="Sector">
               <select value={s.sector} onChange={(e) => update("sector", e.target.value)} className="login-input">
-                <option value="">All sectors</option>
-                <option value="financials">Financials</option>
-                <option value="real-estate">Real Estate</option>
-                <option value="communications">Communications</option>
-                <option value="consumer-discretionary">Consumer Discretionary</option>
-                <option value="consumer-staples">Consumer Staples</option>
-                <option value="energy">Energy</option>
-                <option value="health-care">Health Care</option>
-                <option value="industrials">Industrials</option>
-                <option value="technology">Technology</option>
-                <option value="materials">Materials</option>
-                <option value="utilities">Utilities</option>
+                <option value="">{tHeader("All sectors", locale)}</option>
+                <option value="financials">{tHeader("Financials", locale)}</option>
+                <option value="real-estate">{tHeader("Real Estate", locale)}</option>
+                <option value="communications">{tHeader("Communications", locale)}</option>
+                <option value="consumer-discretionary">{tHeader("Consumer Discretionary", locale)}</option>
+                <option value="consumer-staples">{tHeader("Consumer Staples", locale)}</option>
+                <option value="energy">{tHeader("Energy", locale)}</option>
+                <option value="health-care">{tHeader("Health Care", locale)}</option>
+                <option value="industrials">{tHeader("Industrials", locale)}</option>
+                <option value="technology">{tHeader("Technology", locale)}</option>
+                <option value="materials">{tHeader("Materials", locale)}</option>
+                <option value="utilities">{tHeader("Utilities", locale)}</option>
               </select>
             </Field>
             <Field label="Frequency">
               <select value={s.frequency} onChange={(e) => update("frequency", e.target.value)} className="login-input">
-                <option value="">Any</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Semi-Annual">Semi-Annual</option>
-                <option value="Annual">Annual</option>
+                <option value="">{tHeader("Any", locale)}</option>
+                <option value="Monthly">{tHeader("Monthly", locale)}</option>
+                <option value="Quarterly">{tHeader("Quarterly", locale)}</option>
+                <option value="Semi-Annual">{tHeader("Semi-Annual", locale)}</option>
+                <option value="Annual">{tHeader("Annual", locale)}</option>
               </select>
             </Field>
           </Section>
@@ -390,10 +392,10 @@ function FilterPanel({ onClose }: { onClose: () => void }) {
         </div>
         <div className="dv-modal__footer">
           <button type="button" onClick={() => setS(EMPTY)} className="btn btn--ghost">
-            Reset
+            {tHeader("Reset", locale)}
           </button>
           <button type="button" onClick={apply} className="btn">
-            Apply filters
+            {tHeader("Apply filters", locale)}
           </button>
         </div>
       </div>
@@ -402,18 +404,20 @@ function FilterPanel({ onClose }: { onClose: () => void }) {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const locale = useLocale();
   return (
     <div className="dv-modal__section" style={{ marginBottom: "1.25rem" }}>
-      <h3>{title}</h3>
+      <h3>{tHeader(title, locale)}</h3>
       <div className="dv-modal__grid">{children}</div>
     </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const locale = useLocale();
   return (
     <label style={{ display: "grid", gap: "0.4rem", fontSize: "0.82rem" }}>
-      <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <span style={{ color: "var(--text-secondary)" }}>{tHeader(label, locale)}</span>
       {children}
     </label>
   );

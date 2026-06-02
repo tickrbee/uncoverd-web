@@ -35,5 +35,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Exclude _vercel/* so the Vercel Web Analytics + Speed Insights script and
+  // beacon (/_vercel/insights/*, /_vercel/speed-insights/*) are never
+  // intercepted by updateSession — that interception was breaking analytics.
+  matcher: ["/((?!_next/static|_next/image|_vercel|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
