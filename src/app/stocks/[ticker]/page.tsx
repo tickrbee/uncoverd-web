@@ -267,7 +267,7 @@ export default async function StockPage({
       <>
         <section className="dv-section">
           <div className="panel" style={{ padding: "1rem" }}>
-            <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" />
+            <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" currency={stock.currency} />
           </div>
         </section>
         <div className="dv-card-grid">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { symbolFor } from "@/lib/format";
 
 export type Point = { date: string; close: number | null };
 
@@ -16,7 +17,16 @@ const RANGES = [
 
 type RangeLabel = (typeof RANGES)[number]["label"];
 
-export function PriceChart({ data, defaultRange = "1Y" }: { data: Point[]; defaultRange?: RangeLabel }) {
+export function PriceChart({
+  data,
+  defaultRange = "1Y",
+  currency,
+}: {
+  data: Point[];
+  defaultRange?: RangeLabel;
+  currency?: string | null;
+}) {
+  const cur = symbolFor(currency);
   const [range, setRange] = useState<RangeLabel>(defaultRange);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -115,7 +125,7 @@ export function PriceChart({ data, defaultRange = "1Y" }: { data: Point[]; defau
     <div>
       <div className="dv-chart-toolbar">
         <div className="dv-chart-toolbar__summary">
-          <span className="dv-chart-toolbar__price">${endPrice.toFixed(2)}</span>
+          <span className="dv-chart-toolbar__price">{cur}{endPrice.toFixed(2)}</span>
           <span className={changeAbs >= 0 ? "dv-change--pos" : "dv-change--neg"}>
             {changeAbs >= 0 ? "+" : ""}
             {changeAbs.toFixed(2)} ({changePct >= 0 ? "+" : ""}
@@ -166,7 +176,7 @@ export function PriceChart({ data, defaultRange = "1Y" }: { data: Point[]; defau
 
         {yTicks.map((t, idx) => (
           <text key={`y-${idx}`} x={pad.left - 6} y={t.y + 3} textAnchor="end" fontSize="10" fill="rgba(161,161,170,0.9)">
-            ${t.v.toFixed(t.v >= 100 ? 0 : 2)}
+            {cur}{t.v.toFixed(t.v >= 100 ? 0 : 2)}
           </text>
         ))}
 
@@ -200,7 +210,7 @@ export function PriceChart({ data, defaultRange = "1Y" }: { data: Point[]; defau
 
       {hover && (
         <div className="dv-chart-hover">
-          <strong>${hover.close.toFixed(2)}</strong> on{" "}
+          <strong>{cur}{hover.close.toFixed(2)}</strong> on{" "}
           {new Date(hover.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </div>
       )}
