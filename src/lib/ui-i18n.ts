@@ -167,6 +167,56 @@ export function payoutChrome(locale: Locale): { premiumTitleSuffix: string; prem
   }
 }
 
+export function monthlyHeader(locale: Locale): PageHeaderStrings {
+  switch (locale) {
+    case "fr": return { eyebrow: "Dividendes mensuels", title: "Actions à dividende mensuel", description: "Des actions qui versent un dividende chaque mois. Construisez un revenu mensuel régulier." };
+    case "de": return { eyebrow: "Monatliche Dividenden", title: "Aktien mit monatlicher Dividende", description: "Aktien, die jeden Monat eine Dividende zahlen. Bauen Sie ein stetiges monatliches Einkommen auf." };
+    case "it": return { eyebrow: "Dividendi mensili", title: "Azioni a dividendo mensile", description: "Azioni che pagano un dividendo ogni mese. Costruisci un reddito mensile costante." };
+    case "es": return { eyebrow: "Dividendos mensuales", title: "Acciones de dividendo mensual", description: "Acciones que pagan dividendo cada mes. Crea un ingreso mensual constante." };
+    default: return { eyebrow: "Monthly Dividends", title: "Monthly Dividend Stocks", description: "Stocks that pay dividends every month. Build a steady monthly income stream." };
+  }
+}
+
+// Calendar range chips (week/month/year) per locale.
+export const CALENDAR_RANGE_LABELS: Record<Locale, { week: string; month: string; year: string }> = {
+  en: { week: "This Week", month: "This Month", year: "This Year" },
+  fr: { week: "Cette semaine", month: "Ce mois", year: "Cette année" },
+  de: { week: "Diese Woche", month: "Dieser Monat", year: "Dieses Jahr" },
+  it: { week: "Questa settimana", month: "Questo mese", year: "Quest'anno" },
+  es: { week: "Esta semana", month: "Este mes", year: "Este año" },
+};
+
+export function calendarHeader(locale: Locale, rangeLabel: string): PageHeaderStrings {
+  switch (locale) {
+    case "fr": return { eyebrow: "Calendrier", title: `Dates de détachement — ${rangeLabel}`, description: "Pour recevoir un dividende, il faut détenir l'action au plus tard à la date de détachement." };
+    case "de": return { eyebrow: "Kalender", title: `Ex-Dividenden-Termine — ${rangeLabel}`, description: "Um eine Dividende zu erhalten, müssen Anleger die Aktie spätestens am Ex-Tag besitzen." };
+    case "it": return { eyebrow: "Calendario", title: `Date di stacco — ${rangeLabel}`, description: "Per ricevere un dividendo bisogna possedere l'azione entro la data di stacco." };
+    case "es": return { eyebrow: "Calendario", title: `Fechas ex-dividendo — ${rangeLabel}`, description: "Para recibir un dividendo hay que poseer la acción en o antes de la fecha ex-dividendo." };
+    default: return { eyebrow: "Calendar", title: `Ex-Dividend Dates — ${rangeLabel}`, description: "In order to capture or receive a dividend, investors must own the stock on or before the ex-dividend date." };
+  }
+}
+
+export function calendarSummary(locale: Locale, total: number, page: number, totalPages: number): string {
+  const n = total.toLocaleString();
+  switch (locale) {
+    case "fr": return `${n} événements · Page ${page} sur ${totalPages}`;
+    case "de": return `${n} Ereignisse · Seite ${page} von ${totalPages}`;
+    case "it": return `${n} eventi · Pagina ${page} di ${totalPages}`;
+    case "es": return `${n} eventos · Página ${page} de ${totalPages}`;
+    default: return `${n} events · Page ${page} of ${totalPages}`;
+  }
+}
+
+export function calendarEmpty(locale: Locale): string {
+  switch (locale) {
+    case "fr": return "Aucun détachement de dividende sur cette période.";
+    case "de": return "Keine Ex-Dividenden-Termine in diesem Zeitraum.";
+    case "it": return "Nessuno stacco di dividendo in questo periodo.";
+    case "es": return "No hay fechas ex-dividendo en este periodo.";
+    default: return "No ex-dividend events in this range.";
+  }
+}
+
 export function highYieldHeader(locale: Locale): PageHeaderStrings {
   switch (locale) {
     case "fr": return { eyebrow: "Haut rendement", title: "Actions à fort dividende (rendement > 4 %)", description: "Actions à dividende dont le rendement dépasse 4 %, classées du plus élevé au plus faible." };
