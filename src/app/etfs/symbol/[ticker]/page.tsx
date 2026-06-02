@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { PriceChart } from "@/components/price-chart";
+import { ListingPriceChart } from "@/components/listing-price-chart";
+import { ListingSwitcher } from "@/components/listing-switcher";
 import { Stat } from "@/components/stat";
 import { EtfDetailTabs, type TabDef } from "@/components/etf-detail-tabs";
 import {
@@ -15,6 +16,7 @@ import {
   getEtfHoldings,
   getEtfSectorWeights,
   getEtfCountryWeights,
+  getCompanyListings,
   formatCurrency,
   formatPercent,
   formatDate,
@@ -58,6 +60,13 @@ const getEtfCore = unstable_cache(
   { revalidate: 600 },
 );
 
+// Listings of the same fund/ETF across exchanges (multi-listing switcher).
+const getFundListings = unstable_cache(
+  async (name: string | null) => getCompanyListings(name, { funds: true }),
+  ["etf-company-listings"],
+  { revalidate: 600 },
+);
+
 const TABS: TabDef[] = [
   { key: "overview", label: "Overview" },
   { key: "holdings", label: "Holdings & Sectors" },
@@ -85,6 +94,9 @@ export async function generateMetadata({
     };
   }
   const name = etf.name ?? upper;
+  // Canonicalize multi-listing funds to the primary (highest-volume) listing.
+  const listings = await getFundListings(etf.name).catch(() => []);
+  const canonical = `/etfs/symbol/${listings[0]?.symbol ?? upper}`;
   const yld = etf.dividend_yield != null ? `${etf.dividend_yield.toFixed(2)}%` : null;
   const exp = etf.expense_ratio != null ? `${etf.expense_ratio.toFixed(2)}%` : null;
   const aum = etf.aum != null ? `$${(etf.aum / 1e9).toFixed(1)}B AUM` : null;
@@ -102,12 +114,12 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: `/etfs/symbol/${upper}` },
+    alternates: { canonical },
     openGraph: {
       title,
       description,
       type: "website",
-      url: `/etfs/symbol/${upper}`,
+      url: canonical,
     },
   };
 }
@@ -124,6 +136,8 @@ export default async function EtfDetailPage({
     await getEtfCore(symbol);
 
   if (!etf) notFound();
+  // Sibling listings of this fund/ETF (multi-listing switcher in the header).
+  const listings = await getFundListings(etf.name).catch(() => []);
   // ETFs, flagged funds, AND mutual funds mis-flagged as stocks (5-letter …X
   // symbols like VSMPX/VITSX) all render here as their canonical fund/ETF page.
   // Only a genuine common stock bounces to /stocks.
@@ -213,7 +227,13 @@ export default async function EtfDetailPage({
       <>
         <section className="dv-section">
           <div className="panel" style={{ padding: "1rem" }}>
-            <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" currency={etf.currency} />
+            <ListingPriceChart
+              data={prices.map((p) => ({ date: p.date, close: p.close }))}
+              baseSymbol={symbol}
+              baseCurrency={etf.currency}
+              basePrice={etf.price}
+              listings={listings.map((l) => ({ symbol: l.symbol, currency: l.currency, price: l.price }))}
+            />
           </div>
         </section>
         <div className="dv-card-grid">
@@ -456,6 +476,10 @@ export default async function EtfDetailPage({
           <h1>
             {etf.name ?? symbol} ({symbol})
           </h1>
+          <ListingSwitcher
+            listings={listings.map((l) => ({ symbol: l.symbol, exchange: l.exchange, currency: l.currency }))}
+            current={symbol}
+          />
           <div
             style={{
               display: "flex",

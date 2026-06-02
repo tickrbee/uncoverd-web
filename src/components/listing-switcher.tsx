@@ -1,13 +1,14 @@
 "use client";
 
 // TradingView-style listing switcher. The same company trades under many ticker
-// variations across exchanges/currencies; this dropdown makes that explicit —
-// the user understands it's one company and can jump between listings (the price
-// chart + currency change per listing, fundamentals are the same company).
+// variations across exchanges/currencies; this dropdown makes that explicit and
+// lets the user switch which listing's currency the price chart is shown in. It
+// does NOT navigate — it sets a shared selection that the price chart reads, so
+// only the chart's currency changes (header + fundamentals stay on the primary).
 // Rendered only when a company has more than one listing.
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { setSelectedListing, useSelectedListing } from "@/components/listing-selection";
 
 export type SwitcherListing = {
   symbol: string;
@@ -24,7 +25,7 @@ export function ListingSwitcher({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const selected = useSelectedListing(current);
 
   useEffect(() => {
     if (!open) return;
@@ -44,10 +45,10 @@ export function ListingSwitcher({
 
   if (listings.length < 2) return null;
 
-  const cur = listings.find((l) => l.symbol === current);
+  const cur = listings.find((l) => l.symbol === selected) ?? listings.find((l) => l.symbol === current);
   const label = cur
     ? `${cur.symbol}${cur.exchange ? ` · ${cur.exchange}` : ""}${cur.currency ? ` · ${cur.currency}` : ""}`
-    : current;
+    : selected;
 
   return (
     <div className="listing-switcher" ref={ref}>
@@ -76,11 +77,11 @@ export function ListingSwitcher({
               key={l.symbol}
               type="button"
               role="option"
-              aria-selected={l.symbol === current}
-              className={`listing-switcher__row${l.symbol === current ? " is-active" : ""}`}
+              aria-selected={l.symbol === selected}
+              className={`listing-switcher__row${l.symbol === selected ? " is-active" : ""}`}
               onClick={() => {
                 setOpen(false);
-                if (l.symbol !== current) router.push(`/stocks/${l.symbol}`);
+                setSelectedListing(l.symbol);
               }}
             >
               <span className="listing-switcher__sym">{l.symbol}</span>

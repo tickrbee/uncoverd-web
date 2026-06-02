@@ -487,19 +487,25 @@ export type CompanyListing = {
   currency: string | null;
   country: string | null;
   volume: number | null;
+  price: number | null;
 };
 
-export async function getCompanyListings(name: string | null | undefined): Promise<CompanyListing[]> {
+export async function getCompanyListings(
+  name: string | null | undefined,
+  opts: { funds?: boolean } = {},
+): Promise<CompanyListing[]> {
   const trimmed = name?.trim();
   if (!trimmed || trimmed.length < 2) return [];
   const sb = getBackendClient();
-  const { data, error } = await sb
+  let q = sb
     .from("tickers")
-    .select("symbol,exchange_short,exchange,currency,country,volume")
+    .select("symbol,exchange_short,exchange,currency,country,volume,price")
     .eq("name", trimmed)
-    .eq("is_etf", false)
-    .eq("is_fund", false)
-    .eq("is_actively_trading", true)
+    .eq("is_actively_trading", true);
+  // ETFs/funds and common stocks live in the same table — pick the right kind so
+  // we don't accidentally group an ETF with a same-named stock.
+  q = opts.funds ? q.or("is_etf.eq.true,is_fund.eq.true") : q.eq("is_etf", false).eq("is_fund", false);
+  const { data, error } = await q
     .order("volume", { ascending: false, nullsFirst: false })
     .limit(25);
   if (error) {
@@ -514,6 +520,7 @@ export async function getCompanyListings(name: string | null | undefined): Promi
       currency: string | null;
       country: string | null;
       volume: number | null;
+      price: number | null;
     }>) ?? []
   ).map((t) => ({
     symbol: t.symbol,
@@ -521,6 +528,7 @@ export async function getCompanyListings(name: string | null | undefined): Promi
     currency: t.currency ?? null,
     country: t.country ?? null,
     volume: t.volume ?? null,
+    price: t.price ?? null,
   }));
 }
 

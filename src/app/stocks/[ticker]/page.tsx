@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { PriceChart } from "@/components/price-chart";
+import { ListingPriceChart } from "@/components/listing-price-chart";
 import { ListingSwitcher } from "@/components/listing-switcher";
 import { FinancialsSection } from "@/components/financials-section";
 import { FinancialsTab } from "@/components/financials-tab";
@@ -308,7 +308,13 @@ export default async function StockPage({
       <>
         <section className="dv-section">
           <div className="panel" style={{ padding: "1rem" }}>
-            <PriceChart data={prices.map((p) => ({ date: p.date, close: p.close }))} defaultRange="1Y" currency={stock.currency} />
+            <ListingPriceChart
+              data={prices.map((p) => ({ date: p.date, close: p.close }))}
+              baseSymbol={symbol}
+              baseCurrency={stock.currency}
+              basePrice={stock.price}
+              listings={listings.map((l) => ({ symbol: l.symbol, currency: l.currency, price: l.price }))}
+            />
           </div>
         </section>
         <div className="dv-card-grid">
