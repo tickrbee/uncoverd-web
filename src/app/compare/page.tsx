@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ShareButton } from "@/components/share-button";
 import { CompareSearch } from "./compare-search";
+import { T } from "@/components/t";
 import {
   getStock,
   getEtfDetail,
@@ -519,14 +520,12 @@ export default async function ComparePage({
         <SiteHeader />
         <main className="dv-page">
           <section className="dv-compare-hero">
-            <div className="dv-eyebrow">Tools</div>
+            <div className="dv-eyebrow"><T>Tools</T></div>
             <h1 style={{ margin: "0.4rem 0", fontSize: "2.1rem", letterSpacing: "-0.02em" }}>
-              Compare dividend stocks & ETFs
+              <T>Compare dividend stocks & ETFs</T>
             </h1>
             <p style={{ margin: 0, color: "var(--text-secondary)", maxWidth: 640, fontSize: "1.02rem", lineHeight: 1.55 }}>
-              Drop in 2–4 tickers. See yield, dividend growth, payout, rating,
-              expense ratio, returns, and ETF overlap — side by side. Stock-vs-stock,
-              ETF-vs-ETF, or mixed.
+              <T>Drop in 2–4 tickers. See yield, dividend growth, payout, rating, expense ratio, returns, and ETF overlap — side by side. Stock-vs-stock, ETF-vs-ETF, or mixed.</T>
             </p>
           </section>
           <section className="panel stack" style={{ marginTop: "1.5rem" }}>
@@ -656,12 +655,12 @@ export default async function ComparePage({
         <section className="dv-compare-hero">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
             <div>
-              <div className="dv-eyebrow">Compare</div>
+              <div className="dv-eyebrow"><T>Compare</T></div>
               <h1 style={{ margin: "0.4rem 0", fontSize: "2.1rem", letterSpacing: "-0.02em" }}>
                 {headline}
               </h1>
               <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem" }}>
-                Side-by-side dividend comparison. Green badges mark the leader on each metric.
+                <T>Side-by-side dividend comparison. Green badges mark the leader on each metric.</T>
               </p>
             </div>
             <ShareButton

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CompareSearch } from "../compare/compare-search";
+import { T } from "@/components/t";
 
 export const metadata: Metadata = {
   title: "Find Alternatives to Any Dividend Stock or ETF",
@@ -22,13 +23,12 @@ export default function AlternativesIndex() {
       <SiteHeader />
       <main className="dv-page">
         <section className="dv-compare-hero">
-          <div className="dv-eyebrow">Tools</div>
+          <div className="dv-eyebrow"><T>Tools</T></div>
           <h1 style={{ margin: "0.4rem 0", fontSize: "2.1rem", letterSpacing: "-0.02em" }}>
-            Find an alternative
+            <T>Find an alternative</T>
           </h1>
           <p style={{ margin: 0, color: "var(--text-secondary)", maxWidth: 660, fontSize: "1.02rem", lineHeight: 1.55 }}>
-            Type a dividend stock or ETF and see comparable peers ranked by what they do better — higher yield,
-            better rating, cheaper valuation, lower expense ratio, or stronger balance sheet.
+            <T>Type a dividend stock or ETF and see comparable peers ranked by what they do better — higher yield, better rating, cheaper valuation, lower expense ratio, or stronger balance sheet.</T>
           </p>
         </section>
 
