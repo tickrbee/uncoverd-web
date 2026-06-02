@@ -2,12 +2,75 @@
 
 import { useEffect, useState, useRef } from "react";
 import { LocaleLink as Link } from "@/components/locale-link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
 import { CurrencyPicker } from "@/components/currency-picker";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { localeFromPath } from "@/lib/page-equivalents";
+import type { Locale } from "@/lib/i18n";
 import type { User } from "@supabase/supabase-js";
+
+// Localized labels for the nav CHROME (top-level items, solo links, action
+// buttons, search, mobile group titles). Deep mega-menu links stay English —
+// many point to pages not yet localized, and the LocaleLink wrapper already
+// routes them to the localized equivalent where one exists.
+type NavStrings = {
+  explore: string; lists: string; highYield: string; calendar: string; income: string;
+  screener: string; compare: string; alternatives: string; news: string; blog: string;
+  watchlist: string; app: string; pricing: string; signIn: string; signUp: string;
+  account: string; search: string; searchPlaceholder: string;
+  methodology: string; about: string; languages: string; industries: string;
+  sectors: string; payoutChanges: string; listsPicks: string; etfs: string; growers: string;
+};
+
+const NAV_STRINGS: Record<Locale, NavStrings> = {
+  en: {
+    explore: "Explore", lists: "Lists", highYield: "High Yield", calendar: "Calendar", income: "Income",
+    screener: "Screener", compare: "Compare", alternatives: "Alternatives", news: "News", blog: "Blog",
+    watchlist: "Watchlist", app: "App", pricing: "Pricing", signIn: "Sign In", signUp: "Sign Up",
+    account: "Account", search: "Search",
+    searchPlaceholder: "Search by ticker or company name (e.g. AAPL, Johnson, Realty Income)",
+    methodology: "Methodology", about: "About", languages: "Languages", industries: "Industries",
+    sectors: "Sectors", payoutChanges: "Payout Changes", listsPicks: "Lists & Picks", etfs: "ETFs", growers: "Dividend Growers",
+  },
+  fr: {
+    explore: "Explorer", lists: "Listes", highYield: "Haut rendement", calendar: "Calendrier", income: "Revenu",
+    screener: "Screener", compare: "Comparer", alternatives: "Alternatives", news: "Actualités", blog: "Blog",
+    watchlist: "Liste de suivi", app: "Appli", pricing: "Tarifs", signIn: "Connexion", signUp: "Inscription",
+    account: "Compte", search: "Rechercher",
+    searchPlaceholder: "Rechercher par symbole ou nom d'entreprise (ex. AAPL, Johnson, Realty Income)",
+    methodology: "Méthodologie", about: "À propos", languages: "Langues", industries: "Industries",
+    sectors: "Secteurs", payoutChanges: "Variations de dividende", listsPicks: "Listes et sélections", etfs: "ETF", growers: "Croissance du dividende",
+  },
+  de: {
+    explore: "Entdecken", lists: "Listen", highYield: "Hohe Rendite", calendar: "Kalender", income: "Einkommen",
+    screener: "Screener", compare: "Vergleichen", alternatives: "Alternativen", news: "Nachrichten", blog: "Blog",
+    watchlist: "Watchlist", app: "App", pricing: "Preise", signIn: "Anmelden", signUp: "Registrieren",
+    account: "Konto", search: "Suchen",
+    searchPlaceholder: "Nach Ticker oder Firmennamen suchen (z. B. AAPL, Johnson, Realty Income)",
+    methodology: "Methodik", about: "Über uns", languages: "Sprachen", industries: "Branchen",
+    sectors: "Sektoren", payoutChanges: "Dividendenänderungen", listsPicks: "Listen & Auswahl", etfs: "ETFs", growers: "Dividendenwachstum",
+  },
+  it: {
+    explore: "Esplora", lists: "Liste", highYield: "Alto rendimento", calendar: "Calendario", income: "Reddito",
+    screener: "Screener", compare: "Confronta", alternatives: "Alternative", news: "Notizie", blog: "Blog",
+    watchlist: "Watchlist", app: "App", pricing: "Prezzi", signIn: "Accedi", signUp: "Registrati",
+    account: "Account", search: "Cerca",
+    searchPlaceholder: "Cerca per simbolo o nome società (es. AAPL, Johnson, Realty Income)",
+    methodology: "Metodologia", about: "Chi siamo", languages: "Lingue", industries: "Industrie",
+    sectors: "Settori", payoutChanges: "Variazioni dividendo", listsPicks: "Liste e selezioni", etfs: "ETF", growers: "Crescita dividendi",
+  },
+  es: {
+    explore: "Explorar", lists: "Listas", highYield: "Alta rentabilidad", calendar: "Calendario", income: "Ingresos",
+    screener: "Screener", compare: "Comparar", alternatives: "Alternativas", news: "Noticias", blog: "Blog",
+    watchlist: "Lista de seguimiento", app: "App", pricing: "Precios", signIn: "Iniciar sesión", signUp: "Registrarse",
+    account: "Cuenta", search: "Buscar",
+    searchPlaceholder: "Busca por símbolo o nombre de empresa (p. ej. AAPL, Johnson, Realty Income)",
+    methodology: "Metodología", about: "Acerca de", languages: "Idiomas", industries: "Industrias",
+    sectors: "Sectores", payoutChanges: "Cambios de dividendo", listsPicks: "Listas y selecciones", etfs: "ETF", growers: "Crecimiento del dividendo",
+  },
+};
 
 type MenuKey =
   | "explore"
@@ -44,6 +107,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const t = NAV_STRINGS[localeFromPath(usePathname() || "/")];
 
   // Lock body scroll while the mobile drawer is open + close on Escape.
   useEffect(() => {
@@ -176,7 +240,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
 
         <nav className="dv-nav" aria-label="Main">
           <NavItem
-            label="Explore"
+            label={t.explore}
             menuKey="explore"
             open={open}
             onOpen={openMenu}
@@ -249,7 +313,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             </MenuGrid>
           </NavItem>
 
-          <NavItem label="Lists" menuKey="lists" open={open} onOpen={openMenu} onClose={scheduleClose}>
+          <NavItem label={t.lists} menuKey="lists" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={3}>
               <MenuCol title="Model Portfolios">
                 <MenuLink href="/picks/best-high-yield">Best High Dividend Stocks</MenuLink>
@@ -281,7 +345,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             </MenuGrid>
           </NavItem>
 
-          <NavItem label="High Yield" menuKey="high-yield" open={open} onOpen={openMenu} onClose={scheduleClose}>
+          <NavItem label={t.highYield} menuKey="high-yield" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={2}>
               <MenuCol title="High Yields">
                 <MenuLink href="/high-yield">Yields over 4%</MenuLink>
@@ -298,7 +362,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             </MenuGrid>
           </NavItem>
 
-          <NavItem label="Calendar" menuKey="calendar" open={open} onOpen={openMenu} onClose={scheduleClose}>
+          <NavItem label={t.calendar} menuKey="calendar" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={2}>
               <MenuCol title="Ex-Dividend Dates">
                 <p className="dv-menu-blurb">
@@ -319,7 +383,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             </MenuGrid>
           </NavItem>
 
-          <NavItem label="Income" menuKey="income" open={open} onOpen={openMenu} onClose={scheduleClose}>
+          <NavItem label={t.income} menuKey="income" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={3}>
               <MenuCol title="Monthly Dividends">
                 <MenuLink href="/monthly">Monthly Dividend Stocks</MenuLink>
@@ -334,31 +398,31 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
           </NavItem>
 
           <Link href="/screener" className="dv-nav__item dv-nav__item--solo">
-            Screener
+            {t.screener}
           </Link>
 
           <Link href="/compare" className="dv-nav__item dv-nav__item--solo">
-            Compare
+            {t.compare}
           </Link>
 
           <Link href="/alternatives" className="dv-nav__item dv-nav__item--solo">
-            Alternatives
+            {t.alternatives}
           </Link>
 
           <Link href="/news" className="dv-nav__item dv-nav__item--solo">
-            News
+            {t.news}
           </Link>
 
           <Link href="/blog" className="dv-nav__item dv-nav__item--solo">
-            Blog
+            {t.blog}
           </Link>
 
           <Link href="/watchlist" className="dv-nav__item dv-nav__item--solo">
-            Watchlist
+            {t.watchlist}
           </Link>
 
           <Link href="/download" className="dv-nav__item dv-nav__item--solo">
-            App
+            {t.app}
           </Link>
         </nav>
 
@@ -368,7 +432,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
           <button
             type="button"
             className="dv-icon-btn"
-            aria-label="Search"
+            aria-label={t.search}
             onClick={() => setSearchOpen((v) => !v)}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -377,7 +441,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             </svg>
           </button>
           <Link href="/pricing" className="dv-action-link">
-            Pricing
+            {t.pricing}
           </Link>
           {/* Render Sign In / Sign Up immediately on first paint. Earlier this
               was gated on the supabase getSession promise resolving — if that
@@ -385,15 +449,15 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
               default, the Account swap happens once auth resolves. */}
           {user ? (
             <Link href="/account" className="dv-action-link dv-action-link--accent">
-              Account
+              {t.account}
             </Link>
           ) : (
             <>
               <Link href="/login" className="dv-action-link">
-                Sign In
+                {t.signIn}
               </Link>
               <Link href="/signup" className="dv-action-link dv-action-link--accent">
-                Sign Up
+                {t.signUp}
               </Link>
             </>
           )}
@@ -406,7 +470,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             <input
               autoFocus
               type="text"
-              placeholder="Search by ticker or company name (e.g. AAPL, Johnson, Realty Income)"
+              placeholder={t.searchPlaceholder}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onKeyDown={handleKey}
@@ -415,7 +479,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
               aria-autocomplete="list"
             />
             <button type="submit" className="btn">
-              Search
+              {t.search}
             </button>
           </form>
           {suggestions.length > 0 && (
@@ -487,26 +551,26 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                   App). Anything that's a single link on desktop should be
                   a single link here too, not buried in a collapsed group. */}
               <div className="dv-mobile-solo">
-                <Link href="/screener">Screener</Link>
-                <Link href="/screener?type=etfs">ETF Screener</Link>
-                <Link href="/compare">Compare</Link>
-                <Link href="/alternatives">Alternatives</Link>
-                <Link href="/news">News</Link>
-                <Link href="/blog">Blog</Link>
-                <Link href="/watchlist">Watchlist</Link>
-                <Link href="/download">App</Link>
+                <Link href="/screener">{t.screener}</Link>
+                <Link href="/screener?type=etfs">{`ETF ${t.screener}`}</Link>
+                <Link href="/compare">{t.compare}</Link>
+                <Link href="/alternatives">{t.alternatives}</Link>
+                <Link href="/news">{t.news}</Link>
+                <Link href="/blog">{t.blog}</Link>
+                <Link href="/watchlist">{t.watchlist}</Link>
+                <Link href="/download">{t.app}</Link>
               </div>
-              <MobileGroup title="Explore">
-                <Link href="/methodology">Methodology</Link>
-                <Link href="/about">About</Link>
+              <MobileGroup title={t.explore}>
+                <Link href="/methodology">{t.methodology}</Link>
+                <Link href="/about">{t.about}</Link>
               </MobileGroup>
-              <MobileGroup title="Languages">
+              <MobileGroup title={t.languages}>
                 <Link href="/fr" hrefLang="fr-FR" lang="fr">🇫🇷 Français</Link>
                 <Link href="/de" hrefLang="de-DE" lang="de">🇩🇪 Deutsch</Link>
                 <Link href="/it" hrefLang="it-IT" lang="it">🇮🇹 Italiano</Link>
                 <Link href="/es" hrefLang="es-ES" lang="es">🇪🇸 Español</Link>
               </MobileGroup>
-              <MobileGroup title="Industries">
+              <MobileGroup title={t.industries}>
                 <Link href="/industries/reit">REIT</Link>
                 <Link href="/industries/mlp">MLP</Link>
                 <Link href="/industries/bdc">BDC</Link>
@@ -533,7 +597,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/industries/insurance">Insurance</Link>
                 <Link href="/industries/aerospace-defense">Aerospace &amp; Defense</Link>
               </MobileGroup>
-              <MobileGroup title="Sectors">
+              <MobileGroup title={t.sectors}>
                 <Link href="/sectors/financials">Financials</Link>
                 <Link href="/sectors/real-estate">Real Estate</Link>
                 <Link href="/sectors/communications">Communications</Link>
@@ -546,7 +610,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/sectors/materials">Materials</Link>
                 <Link href="/sectors/utilities">Utilities</Link>
               </MobileGroup>
-              <MobileGroup title="Payout Changes">
+              <MobileGroup title={t.payoutChanges}>
                 <Link href="/payout-changes/increasing">Increasing Dividend</Link>
                 <Link href="/payout-changes/decreasing">Decreasing Dividend</Link>
                 <Link href="/payout-changes/initiating">Initiating Dividend</Link>
@@ -554,7 +618,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/payout-changes/special">Special Dividend</Link>
                 <Link href="/lists/potential-payers">Future Dividend Payers</Link>
               </MobileGroup>
-              <MobileGroup title="Lists & Picks">
+              <MobileGroup title={t.listsPicks}>
                 <Link href="/picks/best-dividend-stocks">Best Dividend Stocks</Link>
                 <Link href="/picks/best-high-yield">Best High Yield</Link>
                 <Link href="/picks/best-dividend-growth">Best Dividend Growth</Link>
@@ -573,7 +637,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/picks/best/materials">Best Materials</Link>
                 <Link href="/picks/best/utilities">Best Utilities</Link>
               </MobileGroup>
-              <MobileGroup title="Calendar">
+              <MobileGroup title={t.calendar}>
                 <Link href="/calendar/ex-dividend?range=week">This Week's Ex-Dates</Link>
                 <Link href="/calendar/ex-dividend?range=month">This Month's Ex-Dates</Link>
                 <Link href="/calendar/ex-dividend?range=year">This Year's Ex-Dates</Link>
@@ -581,12 +645,12 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/calendar/declaration?range=month">Last Month's Declarations</Link>
                 <Link href="/calendar/declaration?range=quarter">Last Three Months</Link>
               </MobileGroup>
-              <MobileGroup title="Income">
+              <MobileGroup title={t.income}>
                 <Link href="/monthly">Monthly Dividend Stocks</Link>
                 <Link href="/monthly/staggered">Monthly Income from Quarterly</Link>
                 <Link href="/high-yield">Yields over 4%</Link>
               </MobileGroup>
-              <MobileGroup title="ETFs">
+              <MobileGroup title={t.etfs}>
                 <Link href="/screener?type=etfs">All Dividend ETFs</Link>
                 <Link href="/etfs/which-owns">Which ETF owns a stock?</Link>
                 <Link href="/etfs/top-held">Most held by ETFs</Link>
@@ -596,7 +660,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/screener?type=etfs&sector=health-care">Healthcare ETFs</Link>
                 <Link href="/lists/potential-payers">Future Dividend Payers</Link>
               </MobileGroup>
-              <MobileGroup title="Dividend Growers">
+              <MobileGroup title={t.growers}>
                 <Link href="/growers/aristocrats">Aristocrats (25+ yrs)</Link>
                 <Link href="/growers/kings">Kings (50+ yrs)</Link>
                 <Link href="/growers/champions">Champions (25+ yrs)</Link>
@@ -604,16 +668,16 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/growers/challengers">Challengers (5–9 yrs)</Link>
                 <Link href="/growers/achievers">Achievers (10+ yrs)</Link>
               </MobileGroup>
-              <MobileGroup title="Account">
-                <Link href="/watchlist">Watchlist</Link>
-                <Link href="/download">App</Link>
-                <Link href="/pricing">Pricing</Link>
+              <MobileGroup title={t.account}>
+                <Link href="/watchlist">{t.watchlist}</Link>
+                <Link href="/download">{t.app}</Link>
+                <Link href="/pricing">{t.pricing}</Link>
                 {user ? (
-                  <Link href="/account">Account</Link>
+                  <Link href="/account">{t.account}</Link>
                 ) : (
                   <>
-                    <Link href="/login">Sign In</Link>
-                    <Link href="/signup">Sign Up</Link>
+                    <Link href="/login">{t.signIn}</Link>
+                    <Link href="/signup">{t.signUp}</Link>
                   </>
                 )}
               </MobileGroup>
