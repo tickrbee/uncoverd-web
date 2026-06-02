@@ -7,16 +7,19 @@ import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividen
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import {
   rankByDimension,
-  getStockRatings,
-  getStockExtras,
-  nextDividendBySymbols,
   redactRowsForFree,
   gatedMap,
   type StockRow,
   type ScreenerOptions,
   type RatingDimension,
 } from "@/lib/data";
-import { cachedListStocks as listStocks, cachedListEtfsByCategory as listEtfsByCategory } from "@/lib/cached-data";
+import {
+  cachedListStocks as listStocks,
+  cachedListEtfsByCategory as listEtfsByCategory,
+  cachedGetStockRatings as getStockRatings,
+  cachedNextDividendBySymbols as nextDividendBySymbols,
+  cachedGetStockExtras as getStockExtras,
+} from "@/lib/cached-data";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { getPremiumStatus } from "@/lib/premium";
 import { PICKS as PICKS_TAXO, pickUrl } from "@/lib/i18n-taxonomy";

@@ -7,6 +7,9 @@ import {
   payoutChanges,
   listEtfsByCategory,
   industriesInSector,
+  getStockRatings,
+  nextDividendBySymbols,
+  getStockExtras,
 } from "@/lib/data";
 
 // Cached wrappers for the heavy, USER-INDEPENDENT list/calendar/count queries
@@ -28,3 +31,36 @@ export const cachedDividendCalendar = unstable_cache(dividendCalendar, ["v1:divi
 export const cachedPayoutChanges = unstable_cache(payoutChanges, ["v1:payoutChanges"], OPTS);
 export const cachedListEtfsByCategory = unstable_cache(listEtfsByCategory, ["v1:listEtfsByCategory"], OPTS);
 export const cachedIndustriesInSector = unstable_cache(industriesInSector, ["v1:industriesInSector"], OPTS);
+
+// Per-row enrichers return Maps (not JSON-serializable). Cache the ENTRIES
+// array (which IS serializable) keyed by the sorted symbol list, then rebuild
+// the Map per request. Same data shared across requests; no extra DB round-trip
+// on a warm cache. Keyed on sorted symbols so page order doesn't fragment it.
+const ratingsEntries = unstable_cache(
+  async (symbols: string[]) => Array.from((await getStockRatings(symbols)).entries()),
+  ["v1:ratingsEntries"],
+  OPTS,
+);
+const upcomingEntries = unstable_cache(
+  async (symbols: string[]) => Array.from((await nextDividendBySymbols(symbols)).entries()),
+  ["v1:upcomingEntries"],
+  OPTS,
+);
+const extrasEntries = unstable_cache(
+  async (symbols: string[]) => Array.from((await getStockExtras(symbols)).entries()),
+  ["v1:extrasEntries"],
+  OPTS,
+);
+
+export async function cachedGetStockRatings(symbols: string[]): ReturnType<typeof getStockRatings> {
+  if (!symbols.length) return new Map();
+  return new Map(await ratingsEntries([...symbols].sort()));
+}
+export async function cachedNextDividendBySymbols(symbols: string[]): ReturnType<typeof nextDividendBySymbols> {
+  if (!symbols.length) return new Map();
+  return new Map(await upcomingEntries([...symbols].sort()));
+}
+export async function cachedGetStockExtras(symbols: string[]): ReturnType<typeof getStockExtras> {
+  if (!symbols.length) return new Map();
+  return new Map(await extrasEntries([...symbols].sort()));
+}

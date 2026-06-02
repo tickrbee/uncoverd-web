@@ -9,9 +9,6 @@ import { Pager } from "@/components/pager";
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import { CountryFilter } from "@/components/country-filter";
 import {
-  getStockRatings,
-  nextDividendBySymbols,
-  getStockExtras,
   applyDisplayCurrency,
   getDisplayCurrency,
   redactRowsForFree,
@@ -25,6 +22,9 @@ import {
   cachedCountStocks as countStocks,
   cachedListEtfsByCategory as listEtfsByCategory,
   cachedIndustriesInSector as industriesInSector,
+  cachedGetStockRatings as getStockRatings,
+  cachedNextDividendBySymbols as nextDividendBySymbols,
+  cachedGetStockExtras as getStockExtras,
 } from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { SECTORS, sectorUrl } from "@/lib/i18n-taxonomy";

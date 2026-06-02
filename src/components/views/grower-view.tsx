@@ -7,15 +7,17 @@ import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividen
 import { ListingToolbar } from "@/components/listing-toolbar";
 import { Pager } from "@/components/pager";
 import {
-  getStockRatings,
-  nextDividendBySymbols,
-  getStockExtras,
   redactRowsForFree,
   gatedMap,
   type GrowerSlug,
   type StockRow,
 } from "@/lib/data";
-import { cachedListGrowersWithStocks as listGrowersWithStocks } from "@/lib/cached-data";
+import {
+  cachedListGrowersWithStocks as listGrowersWithStocks,
+  cachedGetStockRatings as getStockRatings,
+  cachedNextDividendBySymbols as nextDividendBySymbols,
+  cachedGetStockExtras as getStockExtras,
+} from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { GROWERS, GROWER_YEARS, growerUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";

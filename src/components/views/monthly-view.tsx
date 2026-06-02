@@ -7,14 +7,16 @@ import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar"
 import { Pager } from "@/components/pager";
 import { getBackendClient } from "@/lib/supabase/admin";
 import {
-  getStockRatings,
-  nextDividendBySymbols,
-  getStockExtras,
   redactRowsForFree,
   gatedMap,
   type StockRow,
 } from "@/lib/data";
-import { cachedListStocks as listStocks } from "@/lib/cached-data";
+import {
+  cachedListStocks as listStocks,
+  cachedGetStockRatings as getStockRatings,
+  cachedNextDividendBySymbols as nextDividendBySymbols,
+  cachedGetStockExtras as getStockExtras,
+} from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { monthlyHeader, pageSummary } from "@/lib/ui-i18n";
