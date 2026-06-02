@@ -837,23 +837,47 @@ async function refreshHistoricalDividends(shard: number, shards: number, scope =
 //     inception date, etf company, description. One FMP call per ETF, so sharded
 //     to stay under the function timeout.
 async function enrichEtfs(shard: number, shards: number) {
-  // Get all ETF symbols from backend.tickers
-  const all: string[] = [];
+  // Candidates = flagged ETFs/funds PLUS unflagged US mutual-fund symbols
+  // (5-letter …X like VITSX/VSMPX). Mutual funds are often mis-flagged as plain
+  // stocks in the data, so they never got enriched; we pull them in here, fetch
+  // FMP /etf/info (which DOES cover mutual funds — expense ratio, AUM, NAV,
+  // asset class, sector weights) and reclassify them as is_fund.
+  const flagged = new Set<string>();
+  const mutualFunds = new Set<string>();
   let offset = 0;
   while (true) {
     const { data, error } = await sb
       .from("tickers")
       .select("symbol")
-      .eq("is_etf", true)
+      .or("is_etf.eq.true,is_fund.eq.true")
       .order("symbol", { ascending: true })
       .range(offset, offset + 999);
     if (error || !data) break;
     const rows = data as { symbol: string }[];
-    for (const r of rows) all.push(r.symbol);
+    for (const r of rows) flagged.add(r.symbol);
     if (rows.length < 1000) break;
     offset += 1000;
     if (offset > 50000) break;
   }
+  // Unflagged mutual-fund-pattern symbols (…X) not yet classified.
+  offset = 0;
+  while (true) {
+    const { data, error } = await sb
+      .from("tickers")
+      .select("symbol")
+      .like("symbol", "%X")
+      .eq("is_etf", false)
+      .eq("is_fund", false)
+      .order("symbol", { ascending: true })
+      .range(offset, offset + 999);
+    if (error || !data) break;
+    const rows = data as { symbol: string }[];
+    for (const r of rows) if (/^[A-Z]{4}X$/.test(r.symbol)) mutualFunds.add(r.symbol);
+    if (rows.length < 1000) break;
+    offset += 1000;
+    if (offset > 100000) break;
+  }
+  const all: string[] = [...flagged, ...mutualFunds];
   const subset = shardSlice(all, shard, shards);
 
   type EtfInfo = {
@@ -889,6 +913,10 @@ async function enrichEtfs(shard: number, shards: number) {
         const data = (await res.json()) as EtfInfo[];
         if (!Array.isArray(data) || data.length === 0) continue;
         const info = data[0];
+        // If this was an unflagged mutual-fund symbol and FMP returned fund
+        // data, reclassify it as a fund so the rest of the app + pipeline treat
+        // it correctly (and it stops rendering as a stock).
+        const reclassifyAsFund = mutualFunds.has(sym);
         const { error } = await sb
           .from("tickers")
           .update({
@@ -903,6 +931,7 @@ async function enrichEtfs(shard: number, shards: number) {
             ipo_date: info.inceptionDate ?? null,
             nav: info.nav ?? null,
             holdings_count: info.holdingsCount ?? null,
+            ...(reclassifyAsFund ? { is_fund: true } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq("symbol", sym);
