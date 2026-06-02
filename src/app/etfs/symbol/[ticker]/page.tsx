@@ -124,12 +124,10 @@ export default async function EtfDetailPage({
     await getEtfCore(symbol);
 
   if (!etf) notFound();
-  if (!etf.is_etf && !etf.is_fund) {
-    // Mutual funds (5-letter …X) mis-flagged as plain stocks 404 on /stocks too,
-    // so there's no real page anywhere — don't render a dead-end placeholder
-    // linking to a 404; just 404 here as well so the symbol is fully gone.
-    if (isFundSymbol(symbol)) notFound();
-    // Otherwise it's a genuine stock typed into /etfs — bounce to its page.
+  // ETFs, flagged funds, AND mutual funds mis-flagged as stocks (5-letter …X
+  // symbols like VSMPX/VITSX) all render here as their canonical fund/ETF page.
+  // Only a genuine common stock bounces to /stocks.
+  if (!etf.is_etf && !etf.is_fund && !isFundSymbol(symbol)) {
     return (
       <>
         <SiteHeader />
