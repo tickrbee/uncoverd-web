@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { localeFromPath } from "@/lib/page-equivalents";
+import { chromeStrings } from "@/lib/ui-i18n";
 
 export function Pager({
   page,
@@ -9,6 +14,7 @@ export function Pager({
   totalPages: number;
   baseHref: string; // e.g. "/screener?sector=energy"
 }) {
+  const chrome = chromeStrings(localeFromPath(usePathname() || "/"));
   if (totalPages <= 1) return null;
 
   const sep = baseHref.includes("?") ? "&" : "?";
@@ -35,7 +41,7 @@ export function Pager({
         className={page > 1 ? "" : "dv-pager--disabled"}
         aria-label="Previous page"
       >
-        ‹ Prev
+        ‹ {chrome.prev}
       </Link>
       {pages.map((p, i) =>
         p === "…" ? (
@@ -55,7 +61,7 @@ export function Pager({
         className={page < totalPages ? "" : "dv-pager--disabled"}
         aria-label="Next page"
       >
-        Next ›
+        {chrome.next} ›
       </Link>
     </nav>
   );

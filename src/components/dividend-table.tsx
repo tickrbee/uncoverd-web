@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { WatchButton } from "@/components/watch-button";
 import { PremiumLock } from "@/components/premium-lock";
 import { th } from "@/lib/table-i18n";
+import { tabLabel } from "@/lib/ui-i18n";
 import { localeFromPath } from "@/lib/page-equivalents";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import type { StockRow, StockRating, DividendEvent, StockExtras } from "@/lib/types";
@@ -1185,6 +1186,7 @@ export function ColumnTabs({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
+  const locale = localeFromPath(pathname || "/");
   const tabs = TAB_PRESETS[preset];
 
   // Preserve all current URL params (country, type, sector, sort, etc.) so
@@ -1207,7 +1209,7 @@ export function ColumnTabs({
           href={hrefFor(t.key)}
           className={`dv-tab ${active === t.key ? "dv-tab--active" : ""}`}
         >
-          {t.label}
+          {tabLabel(t.label, locale)}
         </Link>
       ))}
     </div>

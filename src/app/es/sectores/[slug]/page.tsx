@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { DividendListService } from "@/components/service/dividend-list-service";
-import { sectorBySlug, sectorSlugs, sectorStrings, sectorHreflang, SECTOR_PATH } from "@/lib/i18n-taxonomy";
+import { SectorView, type SectorSearch } from "@/components/views/sector-view";
+import { sectorBySlug, sectorHreflang, SECTOR_PATH } from "@/lib/i18n-taxonomy";
 import { OG_LOCALE, localizedUrl } from "@/lib/i18n";
-import { metaDescription, pexelsImage } from "@/lib/seo";
+import { metaDescription } from "@/lib/seo";
+import { sectorHeader } from "@/lib/ui-i18n";
 
+export const dynamic = "force-dynamic";
 const LOCALE = "es" as const;
-const COVER = "https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg";
-
-export const revalidate = 3600;
-
-export function generateStaticParams() {
-  return sectorSlugs(LOCALE);
-}
 
 export async function generateMetadata({
   params,
@@ -22,36 +17,25 @@ export async function generateMetadata({
   const { slug } = await params;
   const entry = sectorBySlug(LOCALE, slug);
   if (!entry) return {};
-  const s = sectorStrings(LOCALE, entry.label[LOCALE]);
+  const h = sectorHeader(LOCALE, entry.label[LOCALE]);
   const path = `/${SECTOR_PATH[LOCALE]}/${entry.slug[LOCALE]}`;
   return {
-    title: { absolute: `${s.h1} | uncoverd` },
-    description: metaDescription(s.intro[0]),
+    title: { absolute: `${h.title} | uncoverd` },
+    description: metaDescription(h.description),
     alternates: { canonical: path, languages: sectorHreflang(entry) },
-    openGraph: {
-      title: s.h1,
-      type: "website",
-      url: localizedUrl(LOCALE, path),
-      locale: OG_LOCALE[LOCALE],
-      images: [pexelsImage(COVER, 1200)],
-    },
+    openGraph: { title: h.title, type: "website", url: localizedUrl(LOCALE, path), locale: OG_LOCALE[LOCALE] },
   };
 }
 
 export default async function EsSectorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<SectorSearch>;
 }) {
   const { slug } = await params;
   const entry = sectorBySlug(LOCALE, slug);
   if (!entry) notFound();
-  return (
-    <DividendListService
-      locale={LOCALE}
-      query={{ sector: entry.db, country: "ALL" }}
-      strings={sectorStrings(LOCALE, entry.label[LOCALE])}
-      cover={COVER}
-    />
-  );
+  return <SectorView locale={LOCALE} slug={entry.key} sp={await searchParams} />;
 }

@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { StockRow } from "@/lib/data";
+import { localeFromPath } from "@/lib/page-equivalents";
+import { chromeStrings } from "@/lib/ui-i18n";
 
 export type SecurityType = "stocks" | "etfs" | "active-etfs" | "funds";
 
 // Chips: a single unified "ETFs" entry covers passive, active, and funds.
 // Legacy `active-etfs` and `funds` SecurityType values still resolve correctly
 // via URLs but are no longer offered as separate chips.
-const SECURITY_TYPES: { key: SecurityType; label: string }[] = [
-  { key: "stocks", label: "Stocks" },
-  { key: "etfs", label: "ETFs" },
+const SECURITY_TYPES: { key: SecurityType }[] = [
+  { key: "stocks" },
+  { key: "etfs" },
 ];
 
 export function ListingToolbar({
@@ -36,6 +38,9 @@ export function ListingToolbar({
   const [filterOpen, setFilterOpen] = useState(false);
   const pathname = usePathname();
   const params = useSearchParams();
+  const chrome = chromeStrings(localeFromPath(pathname || "/"));
+  const securityLabel = (key: SecurityType) =>
+    key === "etfs" ? chrome.securityEtfs : chrome.securityStocks;
 
   // Default behavior: preserve full page context (path + all current query
   // params), just change the `type` query param so each chip keeps you on the
@@ -105,7 +110,7 @@ export function ListingToolbar({
         {!hideSecurityType && (
           <>
             <div className="dv-toolbar__section">
-              <span className="dv-toolbar__label">Filter by Security Type</span>
+              <span className="dv-toolbar__label">{chrome.filterBySecurityType}</span>
               <div className="dv-toolbar__chips">
                 {SECURITY_TYPES.map((t) => (
                   <Link
@@ -113,7 +118,7 @@ export function ListingToolbar({
                     href={hrefFor(t.key)}
                     className={`dv-pill ${active === t.key ? "dv-pill--active" : ""}`}
                   >
-                    {t.label}
+                    {securityLabel(t.key)}
                   </Link>
                 ))}
               </div>
