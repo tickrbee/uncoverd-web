@@ -155,6 +155,10 @@ export async function GET(): Promise<NextResponse> {
     "/de/monatliche-dividenden-aktien",
     "/it/azioni-dividendo-mensile",
     "/es/acciones-dividendo-mensual",
+    "/fr/actions-haut-rendement",
+    "/de/aktien-hohe-dividende",
+    "/it/azioni-alto-rendimento",
+    "/es/acciones-alta-rentabilidad",
   ];
   for (const p of servicePages) {
     entries.push({ loc: `${BASE}${p}`, lastmod: now, changefreq: "daily", priority: 0.8 });

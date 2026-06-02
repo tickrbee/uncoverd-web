@@ -25,6 +25,7 @@ export type ListStrings = {
 export async function DividendListService({
   locale,
   query,
+  preRows,
   strings,
   cover,
   coverAlt,
@@ -32,23 +33,30 @@ export async function DividendListService({
   locale: Locale;
   // Any screener filter: { country: "FR" } for the index lists, { sector } /
   // { industryPattern } for the sector & industry landing pages, etc.
-  query: Partial<ScreenerOptions>;
+  query?: Partial<ScreenerOptions>;
+  // Pre-fetched rows (e.g. growers, which come from a curated list, not a
+  // screener query). When provided, the internal listStocks fetch is skipped.
+  preRows?: Awaited<ReturnType<typeof listStocks>>;
   strings: ListStrings;
   cover?: string;
   coverAlt?: string;
 }) {
   let rows: Awaited<ReturnType<typeof listStocks>> = [];
-  try {
-    rows = await listStocks({
-      minDividend: 0.01,
-      minMarketCap: 500_000_000,
-      minYieldPct: 2,
-      sortBy: "yield",
-      limit: 30,
-      ...query,
-    });
-  } catch {
-    rows = [];
+  if (preRows) {
+    rows = preRows;
+  } else {
+    try {
+      rows = await listStocks({
+        minDividend: 0.01,
+        minMarketCap: 500_000_000,
+        minYieldPct: 2,
+        sortBy: "yield",
+        limit: 30,
+        ...query,
+      });
+    } catch {
+      rows = [];
+    }
   }
   const faq = faqJsonLd(strings.faqs);
 

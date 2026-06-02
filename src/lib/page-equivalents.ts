@@ -29,6 +29,13 @@ const GROUPS: Partial<Record<Locale, string>>[] = [
     it: "/it/azioni-dividendo-mensile",
     es: "/es/acciones-dividendo-mensual",
   },
+  {
+    en: "/high-yield",
+    fr: "/fr/actions-haut-rendement",
+    de: "/de/aktien-hohe-dividende",
+    it: "/it/azioni-alto-rendimento",
+    es: "/es/acciones-alta-rentabilidad",
+  },
   { en: "/blog", fr: "/fr/blog", de: "/de/blog", it: "/it/blog", es: "/es/blog" },
   {
     en: "/blog/what-is-an-ex-dividend-date",
