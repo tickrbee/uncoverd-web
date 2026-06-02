@@ -3,7 +3,8 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
-import { searchStocks, formatCurrency, formatPercent, type StockRow } from "@/lib/data";
+import { searchStocks, type StockRow } from "@/lib/data";
+import { formatCurrency, formatPercent, tickerHref } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "Search Stocks",
@@ -56,7 +57,7 @@ export default async function SearchPage({
                   {results.map((r) => (
                     <tr key={r.symbol}>
                       <td>
-                        <Link href={`/stocks/${r.symbol}`} className="dv-ticker">
+                        <Link href={tickerHref(r.symbol, r.is_etf, r.is_fund)} className="dv-ticker">
                           <span className="dv-ticker__name">{r.symbol}</span>
                         </Link>
                       </td>

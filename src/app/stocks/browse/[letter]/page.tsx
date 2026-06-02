@@ -9,6 +9,7 @@ import { Pager } from "@/components/pager";
 import { listDirectory, countDirectory } from "@/lib/data";
 import { isValidBucket, bucketLabel, DIRECTORY_PAGE_SIZE, DIRECTORY_BUCKETS } from "@/lib/directory";
 import { metaDescription } from "@/lib/seo";
+import { tickerHref } from "@/lib/format";
 
 export const revalidate = 86400;
 
@@ -74,7 +75,7 @@ export default async function StocksBrowsePage({
             <ul className="dv-az-list">
               {rows.map((r) => (
                 <li key={r.symbol}>
-                  <Link href={`/stocks/${r.symbol}`} className="dv-action-link">
+                  <Link href={tickerHref(r.symbol)} className="dv-action-link">
                     <strong>{r.symbol}</strong>
                     {r.name ? <span> — {r.name}</span> : null}
                   </Link>

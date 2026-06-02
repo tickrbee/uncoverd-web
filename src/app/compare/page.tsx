@@ -16,7 +16,7 @@ import {
 } from "@/lib/data";
 import { CompareChart } from "@/components/compare-chart";
 import { getBackendClient } from "@/lib/supabase/admin";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatCurrency, formatPercent, tickerHref } from "@/lib/format";
 import { APP_NAME } from "@/lib/branding";
 
 // Compare tool: side-by-side view of 2–4 stocks/ETFs.
@@ -967,7 +967,7 @@ function ColumnHeader({ col, removeUrl }: { col: ColumnData; removeUrl: string }
       </div>
     );
   }
-  const detailHref = col.kind === "etf" ? `/etfs/symbol/${col.symbol}` : `/stocks/${col.symbol}`;
+  const detailHref = col.kind === "etf" ? `/etfs/symbol/${col.symbol}` : tickerHref(col.symbol);
   return (
     <div className="dv-compare-col-head">
       <div className="dv-compare-col-head__top">
