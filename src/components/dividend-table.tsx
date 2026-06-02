@@ -7,7 +7,7 @@ import { WatchButton } from "@/components/watch-button";
 import { PremiumLock } from "@/components/premium-lock";
 import { th } from "@/lib/table-i18n";
 import { tabLabel } from "@/lib/ui-i18n";
-import { localeFromPath } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import type { StockRow, StockRating, DividendEvent, StockExtras } from "@/lib/types";
 
@@ -816,7 +816,7 @@ export function DividendTable({
   view = "overview",
 }: DividendTableOptions) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
-  const locale = localeFromPath(usePathname() || "/");
+  const locale = useLocale();
 
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -1032,7 +1032,7 @@ export function CalendarTable({
   dateLabel?: string;
   showFrequency?: boolean;
 }) {
-  const locale = localeFromPath(usePathname() || "/");
+  const locale = useLocale();
   if (!rows || rows.length === 0) {
     return <div className="dv-empty">—</div>;
   }
@@ -1186,7 +1186,7 @@ export function ColumnTabs({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const locale = localeFromPath(pathname || "/");
+  const locale = useLocale();
   const tabs = TAB_PRESETS[preset];
 
   // Preserve all current URL params (country, type, sector, sort, etc.) so

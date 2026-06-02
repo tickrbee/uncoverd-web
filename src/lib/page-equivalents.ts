@@ -59,15 +59,22 @@ const GROUPS: Partial<Record<Locale, string>>[] = [
  * to the target locale's hub (or site root for English).
  */
 export function localizedHref(pathname: string, target: Locale): string {
+  return localizedTwin(pathname, target) ?? (target === DEFAULT_LOCALE ? "/" : localePrefix(target));
+}
+
+/**
+ * The localized equivalent of `pathname` in `target`, or null if this page has
+ * no localized twin (e.g. /screener, /stocks/AAPL). Used by the language
+ * switcher to decide whether to navigate to a twin or just stay put (cookie).
+ */
+export function localizedTwin(pathname: string, target: Locale): string | null {
   const clean = pathname.replace(/\/+$/, "") || "/";
-  // Table-driven categories (sectors, growers, industries) first.
   const taxo = taxonomyEquivalent(clean, target);
   if (taxo) return taxo;
   for (const group of GROUPS) {
-    const match = Object.values(group).includes(clean);
-    if (match && group[target]) return group[target] as string;
+    if (Object.values(group).includes(clean) && group[target]) return group[target] as string;
   }
-  return target === DEFAULT_LOCALE ? "/" : localePrefix(target);
+  return null;
 }
 
 /** The active locale implied by a pathname's first segment. */

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { localeFromPath, localeNavHref } from "@/lib/page-equivalents";
+import { localeNavHref } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 
 // Drop-in replacement for next/link in the header nav: keeps you in the current
 // language by rewriting internal hrefs to their localized equivalent when one
@@ -13,7 +13,7 @@ export function LocaleLink({
   children,
   ...rest
 }: { href: string } & Omit<React.ComponentProps<typeof Link>, "href">) {
-  const locale = localeFromPath(usePathname() || "/");
+  const locale = useLocale();
   return (
     <Link href={localeNavHref(href, locale)} {...rest}>
       {children}

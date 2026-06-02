@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { localeFromPath } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 import { chromeStrings } from "@/lib/ui-i18n";
 
 export function Pager({
@@ -14,7 +13,7 @@ export function Pager({
   totalPages: number;
   baseHref: string; // e.g. "/screener?sector=energy"
 }) {
-  const chrome = chromeStrings(localeFromPath(usePathname() || "/"));
+  const chrome = chromeStrings(useLocale());
   if (totalPages <= 1) return null;
 
   const sep = baseHref.includes("?") ? "&" : "?";

@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { localizedHref } from "@/lib/page-equivalents";
+import { usePathname, useRouter } from "next/navigation";
+import { localizedTwin } from "@/lib/page-equivalents";
+import { useLocale, writeLocaleCookie } from "@/lib/use-locale";
 import type { Locale } from "@/lib/i18n";
 
-// Language switcher for the header. Translates the CURRENT page to its
-// localized equivalent where one exists (e.g. /calendar/ex-dividend →
-// /de/dividendenkalender); otherwise links to that language's hub.
+// Language switcher. Remembers the choice in a cookie so the whole UI follows
+// your language on every page. If the current page has a localized twin (a
+// /fr/… SEO page), navigate there; otherwise stay put — the cookie + live event
+// re-render the chrome in the chosen language without leaving the page.
 const LANGS: { code: string; label: string; locale: Locale; hrefLang?: string }[] = [
   { code: "EN", label: "English", locale: "en" },
   { code: "FR", label: "Français", locale: "fr", hrefLang: "fr-FR" },
@@ -16,19 +17,21 @@ const LANGS: { code: string; label: string; locale: Locale; hrefLang?: string }[
   { code: "ES", label: "Español", locale: "es", hrefLang: "es-ES" },
 ];
 
-// Which language is the current page in (for the button label)?
-function currentCode(pathname: string): string {
-  const seg = pathname.split("/")[1];
-  if (seg === "fr") return "FR";
-  if (seg === "de") return "DE";
-  if (seg === "it") return "IT";
-  if (seg === "es") return "ES";
-  return "EN";
-}
-
 export function LanguageSwitcher() {
   const pathname = usePathname() || "/";
-  const active = currentCode(pathname);
+  const router = useRouter();
+  const active = useLocale().toUpperCase();
+
+  function choose(locale: Locale) {
+    writeLocaleCookie(locale);
+    const twin = localizedTwin(pathname, locale);
+    if (twin && twin !== pathname) router.push(twin);
+    // No twin → stay; writeLocaleCookie already fired the live re-render event.
+    // Close the <details> menu.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const details = document.querySelector(".dv-lang[open]");
+    if (details) details.removeAttribute("open");
+  }
 
   return (
     <details className="dv-lang">
@@ -45,9 +48,9 @@ export function LanguageSwitcher() {
       <ul className="dv-lang__menu">
         {LANGS.map((l) => (
           <li key={l.code}>
-            <Link href={localizedHref(pathname, l.locale)} hrefLang={l.hrefLang}>
+            <button type="button" className="dv-lang__btn" lang={l.locale} onClick={() => choose(l.locale)}>
               <span className="dv-lang__code">{l.code}</span> {l.label}
-            </Link>
+            </button>
           </li>
         ))}
       </ul>

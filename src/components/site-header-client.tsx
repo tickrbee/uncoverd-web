@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { LocaleLink as Link } from "@/components/locale-link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { APP_NAME } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
 import { CurrencyPicker } from "@/components/currency-picker";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { localeFromPath } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 import { SECTORS, INDUSTRIES, GROWERS, PAYOUTS, GROWER_YEARS } from "@/lib/i18n-taxonomy";
 import type { Locale } from "@/lib/i18n";
 import type { User } from "@supabase/supabase-js";
@@ -138,7 +138,7 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const locale = localeFromPath(usePathname() || "/");
+  const locale = useLocale();
   const t = NAV_STRINGS[locale];
   const m = MEGA[locale];
 

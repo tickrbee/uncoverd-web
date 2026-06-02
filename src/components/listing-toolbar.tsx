@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { StockRow } from "@/lib/data";
-import { localeFromPath } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 import { chromeStrings } from "@/lib/ui-i18n";
 
 export type SecurityType = "stocks" | "etfs" | "active-etfs" | "funds";
@@ -38,7 +38,7 @@ export function ListingToolbar({
   const [filterOpen, setFilterOpen] = useState(false);
   const pathname = usePathname();
   const params = useSearchParams();
-  const chrome = chromeStrings(localeFromPath(pathname || "/"));
+  const chrome = chromeStrings(useLocale());
   const securityLabel = (key: SecurityType) =>
     key === "etfs" ? chrome.securityEtfs : chrome.securityStocks;
 

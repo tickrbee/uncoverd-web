@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { localeFromPath } from "@/lib/page-equivalents";
+import { useLocale } from "@/lib/use-locale";
 import { chromeStrings, LOCALE_MARKETS } from "@/lib/ui-i18n";
 
 export const COUNTRY_OPTIONS: { code: string; label: string }[] = [
@@ -20,7 +20,7 @@ export const COUNTRY_OPTIONS: { code: string; label: string }[] = [
 export function CountryFilter({ active = "US" }: { active?: string }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const locale = localeFromPath(pathname || "/");
+  const locale = useLocale();
   const chrome = chromeStrings(locale);
   const market = LOCALE_MARKETS[locale];
   const activeTier = params?.get("tier") ?? null;
