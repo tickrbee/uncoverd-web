@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PriceChart } from "@/components/price-chart";
@@ -147,6 +147,13 @@ export async function generateMetadata({
       alternates: { canonical: `/stocks/${upper}` },
     };
   }
+  // ETFs/funds canonicalize to /etfs/symbol/… (the page itself 308-redirects).
+  if (stock.is_etf || stock.is_fund) {
+    return {
+      title: pickTitle([`${stock.name ?? upper} (${upper}) — ETF`, `${upper} ETF`]),
+      alternates: { canonical: `/etfs/symbol/${upper}` },
+    };
+  }
   const company = stock.name ?? upper;
   const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
   const annual = stock.annual_dividend != null ? `$${stock.annual_dividend.toFixed(2)}` : null;
@@ -206,6 +213,10 @@ export default async function StockPage({
   } = await getStockCore(symbol);
 
   if (!stock) notFound();
+  // ETFs/funds live at /etfs/symbol/[symbol]. A /stocks/[ticker] hit for one is
+  // the wrong URL type (duplicate content) — 308 to the canonical ETF page so
+  // Google consolidates and drops the bogus /stocks/ version.
+  if (stock.is_etf || stock.is_fund) permanentRedirect(`/etfs/symbol/${symbol}`);
   const isPositive = (stock.change_percent ?? 0) >= 0;
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
