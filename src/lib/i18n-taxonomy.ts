@@ -498,10 +498,37 @@ export const payoutBySlug = (locale: Locale, slug: string) => categoryBySlug(PAY
 export const payoutSlugs = (locale: Locale) => categorySlugs(PAYOUTS, locale);
 export const payoutHreflang = (entry: TaxoEntry) => categoryHreflang(PAYOUT_PATH, entry);
 
+// ============================================================
+// Model-portfolio "picks" (gated). `db` = the English pick key; the page logic
+// lives in PicksView. English route /picks/[slug]; localized /<locale>/<path>/[slug].
+// ============================================================
+export const PICKS_PATH: Record<Locale, string> = {
+  en: "picks",
+  fr: "portefeuilles",
+  de: "musterportfolios",
+  it: "portafogli",
+  es: "carteras",
+};
+
+export const PICKS: TaxoEntry[] = [
+  e("best-dividend-stocks", "best-dividend-stocks", { en: "Best Dividend Stocks", fr: "Meilleures actions à dividende", de: "Beste Dividenden-Aktien", it: "Migliori azioni da dividendo", es: "Mejores acciones por dividendo" }, { fr: "actions-dividende", de: "dividenden-aktien", it: "azioni-dividendo", es: "acciones-dividendo" }),
+  e("best-high-yield", "best-high-yield", { en: "Best High Dividend Stocks", fr: "Meilleures actions à haut rendement", de: "Beste Aktien mit hoher Dividende", it: "Migliori azioni ad alto dividendo", es: "Mejores acciones de alto dividendo" }, { fr: "haut-rendement", de: "hohe-dividende", it: "alto-rendimento", es: "alta-rentabilidad" }),
+  e("best-dividend-growth", "best-dividend-growth", { en: "Best Dividend Growth Stocks", fr: "Meilleures actions à dividende croissant", de: "Beste Dividendenwachstums-Aktien", it: "Migliori azioni a dividendo in crescita", es: "Mejores acciones de dividendo creciente" }, { fr: "dividende-croissant", de: "dividendenwachstum", it: "dividendo-crescita", es: "dividendo-creciente" }),
+  e("best-dividend-protection", "best-dividend-protection", { en: "Best Dividend Protection", fr: "Meilleure protection du dividende", de: "Bester Dividendenschutz", it: "Migliore protezione del dividendo", es: "Mejor protección del dividendo" }, { fr: "protection-dividende", de: "dividendenschutz", it: "protezione-dividendo", es: "proteccion-dividendo" }),
+  e("best-monthly-dividend", "best-monthly-dividend", { en: "Best Monthly Dividend Stocks", fr: "Meilleures actions à dividende mensuel", de: "Beste monatliche Dividenden-Aktien", it: "Migliori azioni a dividendo mensile", es: "Mejores acciones de dividendo mensual" }, { fr: "dividende-mensuel", de: "monatliche-dividende", it: "dividendo-mensile", es: "dividendo-mensual" }),
+  e("dividend-capture", "dividend-capture", { en: "Best Dividend Capture Stocks", fr: "Meilleures actions de capture de dividende", de: "Beste Dividenden-Capture-Aktien", it: "Migliori azioni di cattura del dividendo", es: "Mejores acciones de captura de dividendo" }, { fr: "capture-dividende", de: "dividenden-capture", it: "cattura-dividendo", es: "captura-dividendo" }),
+];
+
+export const pickUrl = (locale: Locale, entry: TaxoEntry) => categoryUrl(PICKS_PATH, locale, entry);
+export const pickBySlug = (locale: Locale, slug: string) => categoryBySlug(PICKS, locale, slug);
+export const pickSlugs = (locale: Locale) => categorySlugs(PICKS, locale);
+export const pickHreflang = (entry: TaxoEntry) => categoryHreflang(PICKS_PATH, entry);
+
 // Registry of every taxonomy family — taxonomyEquivalent() iterates this.
 const CATEGORIES: { path: Record<Locale, string>; entries: TaxoEntry[] }[] = [
   { path: SECTOR_PATH, entries: SECTORS },
   { path: GROWER_PATH, entries: GROWERS },
   { path: INDUSTRY_PATH, entries: INDUSTRIES },
   { path: PAYOUT_PATH, entries: PAYOUTS },
+  { path: PICKS_PATH, entries: PICKS },
 ];

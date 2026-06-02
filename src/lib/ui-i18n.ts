@@ -180,6 +180,17 @@ export function etfHeaderParts(locale: Locale, label: string): { title: string; 
   }
 }
 
+// Footer note on the model-portfolio (picks) pages.
+export function picksNote(locale: Locale): { base: string; premiumSuffix: string } {
+  switch (locale) {
+    case "fr": return { base: "Rééquilibré périodiquement selon le rendement, les fondamentaux et la sécurité du dividende.", premiumSuffix: " Les abonnés Premium voient chaque valeur, note et date de rééquilibrage." };
+    case "de": return { base: "Wird regelmäßig nach Rendite, Fundamentaldaten und Dividendensicherheit neu gewichtet.", premiumSuffix: " Premium-Abonnenten sehen jede Position, Bewertung und jeden Rebalancing-Termin." };
+    case "it": return { base: "Ribilanciato periodicamente in base a rendimento, fondamentali e sicurezza del dividendo.", premiumSuffix: " Gli abbonati Premium vedono ogni titolo, valutazione e data di ribilanciamento." };
+    case "es": return { base: "Reequilibrado periódicamente según rentabilidad, fundamentales y seguridad del dividendo.", premiumSuffix: " Los suscriptores Premium ven cada valor, calificación y fecha de reequilibrio." };
+    default: return { base: "Rebalanced periodically based on yield, fundamentals, and dividend safety.", premiumSuffix: " Premium subscribers see every pick, rating, and rebalancing date." };
+  }
+}
+
 export function monthlyHeader(locale: Locale): PageHeaderStrings {
   switch (locale) {
     case "fr": return { eyebrow: "Dividendes mensuels", title: "Actions à dividende mensuel", description: "Des actions qui versent un dividende chaque mois. Construisez un revenu mensuel régulier." };
