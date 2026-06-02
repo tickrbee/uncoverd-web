@@ -8,11 +8,8 @@ import { Pager } from "@/components/pager";
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import { CountryFilter } from "@/components/country-filter";
 import {
-  listStocks,
-  countStocks,
   getStockRatings,
   nextDividendBySymbols,
-  listEtfsByCategory,
   getStockExtras,
   applyDisplayCurrency,
   getDisplayCurrency,
@@ -21,6 +18,11 @@ import {
   INDUSTRY_SLUG_MAP,
   type StockRow,
 } from "@/lib/data";
+import {
+  cachedListStocks as listStocks,
+  cachedCountStocks as countStocks,
+  cachedListEtfsByCategory as listEtfsByCategory,
+} from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { INDUSTRIES, industryUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";

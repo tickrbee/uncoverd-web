@@ -7,12 +7,12 @@ import { PageHeader } from "@/components/page-header";
 import { PremiumGate } from "@/components/premium-gate";
 import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
 import {
-  payoutChanges,
   formatDate,
   formatCurrency,
   formatPercent,
   type PayoutChangeKind,
 } from "@/lib/data";
+import { cachedPayoutChanges as payoutChanges } from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { PAYOUTS } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";

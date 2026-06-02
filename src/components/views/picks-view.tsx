@@ -6,8 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import {
-  listStocks,
-  listEtfsByCategory,
   rankByDimension,
   getStockRatings,
   getStockExtras,
@@ -18,6 +16,7 @@ import {
   type ScreenerOptions,
   type RatingDimension,
 } from "@/lib/data";
+import { cachedListStocks as listStocks, cachedListEtfsByCategory as listEtfsByCategory } from "@/lib/cached-data";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { getPremiumStatus } from "@/lib/premium";
 import { PICKS as PICKS_TAXO, pickUrl } from "@/lib/i18n-taxonomy";

@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/page-header";
 import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
 import { Pager } from "@/components/pager";
 import {
-  dividendCalendar,
   isoToday,
   isoDaysFromNow,
   formatDate,
@@ -15,6 +14,7 @@ import {
   type DividendEvent,
   type PayoutChangeEvent,
 } from "@/lib/data";
+import { cachedDividendCalendar as dividendCalendar } from "@/lib/cached-data";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";

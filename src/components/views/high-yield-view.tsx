@@ -7,7 +7,6 @@ import { ListingToolbar } from "@/components/listing-toolbar";
 import { CountryFilter } from "@/components/country-filter";
 import { Pager } from "@/components/pager";
 import {
-  listStocks,
   getStockRatings,
   nextDividendBySymbols,
   getStockExtras,
@@ -17,6 +16,7 @@ import {
   gatedMap,
   type StockRow,
 } from "@/lib/data";
+import { cachedListStocks as listStocks } from "@/lib/cached-data";
 import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { highYieldHeader, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
