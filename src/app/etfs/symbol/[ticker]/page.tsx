@@ -20,6 +20,7 @@ import {
   formatDate,
 } from "@/lib/data";
 import { pickTitle, metaDescription } from "@/lib/seo";
+import { isFundSymbol } from "@/lib/format";
 import { unstable_cache } from "next/cache";
 import {
   breadcrumbList,
@@ -124,7 +125,11 @@ export default async function EtfDetailPage({
 
   if (!etf) notFound();
   if (!etf.is_etf && !etf.is_fund) {
-    // Not an ETF — bounce to the stock detail page.
+    // Mutual funds (5-letter …X) mis-flagged as plain stocks 404 on /stocks too,
+    // so there's no real page anywhere — don't render a dead-end placeholder
+    // linking to a 404; just 404 here as well so the symbol is fully gone.
+    if (isFundSymbol(symbol)) notFound();
+    // Otherwise it's a genuine stock typed into /etfs — bounce to its page.
     return (
       <>
         <SiteHeader />

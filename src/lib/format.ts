@@ -1,11 +1,18 @@
 // Pure formatting helpers — safe to import from client components.
 
-// Detail-page URL for a ticker. ETFs/funds (and US mutual funds — 5-letter …X
-// symbols, often mis-flagged as stocks) live at /etfs/symbol; /stocks 404s for
-// them. Pass is_etf/is_fund when known; otherwise the symbol heuristic catches
-// mutual funds (but not short ETF tickers, which need the flags).
+// US open-end mutual funds use a 5-letter symbol ending in X (WFEMX, VSMPX,
+// VITSX, VFIAX…). Many are mis-flagged as common stocks in the data, so we
+// detect them by symbol shape.
+export function isFundSymbol(symbol: string): boolean {
+  return /^[A-Z]{4}X$/.test(symbol);
+}
+
+// Detail-page URL for a ticker. ETFs/funds (and the mutual funds above) live at
+// /etfs/symbol; /stocks 404s for them. Pass is_etf/is_fund when known; otherwise
+// the symbol heuristic catches mutual funds (but not short ETF tickers, which
+// need the flags).
 export function tickerHref(symbol: string, isEtf?: boolean | null, isFund?: boolean | null): string {
-  if (isEtf || isFund || /^[A-Z]{4}X$/.test(symbol)) return `/etfs/symbol/${symbol}`;
+  if (isEtf || isFund || isFundSymbol(symbol)) return `/etfs/symbol/${symbol}`;
   return `/stocks/${symbol}`;
 }
 

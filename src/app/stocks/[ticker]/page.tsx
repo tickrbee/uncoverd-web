@@ -38,6 +38,7 @@ import {
   formatDate,
 } from "@/lib/data";
 import { pickTitle, metaDescription } from "@/lib/seo";
+import { isFundSymbol } from "@/lib/format";
 import { unstable_cache } from "next/cache";
 
 // ISR + statically cacheable: this page reads no per-request cookies (auth/
@@ -48,13 +49,6 @@ import { unstable_cache } from "next/cache";
 // enters the cached HTML. The heavy DB reads are still memoised below.
 export const revalidate = 600;
 export const dynamicParams = true;
-
-// US open-end mutual funds use a 5-letter symbol ending in X (WFEMX, VFIAX,
-// FXAIX…). Many are mis-flagged as common stocks in the data, so we detect
-// them by symbol and keep them out of /stocks (they belong under /etfs/symbol).
-function isFundSymbol(symbol: string): boolean {
-  return /^[A-Z]{4}X$/.test(symbol);
-}
 
 // Prerender none at build (65k tickers), but exporting generateStaticParams is
 // what flips this dynamic-param route into ISR mode: on-demand renders are then
