@@ -4029,3 +4029,24 @@ a.dv-fin-seeall {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* Blog table of contents (long-form posts) + anchor scroll offset */
+.dv-toc {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+.dv-toc__title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.dv-toc ul { margin: 0; padding-left: 1.1rem; }
+.dv-toc li { margin: 0.25rem 0; }
+.dv-toc a { color: var(--positive, #34d399); text-decoration: none; }
+.dv-toc a:hover { text-decoration: underline; }
+.dv-blog-prose h2, .dv-blog-prose h3 { scroll-margin-top: 90px; }

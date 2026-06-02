@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -14,6 +15,53 @@ import { HTML_LANG, localePrefix, localizedUrl, type Locale } from "@/lib/i18n";
 import { BLOG_STRINGS, formatPostDate } from "@/components/blog/blog-strings";
 import { pexelsImage } from "@/lib/seo";
 import type { Post } from "@/lib/content";
+
+// Long-form helpers (card 15): heading anchors + table of contents + lazy imgs.
+// All server-rendered — jump links are native #anchors, no client JS.
+function slugify(text: string): string {
+  return text
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function nodeText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (node && typeof node === "object" && "props" in node) {
+    return nodeText((node as { props?: { children?: ReactNode } }).props?.children);
+  }
+  return "";
+}
+
+// Pull H2 headings out of the markdown for the table of contents.
+function extractH2s(md: string): { text: string; slug: string }[] {
+  const out: { text: string; slug: string }[] = [];
+  let inFence = false;
+  for (const line of md.split("\n")) {
+    if (/^```/.test(line.trim())) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = /^##\s+(.+?)\s*#*$/.exec(line);
+    if (m) {
+      const text = m[1].replace(/[*_`]/g, "").trim();
+      if (text) out.push({ text, slug: slugify(text) });
+    }
+  }
+  return out;
+}
+
+const TOC_LABEL: Record<Locale, string> = { en: "On this page", fr: "Sur cette page", de: "Auf dieser Seite", it: "In questa pagina", es: "En esta página" };
+const BACK_TOP_LABEL: Record<Locale, string> = { en: "↑ Back to top", fr: "↑ Haut de page", de: "↑ Nach oben", it: "↑ Torna su", es: "↑ Volver arriba" };
+
+const MD_COMPONENTS: Components = {
+  h2: ({ children }) => <h2 id={slugify(nodeText(children))}>{children}</h2>,
+  h3: ({ children }) => <h3 id={slugify(nodeText(children))}>{children}</h3>,
+  img: ({ src, alt }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={typeof src === "string" ? src : undefined} alt={alt ?? ""} loading="lazy" decoding="async" />
+  ),
+};
 
 export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
   const t = BLOG_STRINGS[locale];
@@ -37,6 +85,8 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
   const dateLine = post.meta.updated
     ? `${t.updated} ${formatPostDate(post.meta.updated, locale)}`
     : `${t.published} ${formatPostDate(post.meta.date, locale)}`;
+  const h2s = extractH2s(post.body);
+  const showToc = h2s.length >= 3;
 
   return (
     <>
@@ -48,7 +98,7 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
       )}
       <SiteHeader />
       <main className="dv-page">
-        <article>
+        <article id="top">
           <header className="dv-page-header" style={{ background: "linear-gradient(135deg, #022c22 0%, #064e3b 100%)" }}>
             <p className="dv-eyebrow">
               <Link href={`${prefix}/blog`} className="dv-action-link">
@@ -95,9 +145,24 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
             </section>
           )}
 
+          {showToc && (
+            <section className="dv-section">
+              <nav className="dv-toc" aria-label={TOC_LABEL[locale]}>
+                <p className="dv-toc__title">{TOC_LABEL[locale]}</p>
+                <ul>
+                  {h2s.map((h) => (
+                    <li key={h.slug}>
+                      <a href={`#${h.slug}`}>{h.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </section>
+          )}
+
           <section className="dv-section">
             <div className="dv-prose dv-blog-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{post.body}</ReactMarkdown>
             </div>
           </section>
 
@@ -115,10 +180,11 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
             </section>
           )}
 
-          <p style={{ marginTop: "1.5rem" }}>
+          <p style={{ marginTop: "1.5rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
             <Link href={`${prefix}/blog`} className="dv-action-link">
               {t.backToBlog}
             </Link>
+            {showToc && <a href="#top" className="dv-action-link">{BACK_TOP_LABEL[locale]}</a>}
           </p>
         </article>
       </main>
