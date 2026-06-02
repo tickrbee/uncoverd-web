@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Stat } from "@/components/stat";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
+import { useLocale } from "@/lib/use-locale";
+import { dLabel } from "@/lib/detail-i18n";
 
 // Client-side tab controller for the stock detail page. The page itself is now
 // statically cached (no per-request auth), so:
@@ -48,6 +50,7 @@ export function StockDetailTabs({
   premium: StockPremiumProps;
 }) {
   for (const t of tabs) VALID.add(t.key);
+  const locale = useLocale();
   const [active, setActive] = useState<string>("overview");
   const premiumTabs = new Set(tabs.filter((t) => t.premium).map((t) => t.key));
 
@@ -79,7 +82,7 @@ export function StockDetailTabs({
             className={`dv-tab ${active === t.key ? "dv-tab--active" : ""}`}
             aria-current={active === t.key ? "page" : undefined}
           >
-            {t.label}
+            {dLabel(t.label, locale)}
           </button>
         ))}
       </nav>

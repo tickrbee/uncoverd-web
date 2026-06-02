@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useLocale } from "@/lib/use-locale";
+import { dLabel } from "@/lib/detail-i18n";
 
 // Client-side tab controller for the ETF detail page (mirrors StockDetailTabs).
 // Public panels are server-rendered into the cached HTML and toggled here; the
@@ -33,6 +35,7 @@ export function EtfDetailTabs({
   symbol: string;
 }) {
   for (const t of tabs) VALID.add(t.key);
+  const locale = useLocale();
   const [active, setActive] = useState<string>("overview");
   const premiumTabs = new Set(tabs.filter((t) => t.premium).map((t) => t.key));
 
@@ -61,7 +64,7 @@ export function EtfDetailTabs({
             className={`dv-tab ${active === t.key ? "dv-tab--active" : ""}`}
             aria-current={active === t.key ? "page" : undefined}
           >
-            {t.label}
+            {dLabel(t.label, locale)}
           </button>
         ))}
       </nav>
