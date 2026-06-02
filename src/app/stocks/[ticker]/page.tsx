@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PriceChart } from "@/components/price-chart";
+import { ListingSwitcher } from "@/components/listing-switcher";
 import { FinancialsSection } from "@/components/financials-section";
 import { FinancialsTab } from "@/components/financials-tab";
 import { Stat } from "@/components/stat";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/structured-data";
 import {
   getStock,
+  getCompanyListings,
   dividendHistoryBySymbol,
   newsForSymbol,
   historicalPrices,
@@ -102,6 +104,14 @@ const getStockCore = unstable_cache(
   { revalidate: 600 },
 );
 
+// All listings of the same company (multi-listing switcher + canonical). Keyed
+// by company name; cheap query, cached like the rest.
+const getListings = unstable_cache(
+  async (name: string | null) => getCompanyListings(name),
+  ["stock-company-listings"],
+  { revalidate: 600 },
+);
+
 const getStockRelated = unstable_cache(
   async (symbol: string, sector: string | null) => {
     const [peerStocks, topEtfHolders] = await Promise.all([
@@ -153,6 +163,12 @@ export async function generateMetadata({
     return { title: `${upper}`, robots: { index: false, follow: false } };
   }
   const company = stock.name ?? upper;
+  // Multi-listing canonical: every variation of a company points at the primary
+  // listing (highest-volume sibling) so Google consolidates them into one page
+  // instead of indexing dozens of thin cross-listing duplicates.
+  const listings = await getListings(stock.name).catch(() => []);
+  const primary = listings[0]?.symbol ?? upper;
+  const canonical = `/stocks/${primary}`;
   const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
   const annual = stock.annual_dividend != null ? `$${stock.annual_dividend.toFixed(2)}` : null;
   const sector = stock.sector;
@@ -178,12 +194,12 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: `/stocks/${upper}` },
+    alternates: { canonical },
     openGraph: {
       title,
       description,
       type: "website",
-      url: `/stocks/${upper}`,
+      url: canonical,
     },
   };
 }
@@ -220,6 +236,9 @@ export default async function StockPage({
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
   const { peerStocks, topEtfHolders } = await getStockRelated(symbol, stock.sector ?? null);
+
+  // All listings of this company (TradingView-style switcher in the header).
+  const listings = await getListings(stock.name).catch(() => []);
 
   // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
   // <script type="application/ld+json"> tags in the <head>-equivalent slot
@@ -446,6 +465,10 @@ export default async function StockPage({
           <h1>
             {stock.name ?? symbol} ({symbol})
           </h1>
+          <ListingSwitcher
+            listings={listings.map((l) => ({ symbol: l.symbol, exchange: l.exchange, currency: l.currency }))}
+            current={symbol}
+          />
           <div
             style={{
               display: "flex",

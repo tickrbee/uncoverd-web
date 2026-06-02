@@ -473,6 +473,58 @@ export async function getStock(symbol: string): Promise<StockRow | null> {
 }
 
 // ============================================================
+// Company listings (multi-listing consolidation)
+// The same company often has many ticker variations across exchanges/currencies
+// (e.g. Repsol: REP.MC/REP.DE/REPYY/REPYF; Apple: AAPL/APC.DE/AAPL.MX…). They
+// share the exact `name`. We group by name and treat the highest-volume listing
+// as the "primary" (the real trading venue with the richest data). Used to render
+// a TradingView-style listing switcher and to canonicalize every variation to the
+// primary so Google sees one company page instead of dozens of thin duplicates.
+// ============================================================
+export type CompanyListing = {
+  symbol: string;
+  exchange: string | null;
+  currency: string | null;
+  country: string | null;
+  volume: number | null;
+};
+
+export async function getCompanyListings(name: string | null | undefined): Promise<CompanyListing[]> {
+  const trimmed = name?.trim();
+  if (!trimmed || trimmed.length < 2) return [];
+  const sb = getBackendClient();
+  const { data, error } = await sb
+    .from("tickers")
+    .select("symbol,exchange_short,exchange,currency,country,volume")
+    .eq("name", trimmed)
+    .eq("is_etf", false)
+    .eq("is_fund", false)
+    .eq("is_actively_trading", true)
+    .order("volume", { ascending: false, nullsFirst: false })
+    .limit(25);
+  if (error) {
+    console.error("[data.getCompanyListings]", error);
+    return [];
+  }
+  return (
+    (data as Array<{
+      symbol: string;
+      exchange_short: string | null;
+      exchange: string | null;
+      currency: string | null;
+      country: string | null;
+      volume: number | null;
+    }>) ?? []
+  ).map((t) => ({
+    symbol: t.symbol,
+    exchange: t.exchange_short ?? t.exchange ?? null,
+    currency: t.currency ?? null,
+    country: t.country ?? null,
+    volume: t.volume ?? null,
+  }));
+}
+
+// ============================================================
 // ETF detail — includes the metadata columns that `enrichEtfs` populates
 // (expense_ratio, aum, holdings_count, asset_class, nav, etf_category,
 // etf_company). The base StockRow shape doesn't carry those fields, so we
