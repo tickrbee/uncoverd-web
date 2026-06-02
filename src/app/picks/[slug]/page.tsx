@@ -4,11 +4,12 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
-import { ListingToolbar } from "@/components/listing-toolbar";
+import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 import {
   listStocks,
+  listEtfsByCategory,
   rankByDimension,
   getStockRatings,
   getStockExtras,
@@ -151,29 +152,37 @@ export default async function PicksPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; type?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
   const pick = PICKS[slug];
   if (!pick) notFound();
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
+  const type: SecurityType =
+    sp.type === "etfs" || sp.type === "active-etfs" || sp.type === "funds" ? "etfs" : "stocks";
 
   let rows: StockRow[] = [];
   try {
-    let all = await listStocks(pick.fetchOpts);
-    if (pick.needsMonthlyFilter) {
-      const monthly = await monthlySymbols();
-      all = all.filter((r) => monthly.has(r.symbol));
+    if (type === "etfs") {
+      // ETF view: dividend ETFs ranked by size (the model-portfolio rankings
+      // are stock-specific, so ETF mode shows the broad dividend-ETF universe).
+      rows = await listEtfsByCategory({ categoryContains: "Dividend", minMarketCap: 50_000_000, limit: 100 });
+    } else {
+      let all = await listStocks(pick.fetchOpts);
+      if (pick.needsMonthlyFilter) {
+        const monthly = await monthlySymbols();
+        all = all.filter((r) => monthly.has(r.symbol));
+      }
+      // Strip bonds / preferred shares / structured notes — these have FMP
+      // symbols and yields but they're not "dividend stocks" in the equity sense
+      // and they pollute model portfolios with names like
+      // "Athene Holding Ltd. 7.250% Fixe" or "KKR Group Finance Co. IX LLC 4.".
+      all = all.filter(isCommonStock);
+      rows = pick.build(all);
+      rows = await rankByDimension(rows, pick.rankBy);
+      rows = rows.slice(0, pick.finalLimit);
     }
-    // Strip bonds / preferred shares / structured notes — these have FMP
-    // symbols and yields but they're not "dividend stocks" in the equity sense
-    // and they pollute model portfolios with names like
-    // "Athene Holding Ltd. 7.250% Fixe" or "KKR Group Finance Co. IX LLC 4.".
-    all = all.filter(isCommonStock);
-    rows = pick.build(all);
-    rows = await rankByDimension(rows, pick.rankBy);
-    rows = rows.slice(0, pick.finalLimit);
   } catch (e) {
     console.error(e);
   }
@@ -201,11 +210,10 @@ export default async function PicksPage({
         <PageHeader eyebrow="Model Portfolio" title={pick.label} description={pick.description} />
         <ColumnTabs active={view} baseHref={`/picks/${slug}`} />
         <ListingToolbar
-          active="stocks"
+          active={type}
           rows={rows}
           isPremium={premium.isPremium}
-          csvFilename={`uncoverd-${slug}.csv`}
-          hideSecurityType
+          csvFilename={`uncoverd-${slug}-${type}.csv`}
         />
         <DividendTable
           rows={rows}
