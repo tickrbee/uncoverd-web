@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WatchButton } from "@/components/watch-button";
 import { PremiumLock } from "@/components/premium-lock";
+import { th } from "@/lib/table-i18n";
+import { localeFromPath } from "@/lib/page-equivalents";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import type { StockRow, StockRating, DividendEvent, StockExtras } from "@/lib/types";
 
@@ -813,6 +815,7 @@ export function DividendTable({
   view = "overview",
 }: DividendTableOptions) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const locale = localeFromPath(usePathname() || "/");
 
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -960,7 +963,7 @@ export function DividendTable({
                     style={c.sortKey ? { cursor: "pointer", userSelect: "none" } : undefined}
                     aria-sort={isSorted ? (sort!.dir === "desc" ? "descending" : "ascending") : undefined}
                   >
-                    {c.header}
+                    {th(c.header, locale)}
                     <span style={{ color: "var(--text-muted)", fontSize: "0.7em" }}>{arrow}</span>
                     {idx === 0 && (
                       <div
@@ -973,13 +976,13 @@ export function DividendTable({
                           marginTop: "0.15rem",
                         }}
                       >
-                        As of {asOf}
+                        {th("As of", locale)} {asOf}
                       </div>
                     )}
                   </th>
                 );
               })}
-              <th>Watch</th>
+              <th>{th("Watch", locale)}</th>
             </tr>
           </thead>
           <tbody>
@@ -1028,8 +1031,9 @@ export function CalendarTable({
   dateLabel?: string;
   showFrequency?: boolean;
 }) {
+  const locale = localeFromPath(usePathname() || "/");
   if (!rows || rows.length === 0) {
-    return <div className="dv-empty">No upcoming events in this range.</div>;
+    return <div className="dv-empty">—</div>;
   }
 
   return (
@@ -1038,12 +1042,12 @@ export function CalendarTable({
         <table className="dv-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Declaration</th>
-              <th>{dateLabel}</th>
-              <th>Payment Date</th>
-              {showFrequency && <th>Frequency</th>}
-              <th className="dv-th--num">Dividend</th>
+              <th>{th("Name", locale)}</th>
+              <th>{th("Declaration", locale)}</th>
+              <th>{th(dateLabel, locale)}</th>
+              <th>{th("Payment Date", locale)}</th>
+              {showFrequency && <th>{th("Frequency", locale)}</th>}
+              <th className="dv-th--num">{th("Dividend", locale)}</th>
             </tr>
           </thead>
           <tbody>
