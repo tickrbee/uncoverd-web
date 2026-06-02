@@ -15,6 +15,7 @@ export function SiteFooter() {
           <Link href="/blog">Blog</Link>
           <Link href="/about">About</Link>
           <Link href="/tools/dividend-calculator">Dividend Calculator</Link>
+          <Link href="/tools/portfolio-healthcheck">Portfolio Healthcheck</Link>
           <Link href="/methodology">Methodology</Link>
           <Link href="/glossary">Glossary</Link>
           <Link href="/pricing">Pricing</Link>
