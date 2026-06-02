@@ -3,7 +3,7 @@ import { GLOSSARY } from "@/lib/glossary";
 import { DIRECTORY_BUCKETS } from "@/lib/directory";
 import { getAllPosts } from "@/lib/content";
 import { ALL_LOCALES, CONTENT_LOCALES, localePrefix } from "@/lib/i18n";
-import { SECTORS as SECTOR_TAXO, SECTOR_PATH, GROWERS as GROWER_TAXO, GROWER_PATH, INDUSTRIES as INDUSTRY_TAXO, INDUSTRY_PATH } from "@/lib/i18n-taxonomy";
+import { SECTORS as SECTOR_TAXO, SECTOR_PATH, GROWERS as GROWER_TAXO, GROWER_PATH, INDUSTRIES as INDUSTRY_TAXO, INDUSTRY_PATH, PAYOUTS as PAYOUT_TAXO, PAYOUT_PATH } from "@/lib/i18n-taxonomy";
 
 // Custom sitemap.xml route. We bypass Next.js's built-in sitemap generator
 // because it's not escaping `&` in URL fields — every `/compare?a=X&b=Y`
@@ -196,6 +196,18 @@ export async function GET(): Promise<NextResponse> {
         lastmod: now,
         changefreq: "weekly",
         priority: 0.6,
+      });
+    }
+  }
+
+  // Localized payout-changes pages (increasing/decreasing/…).
+  for (const loc of CONTENT_LOCALES) {
+    for (const p of PAYOUT_TAXO) {
+      entries.push({
+        loc: `${BASE}/${loc}/${PAYOUT_PATH[loc]}/${p.slug[loc]}`,
+        lastmod: now,
+        changefreq: "daily",
+        priority: 0.55,
       });
     }
   }

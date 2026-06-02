@@ -473,9 +473,35 @@ export function industryStrings(locale: ContentLocale, label: string) {
   return t[locale];
 }
 
+// ============================================================
+// Payout changes (increasing / decreasing / initiating / suspending / special).
+// `db` = the English PayoutChangeKind. English route is /payout-changes/[slug].
+// ============================================================
+export const PAYOUT_PATH: Record<Locale, string> = {
+  en: "payout-changes",
+  fr: "variations-dividende",
+  de: "dividendenaenderungen",
+  it: "variazioni-dividendo",
+  es: "cambios-dividendo",
+};
+
+export const PAYOUTS: TaxoEntry[] = [
+  e("increasing", "increasing", { en: "Increasing Dividend", fr: "Hausse du dividende", de: "Dividendenerhöhung", it: "Aumento del dividendo", es: "Aumento del dividendo" }, { fr: "hausse", de: "erhoehung", it: "aumento", es: "aumento" }),
+  e("decreasing", "decreasing", { en: "Decreasing Dividend", fr: "Baisse du dividende", de: "Dividendenkürzung", it: "Riduzione del dividendo", es: "Reducción del dividendo" }, { fr: "baisse", de: "kuerzung", it: "riduzione", es: "reduccion" }),
+  e("initiating", "initiating", { en: "Initiating Dividend", fr: "Initiation du dividende", de: "Dividendeneinführung", it: "Avvio del dividendo", es: "Inicio del dividendo" }, { fr: "initiation", de: "einfuehrung", it: "avvio", es: "inicio" }),
+  e("suspending", "suspending", { en: "Suspending Dividend", fr: "Suspension du dividende", de: "Dividendenaussetzung", it: "Sospensione del dividendo", es: "Suspensión del dividendo" }, { fr: "suspension", de: "aussetzung", it: "sospensione", es: "suspension" }),
+  e("special", "special", { en: "Special Dividend", fr: "Dividende exceptionnel", de: "Sonderdividende", it: "Dividendo straordinario", es: "Dividendo extraordinario" }, { fr: "exceptionnel", de: "sonderdividende", it: "straordinario", es: "extraordinario" }),
+];
+
+export const payoutUrl = (locale: Locale, entry: TaxoEntry) => categoryUrl(PAYOUT_PATH, locale, entry);
+export const payoutBySlug = (locale: Locale, slug: string) => categoryBySlug(PAYOUTS, locale, slug);
+export const payoutSlugs = (locale: Locale) => categorySlugs(PAYOUTS, locale);
+export const payoutHreflang = (entry: TaxoEntry) => categoryHreflang(PAYOUT_PATH, entry);
+
 // Registry of every taxonomy family — taxonomyEquivalent() iterates this.
 const CATEGORIES: { path: Record<Locale, string>; entries: TaxoEntry[] }[] = [
   { path: SECTOR_PATH, entries: SECTORS },
   { path: GROWER_PATH, entries: GROWERS },
   { path: INDUSTRY_PATH, entries: INDUSTRIES },
+  { path: PAYOUT_PATH, entries: PAYOUTS },
 ];

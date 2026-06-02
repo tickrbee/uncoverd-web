@@ -106,6 +106,67 @@ export function growerHeader(locale: Locale, label: string, years: string): Page
   }
 }
 
+const PAYOUT_DESC: Record<string, Record<Locale, string>> = {
+  increasing: {
+    en: "Companies whose latest dividend was higher than their previous payment.",
+    fr: "Sociétés dont le dernier dividende est supérieur au précédent.",
+    de: "Unternehmen, deren letzte Dividende höher war als die vorherige Zahlung.",
+    it: "Società il cui ultimo dividendo è stato superiore al precedente.",
+    es: "Empresas cuyo último dividendo fue superior al pago anterior.",
+  },
+  decreasing: {
+    en: "Companies whose latest dividend was lower than their previous payment.",
+    fr: "Sociétés dont le dernier dividende est inférieur au précédent.",
+    de: "Unternehmen, deren letzte Dividende niedriger war als die vorherige Zahlung.",
+    it: "Società il cui ultimo dividendo è stato inferiore al precedente.",
+    es: "Empresas cuyo último dividendo fue inferior al pago anterior.",
+  },
+  initiating: {
+    en: "Companies that have just started paying a dividend for the first time.",
+    fr: "Sociétés qui viennent de verser un dividende pour la première fois.",
+    de: "Unternehmen, die zum ersten Mal eine Dividende zahlen.",
+    it: "Società che hanno appena iniziato a pagare un dividendo per la prima volta.",
+    es: "Empresas que acaban de pagar un dividendo por primera vez.",
+  },
+  suspending: {
+    en: "Companies that have skipped an expected dividend payment or paid $0.",
+    fr: "Sociétés qui ont sauté un versement de dividende attendu ou versé 0 $.",
+    de: "Unternehmen, die eine erwartete Dividendenzahlung ausgelassen oder 0 $ gezahlt haben.",
+    it: "Società che hanno saltato un pagamento di dividendo previsto o pagato 0 $.",
+    es: "Empresas que han omitido un pago de dividendo previsto o pagado 0 $.",
+  },
+  special: {
+    en: "Companies paying one-time special dividends in addition to regular payouts.",
+    fr: "Sociétés versant des dividendes exceptionnels ponctuels en plus des versements réguliers.",
+    de: "Unternehmen, die zusätzlich zu regulären Ausschüttungen einmalige Sonderdividenden zahlen.",
+    it: "Società che pagano dividendi straordinari una tantum oltre alle distribuzioni regolari.",
+    es: "Empresas que pagan dividendos extraordinarios puntuales además de los pagos regulares.",
+  },
+};
+
+const PAYOUT_EYEBROW: Record<Locale, string> = {
+  en: "Payout Changes", fr: "Variations de dividende", de: "Dividendenänderungen", it: "Variazioni di dividendo", es: "Cambios de dividendo",
+};
+
+export function payoutHeader(locale: Locale, kind: string, label: string): PageHeaderStrings {
+  return {
+    eyebrow: PAYOUT_EYEBROW[locale],
+    title: label,
+    description: PAYOUT_DESC[kind]?.[locale] ?? PAYOUT_DESC[kind]?.en ?? "",
+  };
+}
+
+// Premium-gate + empty-state strings for the payout-changes page.
+export function payoutChrome(locale: Locale): { premiumTitleSuffix: string; premiumDesc: string; noEvents: string } {
+  switch (locale) {
+    case "fr": return { premiumTitleSuffix: " — Premium", premiumDesc: "Le suivi détaillé des variations de dividende fait partie de la suite de recherche Premium.", noEvents: "Aucun événement correspondant." };
+    case "de": return { premiumTitleSuffix: " — Premium", premiumDesc: "Die detaillierte Verfolgung von Dividendenänderungen ist Teil der Premium-Research-Suite.", noEvents: "Keine passenden Ereignisse gefunden." };
+    case "it": return { premiumTitleSuffix: " — Premium", premiumDesc: "Il monitoraggio dettagliato delle variazioni di dividendo fa parte della suite di ricerca Premium.", noEvents: "Nessun evento corrispondente." };
+    case "es": return { premiumTitleSuffix: " — Premium", premiumDesc: "El seguimiento detallado de los cambios de dividendo forma parte de la suite de análisis Premium.", noEvents: "No se han encontrado eventos." };
+    default: return { premiumTitleSuffix: " — Premium", premiumDesc: "Detailed payout change tracking is part of the Premium dividend research suite.", noEvents: "No matching events found." };
+  }
+}
+
 export function highYieldHeader(locale: Locale): PageHeaderStrings {
   switch (locale) {
     case "fr": return { eyebrow: "Haut rendement", title: "Actions à fort dividende (rendement > 4 %)", description: "Actions à dividende dont le rendement dépasse 4 %, classées du plus élevé au plus faible." };

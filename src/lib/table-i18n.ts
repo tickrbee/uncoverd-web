@@ -14,7 +14,7 @@ const T: Record<Exclude<Locale, "en">, Record<string, string>> = {
     Verdict: "Verdict", Composite: "Composite", "Yield Attractiveness": "Attrait du rendement",
     "% Off 52w High": "% sous plus-haut 52s", "Net Debt/EBITDA": "Dette nette/EBITDA", "Yield FWD Div": "Rendement (à venir)",
     Watch: "Suivre", "As of": "Au", Declaration: "Déclaration", "Payment Date": "Date de versement",
-    Dividend: "Dividende", "Ex-Date": "Détachement",
+    Dividend: "Dividende", "Ex-Date": "Détachement", Previous: "Précédent", Change: "Variation",
   },
   de: {
     Name: "Unternehmen", Price: "Kurs", "Market Cap": "Marktkap.", "Yield (FWD)": "Rendite",
@@ -25,7 +25,7 @@ const T: Record<Exclude<Locale, "en">, Record<string, string>> = {
     Verdict: "Urteil", Composite: "Gesamt", "Yield Attractiveness": "Rendite-Attraktivität",
     "% Off 52w High": "% unter 52W-Hoch", "Net Debt/EBITDA": "Nettoverschuldung/EBITDA", "Yield FWD Div": "Rendite (erwartet)",
     Watch: "Merken", "As of": "Stand", Declaration: "Ankündigung", "Payment Date": "Zahltag",
-    Dividend: "Dividende", "Ex-Date": "Ex-Tag",
+    Dividend: "Dividende", "Ex-Date": "Ex-Tag", Previous: "Vorher", Change: "Änderung",
   },
   it: {
     Name: "Società", Price: "Prezzo", "Market Cap": "Capitalizzazione", "Yield (FWD)": "Rendimento",
@@ -36,7 +36,7 @@ const T: Record<Exclude<Locale, "en">, Record<string, string>> = {
     Verdict: "Giudizio", Composite: "Composito", "Yield Attractiveness": "Attrattività rendimento",
     "% Off 52w High": "% sotto max 52s", "Net Debt/EBITDA": "Debito netto/EBITDA", "Yield FWD Div": "Rendimento (atteso)",
     Watch: "Segui", "As of": "Al", Declaration: "Annuncio", "Payment Date": "Data di pagamento",
-    Dividend: "Dividendo", "Ex-Date": "Stacco",
+    Dividend: "Dividendo", "Ex-Date": "Stacco", Previous: "Precedente", Change: "Variazione",
   },
   es: {
     Name: "Empresa", Price: "Precio", "Market Cap": "Capitalización", "Yield (FWD)": "Rentabilidad",
@@ -47,7 +47,7 @@ const T: Record<Exclude<Locale, "en">, Record<string, string>> = {
     Verdict: "Veredicto", Composite: "Compuesto", "Yield Attractiveness": "Atractivo de rentabilidad",
     "% Off 52w High": "% bajo máx. 52s", "Net Debt/EBITDA": "Deuda neta/EBITDA", "Yield FWD Div": "Rentabilidad (prev.)",
     Watch: "Seguir", "As of": "A fecha", Declaration: "Anuncio", "Payment Date": "Fecha de pago",
-    Dividend: "Dividendo", "Ex-Date": "Ex-dividendo",
+    Dividend: "Dividendo", "Ex-Date": "Ex-dividendo", Previous: "Anterior", Change: "Variación",
   },
 };
 
