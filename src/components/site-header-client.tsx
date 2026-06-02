@@ -8,8 +8,39 @@ import { createClient } from "@/lib/supabase/browser";
 import { CurrencyPicker } from "@/components/currency-picker";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { localeFromPath } from "@/lib/page-equivalents";
+import { SECTORS, INDUSTRIES, GROWERS, PAYOUTS, GROWER_YEARS } from "@/lib/i18n-taxonomy";
 import type { Locale } from "@/lib/i18n";
 import type { User } from "@supabase/supabase-js";
+
+// Mega-menu section titles + ETF/misc link labels (the deep category links
+// themselves come from the taxonomy, localized via entry.label[locale]).
+type MegaStrings = {
+  industryDividends: string; sectorDividends: string; dividendGrowers: string;
+  etfsExposure: string; payoutChangesTitle: string; futureDividendPayers: string;
+  allDividendEtfs: string; whichEtfOwns: string; mostHeldByEtfs: string;
+  reitEtfs: string; energyEtfs: string; technologyEtfs: string; healthcareEtfs: string;
+  // Lists (model portfolios / picks)
+  modelPortfolios: string; bestSectorDividend: string; bestPrefix: string;
+  bestHighDividend: string; bestDividendGrowth: string; bestDividendProtection: string;
+  bestDividendStocks: string; bestMonthlyDividend: string;
+  bestDividendCaptureTitle: string; bestDividendCaptureStocks: string; captureBlurb: string;
+  // High Yield
+  highYieldsTitle: string; yieldsOver4: string; allReits: string; equityReits: string;
+  mortgageReits: string; industrialReits: string; residentialReits: string; healthcareReits: string;
+  // Calendar
+  exDividendDates: string; exBlurb: string; thisWeekEx: string; thisMonthEx: string; thisYearEx: string;
+  declarationDates: string; declBlurb: string; lastWeekDecl: string; lastMonthDecl: string; lastThreeMonths: string;
+  // Income
+  monthlyDividends: string; monthlyDividendStocks: string; quarterlyMonthly: string;
+  monthlyIncomeQuarterly: string; bestPicks: string;
+};
+const MEGA: Record<Locale, MegaStrings> = {
+  en: { industryDividends: "Industry Dividends", sectorDividends: "Sector Dividends", dividendGrowers: "Dividend Growers", etfsExposure: "ETFs & Exposure", payoutChangesTitle: "Payout Changes", futureDividendPayers: "Future Dividend Payers", allDividendEtfs: "All Dividend ETFs", whichEtfOwns: "Which ETF owns a stock?", mostHeldByEtfs: "Most held by ETFs", reitEtfs: "REIT ETFs", energyEtfs: "Energy ETFs", technologyEtfs: "Technology ETFs", healthcareEtfs: "Healthcare ETFs", modelPortfolios: "Model Portfolios", bestSectorDividend: "Best Sector Dividend Stocks", bestPrefix: "Best", bestHighDividend: "Best High Dividend Stocks", bestDividendGrowth: "Best Dividend Growth Stocks", bestDividendProtection: "Best Dividend Protection", bestDividendStocks: "Best Dividend Stocks", bestMonthlyDividend: "Best Monthly Dividend Stocks", bestDividendCaptureTitle: "Best Dividend Capture", bestDividendCaptureStocks: "Best Dividend Capture Stocks", captureBlurb: "Quickest stock price recoveries post dividend. Buy just before the ex-dividend date and sell after the price recovers.", highYieldsTitle: "High Yields", yieldsOver4: "Yields over 4%", allReits: "All REITs", equityReits: "Equity REITs", mortgageReits: "Mortgage REITs", industrialReits: "Industrial REITs", residentialReits: "Residential REITs", healthcareReits: "Healthcare REITs", exDividendDates: "Ex-Dividend Dates", exBlurb: "Must be a shareholder on or before the next ex-dividend date to receive the upcoming dividend.", thisWeekEx: "This Week's Ex-Dates", thisMonthEx: "This Month's Ex-Dates", thisYearEx: "This Year's Ex-Dates", declarationDates: "Declaration Dates", declBlurb: "Track recent declarations and get ready for upcoming payouts.", lastWeekDecl: "Last Week's Declarations", lastMonthDecl: "Last Month's Declarations", lastThreeMonths: "Last Three Months", monthlyDividends: "Monthly Dividends", monthlyDividendStocks: "Monthly Dividend Stocks", quarterlyMonthly: "Quarterly that pay monthly", monthlyIncomeQuarterly: "Monthly Income from Quarterly", bestPicks: "Best Picks" },
+  fr: { industryDividends: "Dividendes par industrie", sectorDividends: "Dividendes par secteur", dividendGrowers: "Croissance du dividende", etfsExposure: "ETF et exposition", payoutChangesTitle: "Variations de dividende", futureDividendPayers: "Futurs payeurs de dividende", allDividendEtfs: "Tous les ETF à dividende", whichEtfOwns: "Quel ETF détient une action ?", mostHeldByEtfs: "Les plus détenus par les ETF", reitEtfs: "ETF de REIT", energyEtfs: "ETF énergie", technologyEtfs: "ETF technologie", healthcareEtfs: "ETF santé", modelPortfolios: "Portefeuilles modèles", bestSectorDividend: "Meilleures actions à dividende par secteur", bestPrefix: "Meilleures", bestHighDividend: "Meilleures actions à haut rendement", bestDividendGrowth: "Meilleures actions à dividende croissant", bestDividendProtection: "Meilleure protection du dividende", bestDividendStocks: "Meilleures actions à dividende", bestMonthlyDividend: "Meilleures actions à dividende mensuel", bestDividendCaptureTitle: "Meilleure capture de dividende", bestDividendCaptureStocks: "Meilleures actions de capture de dividende", captureBlurb: "Reprises de cours les plus rapides après le dividende. Achetez juste avant le détachement et vendez après la reprise du cours.", highYieldsTitle: "Hauts rendements", yieldsOver4: "Rendements supérieurs à 4 %", allReits: "Tous les REIT", equityReits: "REIT actions", mortgageReits: "REIT hypothécaires", industrialReits: "REIT industriels", residentialReits: "REIT résidentiels", healthcareReits: "REIT santé", exDividendDates: "Dates de détachement", exBlurb: "Vous devez être actionnaire au plus tard à la date de détachement pour recevoir le prochain dividende.", thisWeekEx: "Détachements de cette semaine", thisMonthEx: "Détachements de ce mois", thisYearEx: "Détachements de cette année", declarationDates: "Dates de déclaration", declBlurb: "Suivez les déclarations récentes et préparez-vous aux prochains versements.", lastWeekDecl: "Déclarations de la semaine dernière", lastMonthDecl: "Déclarations du mois dernier", lastThreeMonths: "Trois derniers mois", monthlyDividends: "Dividendes mensuels", monthlyDividendStocks: "Actions à dividende mensuel", quarterlyMonthly: "Trimestrielles versant mensuellement", monthlyIncomeQuarterly: "Revenu mensuel via trimestrielles", bestPicks: "Meilleures sélections" },
+  de: { industryDividends: "Branchen-Dividenden", sectorDividends: "Sektor-Dividenden", dividendGrowers: "Dividendenwachstum", etfsExposure: "ETFs & Engagement", payoutChangesTitle: "Dividendenänderungen", futureDividendPayers: "Künftige Dividendenzahler", allDividendEtfs: "Alle Dividenden-ETFs", whichEtfOwns: "Welcher ETF hält eine Aktie?", mostHeldByEtfs: "Am meisten von ETFs gehalten", reitEtfs: "REIT-ETFs", energyEtfs: "Energie-ETFs", technologyEtfs: "Technologie-ETFs", healthcareEtfs: "Gesundheits-ETFs", modelPortfolios: "Musterportfolios", bestSectorDividend: "Beste Sektor-Dividenden-Aktien", bestPrefix: "Beste", bestHighDividend: "Beste Aktien mit hoher Dividende", bestDividendGrowth: "Beste Dividendenwachstums-Aktien", bestDividendProtection: "Bester Dividendenschutz", bestDividendStocks: "Beste Dividenden-Aktien", bestMonthlyDividend: "Beste monatliche Dividenden-Aktien", bestDividendCaptureTitle: "Beste Dividenden-Capture", bestDividendCaptureStocks: "Beste Dividenden-Capture-Aktien", captureBlurb: "Schnellste Kurserholungen nach der Dividende. Kurz vor dem Ex-Tag kaufen und nach der Kurserholung verkaufen.", highYieldsTitle: "Hohe Renditen", yieldsOver4: "Renditen über 4 %", allReits: "Alle REITs", equityReits: "Equity-REITs", mortgageReits: "Hypotheken-REITs", industrialReits: "Industrie-REITs", residentialReits: "Wohn-REITs", healthcareReits: "Gesundheits-REITs", exDividendDates: "Ex-Dividenden-Termine", exBlurb: "Sie müssen spätestens am Ex-Dividenden-Tag Aktionär sein, um die kommende Dividende zu erhalten.", thisWeekEx: "Ex-Termine dieser Woche", thisMonthEx: "Ex-Termine dieses Monats", thisYearEx: "Ex-Termine dieses Jahres", declarationDates: "Ankündigungstermine", declBlurb: "Verfolgen Sie aktuelle Ankündigungen und bereiten Sie sich auf kommende Ausschüttungen vor.", lastWeekDecl: "Ankündigungen letzte Woche", lastMonthDecl: "Ankündigungen letzten Monat", lastThreeMonths: "Letzte drei Monate", monthlyDividends: "Monatliche Dividenden", monthlyDividendStocks: "Aktien mit monatlicher Dividende", quarterlyMonthly: "Quartalszahler mit Monatsausschüttung", monthlyIncomeQuarterly: "Monatliches Einkommen aus Quartalszahlern", bestPicks: "Beste Auswahl" },
+  it: { industryDividends: "Dividendi per industria", sectorDividends: "Dividendi per settore", dividendGrowers: "Crescita dei dividendi", etfsExposure: "ETF ed esposizione", payoutChangesTitle: "Variazioni di dividendo", futureDividendPayers: "Futuri pagatori di dividendi", allDividendEtfs: "Tutti gli ETF a dividendo", whichEtfOwns: "Quale ETF detiene un'azione?", mostHeldByEtfs: "Più detenuti dagli ETF", reitEtfs: "ETF REIT", energyEtfs: "ETF energia", technologyEtfs: "ETF tecnologia", healthcareEtfs: "ETF sanità", modelPortfolios: "Portafogli modello", bestSectorDividend: "Migliori azioni a dividendo per settore", bestPrefix: "Migliori", bestHighDividend: "Migliori azioni ad alto dividendo", bestDividendGrowth: "Migliori azioni a dividendo in crescita", bestDividendProtection: "Migliore protezione del dividendo", bestDividendStocks: "Migliori azioni da dividendo", bestMonthlyDividend: "Migliori azioni a dividendo mensile", bestDividendCaptureTitle: "Migliore cattura del dividendo", bestDividendCaptureStocks: "Migliori azioni di cattura del dividendo", captureBlurb: "Recuperi di prezzo più rapidi dopo il dividendo. Acquista poco prima dello stacco e vendi dopo il recupero del prezzo.", highYieldsTitle: "Alti rendimenti", yieldsOver4: "Rendimenti oltre il 4 %", allReits: "Tutti i REIT", equityReits: "REIT azionari", mortgageReits: "REIT ipotecari", industrialReits: "REIT industriali", residentialReits: "REIT residenziali", healthcareReits: "REIT sanitari", exDividendDates: "Date di stacco", exBlurb: "Devi essere azionista entro la data di stacco per ricevere il prossimo dividendo.", thisWeekEx: "Stacchi di questa settimana", thisMonthEx: "Stacchi di questo mese", thisYearEx: "Stacchi di quest'anno", declarationDates: "Date di annuncio", declBlurb: "Segui gli annunci recenti e preparati ai prossimi pagamenti.", lastWeekDecl: "Annunci della settimana scorsa", lastMonthDecl: "Annunci del mese scorso", lastThreeMonths: "Ultimi tre mesi", monthlyDividends: "Dividendi mensili", monthlyDividendStocks: "Azioni a dividendo mensile", quarterlyMonthly: "Trimestrali che pagano mensilmente", monthlyIncomeQuarterly: "Reddito mensile da trimestrali", bestPicks: "Migliori selezioni" },
+  es: { industryDividends: "Dividendos por industria", sectorDividends: "Dividendos por sector", dividendGrowers: "Crecimiento del dividendo", etfsExposure: "ETF y exposición", payoutChangesTitle: "Cambios de dividendo", futureDividendPayers: "Futuros pagadores de dividendos", allDividendEtfs: "Todos los ETF de dividendos", whichEtfOwns: "¿Qué ETF posee una acción?", mostHeldByEtfs: "Más mantenidos por ETF", reitEtfs: "ETF de REIT", energyEtfs: "ETF de energía", technologyEtfs: "ETF de tecnología", healthcareEtfs: "ETF de salud", modelPortfolios: "Carteras modelo", bestSectorDividend: "Mejores acciones por dividendo por sector", bestPrefix: "Mejores", bestHighDividend: "Mejores acciones de alto dividendo", bestDividendGrowth: "Mejores acciones de dividendo creciente", bestDividendProtection: "Mejor protección del dividendo", bestDividendStocks: "Mejores acciones por dividendo", bestMonthlyDividend: "Mejores acciones de dividendo mensual", bestDividendCaptureTitle: "Mejor captura de dividendo", bestDividendCaptureStocks: "Mejores acciones de captura de dividendo", captureBlurb: "Recuperaciones de precio más rápidas tras el dividendo. Compra justo antes del ex-dividendo y vende tras la recuperación.", highYieldsTitle: "Altas rentabilidades", yieldsOver4: "Rentabilidades superiores al 4 %", allReits: "Todos los REIT", equityReits: "REIT de renta variable", mortgageReits: "REIT hipotecarios", industrialReits: "REIT industriales", residentialReits: "REIT residenciales", healthcareReits: "REIT de salud", exDividendDates: "Fechas ex-dividendo", exBlurb: "Debes ser accionista en o antes de la fecha ex-dividendo para recibir el próximo dividendo.", thisWeekEx: "Ex-fechas de esta semana", thisMonthEx: "Ex-fechas de este mes", thisYearEx: "Ex-fechas de este año", declarationDates: "Fechas de anuncio", declBlurb: "Sigue los anuncios recientes y prepárate para los próximos pagos.", lastWeekDecl: "Anuncios de la semana pasada", lastMonthDecl: "Anuncios del mes pasado", lastThreeMonths: "Últimos tres meses", monthlyDividends: "Dividendos mensuales", monthlyDividendStocks: "Acciones de dividendo mensual", quarterlyMonthly: "Trimestrales que pagan mensualmente", monthlyIncomeQuarterly: "Ingreso mensual de trimestrales", bestPicks: "Mejores selecciones" },
+};
 
 // Localized labels for the nav CHROME (top-level items, solo links, action
 // buttons, search, mobile group titles). Deep mega-menu links stay English —
@@ -107,7 +138,9 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const t = NAV_STRINGS[localeFromPath(usePathname() || "/")];
+  const locale = localeFromPath(usePathname() || "/");
+  const t = NAV_STRINGS[locale];
+  const m = MEGA[locale];
 
   // Lock body scroll while the mobile drawer is open + close on Escape.
   useEffect(() => {
@@ -247,152 +280,102 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
             onClose={scheduleClose}
           >
             <MenuGrid columns={3}>
-              <MenuCol title="Industry Dividends">
-                <MenuLink href="/industries/reit">REIT</MenuLink>
-                <MenuLink href="/industries/mlp">MLP</MenuLink>
-                <MenuLink href="/industries/bdc">BDC</MenuLink>
-                <MenuLink href="/industries/clean-energy">Clean Energy</MenuLink>
-                <MenuLink href="/industries/uranium">Uranium</MenuLink>
-                <MenuLink href="/industries/lithium">Lithium</MenuLink>
-                <MenuLink href="/industries/precious-metals">Precious Metals</MenuLink>
-                <MenuLink href="/industries/water">Water</MenuLink>
-                <MenuLink href="/industries/natural-resources">Natural Resources</MenuLink>
-                <MenuLink href="/industries/energy-infrastructure">Energy Infrastructure</MenuLink>
-                <MenuLink href="/industries/semiconductors">Semiconductors</MenuLink>
-                <MenuLink href="/industries/software">Software</MenuLink>
-                <MenuLink href="/industries/ecommerce">eCommerce</MenuLink>
-                <MenuLink href="/industries/transportation">Transportation</MenuLink>
-                <MenuLink href="/industries/autos">Autos</MenuLink>
-                <MenuLink href="/industries/airlines">Airlines</MenuLink>
-                <MenuLink href="/industries/shipping">Shipping</MenuLink>
-                <MenuLink href="/industries/cruise-lines">Cruise Lines</MenuLink>
-                <MenuLink href="/industries/hotels">Hotels</MenuLink>
-                <MenuLink href="/industries/retail">Retail</MenuLink>
-                <MenuLink href="/industries/iron-steel">Iron &amp; Steel</MenuLink>
-                <MenuLink href="/industries/chemicals">Chemicals</MenuLink>
-                <MenuLink href="/industries/pharma">Pharma</MenuLink>
-                <MenuLink href="/industries/insurance">Insurance</MenuLink>
-                <MenuLink href="/industries/aerospace-defense">Aerospace &amp; Defense</MenuLink>
+              <MenuCol title={m.industryDividends}>
+                {INDUSTRIES.map((i) => (
+                  <MenuLink key={i.key} href={`/industries/${i.key}`}>{i.label[locale]}</MenuLink>
+                ))}
               </MenuCol>
-              <MenuCol title="Sector Dividends">
-                <MenuLink href="/sectors/financials">Financials</MenuLink>
-                <MenuLink href="/sectors/real-estate">Real Estate</MenuLink>
-                <MenuLink href="/sectors/communications">Communications</MenuLink>
-                <MenuLink href="/sectors/consumer-discretionary">Consumer Discretionary</MenuLink>
-                <MenuLink href="/sectors/consumer-staples">Consumer Staples</MenuLink>
-                <MenuLink href="/sectors/energy">Energy</MenuLink>
-                <MenuLink href="/sectors/health-care">Health Care</MenuLink>
-                <MenuLink href="/sectors/industrials">Industrials</MenuLink>
-                <MenuLink href="/sectors/technology">Technology</MenuLink>
-                <MenuLink href="/sectors/materials">Materials</MenuLink>
-                <MenuLink href="/sectors/utilities">Utilities</MenuLink>
-                <MenuTitle>Payout Changes</MenuTitle>
-                <MenuLink href="/payout-changes/increasing">Increasing Dividend</MenuLink>
-                <MenuLink href="/payout-changes/decreasing">Decreasing Dividend</MenuLink>
-                <MenuLink href="/payout-changes/initiating">Initiating Dividend</MenuLink>
-                <MenuLink href="/payout-changes/suspending">Suspending Dividend</MenuLink>
-                <MenuLink href="/payout-changes/special">Special Dividend</MenuLink>
-                <MenuLink href="/lists/potential-payers">Future Dividend Payers</MenuLink>
+              <MenuCol title={m.sectorDividends}>
+                {SECTORS.map((s) => (
+                  <MenuLink key={s.key} href={`/sectors/${s.key}`}>{s.label[locale]}</MenuLink>
+                ))}
+                <MenuTitle>{m.payoutChangesTitle}</MenuTitle>
+                {PAYOUTS.map((p) => (
+                  <MenuLink key={p.key} href={`/payout-changes/${p.key}`}>{p.label[locale]}</MenuLink>
+                ))}
+                <MenuLink href="/lists/potential-payers">{m.futureDividendPayers}</MenuLink>
               </MenuCol>
-              <MenuCol title="Dividend Growers">
-                <MenuLink href="/growers/aristocrats">Dividend Aristocrats (&gt;25 yrs)</MenuLink>
-                <MenuLink href="/growers/kings">Dividend Kings (&gt;50 yrs)</MenuLink>
-                <MenuLink href="/growers/champions">Dividend Champions (&gt;25 yrs)</MenuLink>
-                <MenuLink href="/growers/contenders">Dividend Contenders (10–24 yrs)</MenuLink>
-                <MenuLink href="/growers/challengers">Dividend Challengers (5–9 yrs)</MenuLink>
-                <MenuLink href="/growers/achievers">Dividend Achievers (&gt;10 yrs)</MenuLink>
-                <MenuTitle>ETFs &amp; Exposure</MenuTitle>
-                <MenuLink href="/screener?type=etfs">All Dividend ETFs</MenuLink>
-                <MenuLink href="/etfs/which-owns">Which ETF owns a stock?</MenuLink>
-                <MenuLink href="/etfs/top-held">Most held by ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=real-estate">REIT ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=energy">Energy ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=technology">Technology ETFs</MenuLink>
-                <MenuLink href="/screener?type=etfs&sector=health-care">Healthcare ETFs</MenuLink>
+              <MenuCol title={m.dividendGrowers}>
+                {GROWERS.map((g) => (
+                  <MenuLink key={g.key} href={`/growers/${g.key}`}>{`${g.label[locale]} (${GROWER_YEARS[g.key]})`}</MenuLink>
+                ))}
+                <MenuTitle>{m.etfsExposure}</MenuTitle>
+                <MenuLink href="/screener?type=etfs">{m.allDividendEtfs}</MenuLink>
+                <MenuLink href="/etfs/which-owns">{m.whichEtfOwns}</MenuLink>
+                <MenuLink href="/etfs/top-held">{m.mostHeldByEtfs}</MenuLink>
+                <MenuLink href="/screener?type=etfs&sector=real-estate">{m.reitEtfs}</MenuLink>
+                <MenuLink href="/screener?type=etfs&sector=energy">{m.energyEtfs}</MenuLink>
+                <MenuLink href="/screener?type=etfs&sector=technology">{m.technologyEtfs}</MenuLink>
+                <MenuLink href="/screener?type=etfs&sector=health-care">{m.healthcareEtfs}</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>
 
           <NavItem label={t.lists} menuKey="lists" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={3}>
-              <MenuCol title="Model Portfolios">
-                <MenuLink href="/picks/best-high-yield">Best High Dividend Stocks</MenuLink>
-                <MenuLink href="/picks/best-dividend-growth">Best Dividend Growth Stocks</MenuLink>
-                <MenuLink href="/picks/best-dividend-protection">Best Dividend Protection</MenuLink>
-                <MenuLink href="/picks/best-dividend-stocks">Best Dividend Stocks</MenuLink>
-                <MenuLink href="/picks/best-monthly-dividend">Best Monthly Dividend Stocks</MenuLink>
+              <MenuCol title={m.modelPortfolios}>
+                <MenuLink href="/picks/best-high-yield">{m.bestHighDividend}</MenuLink>
+                <MenuLink href="/picks/best-dividend-growth">{m.bestDividendGrowth}</MenuLink>
+                <MenuLink href="/picks/best-dividend-protection">{m.bestDividendProtection}</MenuLink>
+                <MenuLink href="/picks/best-dividend-stocks">{m.bestDividendStocks}</MenuLink>
+                <MenuLink href="/picks/best-monthly-dividend">{m.bestMonthlyDividend}</MenuLink>
               </MenuCol>
-              <MenuCol title="Best Sector Dividend Stocks">
-                <MenuLink href="/picks/best/financials">Best Financials</MenuLink>
-                <MenuLink href="/picks/best/real-estate">Best Real Estate</MenuLink>
-                <MenuLink href="/picks/best/communications">Best Communications</MenuLink>
-                <MenuLink href="/picks/best/consumer-discretionary">Best Consumer Disc.</MenuLink>
-                <MenuLink href="/picks/best/consumer-staples">Best Consumer Staples</MenuLink>
-                <MenuLink href="/picks/best/energy">Best Energy</MenuLink>
-                <MenuLink href="/picks/best/health-care">Best Health Care</MenuLink>
-                <MenuLink href="/picks/best/industrials">Best Industrial</MenuLink>
-                <MenuLink href="/picks/best/technology">Best Technology</MenuLink>
-                <MenuLink href="/picks/best/materials">Best Materials</MenuLink>
-                <MenuLink href="/picks/best/utilities">Best Utilities</MenuLink>
+              <MenuCol title={m.bestSectorDividend}>
+                {SECTORS.map((s) => (
+                  <MenuLink key={s.key} href={`/picks/best/${s.key}`}>{`${m.bestPrefix} ${s.label[locale]}`}</MenuLink>
+                ))}
               </MenuCol>
-              <MenuCol title="Best Dividend Capture">
-                <MenuLink href="/picks/dividend-capture">Best Dividend Capture Stocks</MenuLink>
-                <p className="dv-menu-blurb">
-                  Quickest stock price recoveries post dividend. Buy just before the ex-dividend date and sell after the
-                  price recovers.
-                </p>
+              <MenuCol title={m.bestDividendCaptureTitle}>
+                <MenuLink href="/picks/dividend-capture">{m.bestDividendCaptureStocks}</MenuLink>
+                <p className="dv-menu-blurb">{m.captureBlurb}</p>
               </MenuCol>
             </MenuGrid>
           </NavItem>
 
           <NavItem label={t.highYield} menuKey="high-yield" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={2}>
-              <MenuCol title="High Yields">
-                <MenuLink href="/high-yield">Yields over 4%</MenuLink>
-                <MenuLink href="/picks/best-high-yield">Best High Dividend Stocks</MenuLink>
+              <MenuCol title={m.highYieldsTitle}>
+                <MenuLink href="/high-yield">{m.yieldsOver4}</MenuLink>
+                <MenuLink href="/picks/best-high-yield">{m.bestHighDividend}</MenuLink>
               </MenuCol>
               <MenuCol title="REITs">
-                <MenuLink href="/industries/reit">All REITs</MenuLink>
-                <MenuLink href="/industries/reit?type=equity">Equity REITs</MenuLink>
-                <MenuLink href="/industries/reit?type=mortgage">Mortgage REITs</MenuLink>
-                <MenuLink href="/industries/reit?type=industrial">Industrial REITs</MenuLink>
-                <MenuLink href="/industries/reit?type=residential">Residential REITs</MenuLink>
-                <MenuLink href="/industries/reit?type=healthcare">Healthcare REITs</MenuLink>
+                <MenuLink href="/industries/reit">{m.allReits}</MenuLink>
+                <MenuLink href="/industries/reit?type=equity">{m.equityReits}</MenuLink>
+                <MenuLink href="/industries/reit?type=mortgage">{m.mortgageReits}</MenuLink>
+                <MenuLink href="/industries/reit?type=industrial">{m.industrialReits}</MenuLink>
+                <MenuLink href="/industries/reit?type=residential">{m.residentialReits}</MenuLink>
+                <MenuLink href="/industries/reit?type=healthcare">{m.healthcareReits}</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>
 
           <NavItem label={t.calendar} menuKey="calendar" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={2}>
-              <MenuCol title="Ex-Dividend Dates">
-                <p className="dv-menu-blurb">
-                  Must be a shareholder on or before the next ex-dividend date to receive the upcoming dividend.
-                </p>
-                <MenuLink href="/calendar/ex-dividend?range=week">This Week&apos;s Ex-Dates</MenuLink>
-                <MenuLink href="/calendar/ex-dividend?range=month">This Month&apos;s Ex-Dates</MenuLink>
-                <MenuLink href="/calendar/ex-dividend?range=year">This Year&apos;s Ex-Dates</MenuLink>
+              <MenuCol title={m.exDividendDates}>
+                <p className="dv-menu-blurb">{m.exBlurb}</p>
+                <MenuLink href="/calendar/ex-dividend?range=week">{m.thisWeekEx}</MenuLink>
+                <MenuLink href="/calendar/ex-dividend?range=month">{m.thisMonthEx}</MenuLink>
+                <MenuLink href="/calendar/ex-dividend?range=year">{m.thisYearEx}</MenuLink>
               </MenuCol>
-              <MenuCol title="Declaration Dates">
-                <p className="dv-menu-blurb">
-                  Track recent declarations and get ready for upcoming payouts.
-                </p>
-                <MenuLink href="/calendar/declaration?range=week">Last Week&apos;s Declarations</MenuLink>
-                <MenuLink href="/calendar/declaration?range=month">Last Month&apos;s Declarations</MenuLink>
-                <MenuLink href="/calendar/declaration?range=quarter">Last Three Months</MenuLink>
+              <MenuCol title={m.declarationDates}>
+                <p className="dv-menu-blurb">{m.declBlurb}</p>
+                <MenuLink href="/calendar/declaration?range=week">{m.lastWeekDecl}</MenuLink>
+                <MenuLink href="/calendar/declaration?range=month">{m.lastMonthDecl}</MenuLink>
+                <MenuLink href="/calendar/declaration?range=quarter">{m.lastThreeMonths}</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>
 
           <NavItem label={t.income} menuKey="income" open={open} onOpen={openMenu} onClose={scheduleClose}>
             <MenuGrid columns={3}>
-              <MenuCol title="Monthly Dividends">
-                <MenuLink href="/monthly">Monthly Dividend Stocks</MenuLink>
+              <MenuCol title={m.monthlyDividends}>
+                <MenuLink href="/monthly">{m.monthlyDividendStocks}</MenuLink>
               </MenuCol>
-              <MenuCol title="Quarterly that pay monthly">
-                <MenuLink href="/monthly/staggered">Monthly Income from Quarterly</MenuLink>
+              <MenuCol title={m.quarterlyMonthly}>
+                <MenuLink href="/monthly/staggered">{m.monthlyIncomeQuarterly}</MenuLink>
               </MenuCol>
-              <MenuCol title="Best Picks">
-                <MenuLink href="/picks/best-monthly-dividend">Best Monthly Dividend Stocks</MenuLink>
+              <MenuCol title={m.bestPicks}>
+                <MenuLink href="/picks/best-monthly-dividend">{m.bestMonthlyDividend}</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>
@@ -571,102 +554,59 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                 <Link href="/es" hrefLang="es-ES" lang="es">🇪🇸 Español</Link>
               </MobileGroup>
               <MobileGroup title={t.industries}>
-                <Link href="/industries/reit">REIT</Link>
-                <Link href="/industries/mlp">MLP</Link>
-                <Link href="/industries/bdc">BDC</Link>
-                <Link href="/industries/clean-energy">Clean Energy</Link>
-                <Link href="/industries/uranium">Uranium</Link>
-                <Link href="/industries/lithium">Lithium</Link>
-                <Link href="/industries/precious-metals">Precious Metals</Link>
-                <Link href="/industries/water">Water</Link>
-                <Link href="/industries/natural-resources">Natural Resources</Link>
-                <Link href="/industries/energy-infrastructure">Energy Infrastructure</Link>
-                <Link href="/industries/semiconductors">Semiconductors</Link>
-                <Link href="/industries/software">Software</Link>
-                <Link href="/industries/ecommerce">eCommerce</Link>
-                <Link href="/industries/transportation">Transportation</Link>
-                <Link href="/industries/autos">Autos</Link>
-                <Link href="/industries/airlines">Airlines</Link>
-                <Link href="/industries/shipping">Shipping</Link>
-                <Link href="/industries/cruise-lines">Cruise Lines</Link>
-                <Link href="/industries/hotels">Hotels</Link>
-                <Link href="/industries/retail">Retail</Link>
-                <Link href="/industries/iron-steel">Iron &amp; Steel</Link>
-                <Link href="/industries/chemicals">Chemicals</Link>
-                <Link href="/industries/pharma">Pharma</Link>
-                <Link href="/industries/insurance">Insurance</Link>
-                <Link href="/industries/aerospace-defense">Aerospace &amp; Defense</Link>
+                {INDUSTRIES.map((i) => (
+                  <Link key={i.key} href={`/industries/${i.key}`}>{i.label[locale]}</Link>
+                ))}
               </MobileGroup>
               <MobileGroup title={t.sectors}>
-                <Link href="/sectors/financials">Financials</Link>
-                <Link href="/sectors/real-estate">Real Estate</Link>
-                <Link href="/sectors/communications">Communications</Link>
-                <Link href="/sectors/consumer-discretionary">Consumer Discretionary</Link>
-                <Link href="/sectors/consumer-staples">Consumer Staples</Link>
-                <Link href="/sectors/energy">Energy</Link>
-                <Link href="/sectors/health-care">Health Care</Link>
-                <Link href="/sectors/industrials">Industrials</Link>
-                <Link href="/sectors/technology">Technology</Link>
-                <Link href="/sectors/materials">Materials</Link>
-                <Link href="/sectors/utilities">Utilities</Link>
+                {SECTORS.map((s) => (
+                  <Link key={s.key} href={`/sectors/${s.key}`}>{s.label[locale]}</Link>
+                ))}
               </MobileGroup>
               <MobileGroup title={t.payoutChanges}>
-                <Link href="/payout-changes/increasing">Increasing Dividend</Link>
-                <Link href="/payout-changes/decreasing">Decreasing Dividend</Link>
-                <Link href="/payout-changes/initiating">Initiating Dividend</Link>
-                <Link href="/payout-changes/suspending">Suspending Dividend</Link>
-                <Link href="/payout-changes/special">Special Dividend</Link>
-                <Link href="/lists/potential-payers">Future Dividend Payers</Link>
+                {PAYOUTS.map((p) => (
+                  <Link key={p.key} href={`/payout-changes/${p.key}`}>{p.label[locale]}</Link>
+                ))}
+                <Link href="/lists/potential-payers">{m.futureDividendPayers}</Link>
               </MobileGroup>
               <MobileGroup title={t.listsPicks}>
-                <Link href="/picks/best-dividend-stocks">Best Dividend Stocks</Link>
-                <Link href="/picks/best-high-yield">Best High Yield</Link>
-                <Link href="/picks/best-dividend-growth">Best Dividend Growth</Link>
-                <Link href="/picks/best-dividend-protection">Best Dividend Protection</Link>
-                <Link href="/picks/best-monthly-dividend">Best Monthly Dividend</Link>
-                <Link href="/picks/dividend-capture">Best Dividend Capture</Link>
-                <Link href="/picks/best/financials">Best Financials</Link>
-                <Link href="/picks/best/real-estate">Best Real Estate</Link>
-                <Link href="/picks/best/communications">Best Communications</Link>
-                <Link href="/picks/best/consumer-discretionary">Best Consumer Disc.</Link>
-                <Link href="/picks/best/consumer-staples">Best Consumer Staples</Link>
-                <Link href="/picks/best/energy">Best Energy</Link>
-                <Link href="/picks/best/health-care">Best Health Care</Link>
-                <Link href="/picks/best/industrials">Best Industrial</Link>
-                <Link href="/picks/best/technology">Best Technology</Link>
-                <Link href="/picks/best/materials">Best Materials</Link>
-                <Link href="/picks/best/utilities">Best Utilities</Link>
+                <Link href="/picks/best-dividend-stocks">{m.bestDividendStocks}</Link>
+                <Link href="/picks/best-high-yield">{m.bestHighDividend}</Link>
+                <Link href="/picks/best-dividend-growth">{m.bestDividendGrowth}</Link>
+                <Link href="/picks/best-dividend-protection">{m.bestDividendProtection}</Link>
+                <Link href="/picks/best-monthly-dividend">{m.bestMonthlyDividend}</Link>
+                <Link href="/picks/dividend-capture">{m.bestDividendCaptureStocks}</Link>
+                {SECTORS.map((s) => (
+                  <Link key={s.key} href={`/picks/best/${s.key}`}>{`${m.bestPrefix} ${s.label[locale]}`}</Link>
+                ))}
               </MobileGroup>
               <MobileGroup title={t.calendar}>
-                <Link href="/calendar/ex-dividend?range=week">This Week's Ex-Dates</Link>
-                <Link href="/calendar/ex-dividend?range=month">This Month's Ex-Dates</Link>
-                <Link href="/calendar/ex-dividend?range=year">This Year's Ex-Dates</Link>
-                <Link href="/calendar/declaration?range=week">Last Week's Declarations</Link>
-                <Link href="/calendar/declaration?range=month">Last Month's Declarations</Link>
-                <Link href="/calendar/declaration?range=quarter">Last Three Months</Link>
+                <Link href="/calendar/ex-dividend?range=week">{m.thisWeekEx}</Link>
+                <Link href="/calendar/ex-dividend?range=month">{m.thisMonthEx}</Link>
+                <Link href="/calendar/ex-dividend?range=year">{m.thisYearEx}</Link>
+                <Link href="/calendar/declaration?range=week">{m.lastWeekDecl}</Link>
+                <Link href="/calendar/declaration?range=month">{m.lastMonthDecl}</Link>
+                <Link href="/calendar/declaration?range=quarter">{m.lastThreeMonths}</Link>
               </MobileGroup>
               <MobileGroup title={t.income}>
-                <Link href="/monthly">Monthly Dividend Stocks</Link>
-                <Link href="/monthly/staggered">Monthly Income from Quarterly</Link>
-                <Link href="/high-yield">Yields over 4%</Link>
+                <Link href="/monthly">{m.monthlyDividendStocks}</Link>
+                <Link href="/monthly/staggered">{m.monthlyIncomeQuarterly}</Link>
+                <Link href="/high-yield">{m.yieldsOver4}</Link>
               </MobileGroup>
               <MobileGroup title={t.etfs}>
-                <Link href="/screener?type=etfs">All Dividend ETFs</Link>
-                <Link href="/etfs/which-owns">Which ETF owns a stock?</Link>
-                <Link href="/etfs/top-held">Most held by ETFs</Link>
-                <Link href="/screener?type=etfs&sector=real-estate">REIT ETFs</Link>
-                <Link href="/screener?type=etfs&sector=energy">Energy ETFs</Link>
-                <Link href="/screener?type=etfs&sector=technology">Technology ETFs</Link>
-                <Link href="/screener?type=etfs&sector=health-care">Healthcare ETFs</Link>
-                <Link href="/lists/potential-payers">Future Dividend Payers</Link>
+                <Link href="/screener?type=etfs">{m.allDividendEtfs}</Link>
+                <Link href="/etfs/which-owns">{m.whichEtfOwns}</Link>
+                <Link href="/etfs/top-held">{m.mostHeldByEtfs}</Link>
+                <Link href="/screener?type=etfs&sector=real-estate">{m.reitEtfs}</Link>
+                <Link href="/screener?type=etfs&sector=energy">{m.energyEtfs}</Link>
+                <Link href="/screener?type=etfs&sector=technology">{m.technologyEtfs}</Link>
+                <Link href="/screener?type=etfs&sector=health-care">{m.healthcareEtfs}</Link>
+                <Link href="/lists/potential-payers">{m.futureDividendPayers}</Link>
               </MobileGroup>
               <MobileGroup title={t.growers}>
-                <Link href="/growers/aristocrats">Aristocrats (25+ yrs)</Link>
-                <Link href="/growers/kings">Kings (50+ yrs)</Link>
-                <Link href="/growers/champions">Champions (25+ yrs)</Link>
-                <Link href="/growers/contenders">Contenders (10–24 yrs)</Link>
-                <Link href="/growers/challengers">Challengers (5–9 yrs)</Link>
-                <Link href="/growers/achievers">Achievers (10+ yrs)</Link>
+                {GROWERS.map((g) => (
+                  <Link key={g.key} href={`/growers/${g.key}`}>{`${g.label[locale]} (${GROWER_YEARS[g.key]})`}</Link>
+                ))}
               </MobileGroup>
               <MobileGroup title={t.account}>
                 <Link href="/watchlist">{t.watchlist}</Link>
