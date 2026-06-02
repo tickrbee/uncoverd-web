@@ -342,8 +342,140 @@ export function growerStrings(locale: ContentLocale, key: string, label: string)
   return t[locale];
 }
 
+// ============================================================
+// Industries (REITs, MLPs, semiconductors, …). The English route is
+// /industries/[slug]; `db` holds the English key, which the localized routes
+// use to look up INDUSTRY_SLUG_MAP for the screener query (industryPattern /
+// sector). Loanword tickers (REIT/MLP/BDC) keep their slug across locales.
+// ============================================================
+export const INDUSTRY_PATH: Record<Locale, string> = {
+  en: "industries",
+  fr: "industries",
+  de: "branchen",
+  it: "industrie",
+  es: "industrias",
+};
+
+export const INDUSTRIES: TaxoEntry[] = [
+  e("reit", "reit", { en: "REITs", fr: "REIT (foncières)", de: "REITs (Immobilien)", it: "REIT (immobiliari)", es: "REIT (inmobiliarias)" }, { fr: "reit", de: "reit", it: "reit", es: "reit" }),
+  e("mlp", "mlp", { en: "MLPs", fr: "MLP", de: "MLPs", it: "MLP", es: "MLP" }, { fr: "mlp", de: "mlp", it: "mlp", es: "mlp" }),
+  e("bdc", "bdc", { en: "BDCs", fr: "BDC", de: "BDCs", it: "BDC", es: "BDC" }, { fr: "bdc", de: "bdc", it: "bdc", es: "bdc" }),
+  e("clean-energy", "clean-energy", { en: "Clean Energy", fr: "Énergies propres", de: "Saubere Energie", it: "Energia pulita", es: "Energía limpia" }, { fr: "energies-propres", de: "saubere-energie", it: "energia-pulita", es: "energia-limpia" }),
+  e("uranium", "uranium", { en: "Uranium", fr: "Uranium", de: "Uran", it: "Uranio", es: "Uranio" }, { fr: "uranium", de: "uran", it: "uranio", es: "uranio" }),
+  e("lithium", "lithium", { en: "Lithium", fr: "Lithium", de: "Lithium", it: "Litio", es: "Litio" }, { fr: "lithium", de: "lithium", it: "litio", es: "litio" }),
+  e("precious-metals", "precious-metals", { en: "Precious Metals", fr: "Métaux précieux", de: "Edelmetalle", it: "Metalli preziosi", es: "Metales preciosos" }, { fr: "metaux-precieux", de: "edelmetalle", it: "metalli-preziosi", es: "metales-preciosos" }),
+  e("water", "water", { en: "Water", fr: "Eau", de: "Wasser", it: "Acqua", es: "Agua" }, { fr: "eau", de: "wasser", it: "acqua", es: "agua" }),
+  e("natural-resources", "natural-resources", { en: "Natural Resources", fr: "Ressources naturelles", de: "Natürliche Ressourcen", it: "Risorse naturali", es: "Recursos naturales" }, { fr: "ressources-naturelles", de: "natuerliche-ressourcen", it: "risorse-naturali", es: "recursos-naturales" }),
+  e("energy-infrastructure", "energy-infrastructure", { en: "Energy Infrastructure", fr: "Infrastructures énergétiques", de: "Energieinfrastruktur", it: "Infrastrutture energetiche", es: "Infraestructura energética" }, { fr: "infrastructures-energetiques", de: "energieinfrastruktur", it: "infrastrutture-energetiche", es: "infraestructura-energetica" }),
+  e("semiconductors", "semiconductors", { en: "Semiconductors", fr: "Semi-conducteurs", de: "Halbleiter", it: "Semiconduttori", es: "Semiconductores" }, { fr: "semi-conducteurs", de: "halbleiter", it: "semiconduttori", es: "semiconductores" }),
+  e("software", "software", { en: "Software", fr: "Logiciels", de: "Software", it: "Software", es: "Software" }, { fr: "logiciels", de: "software", it: "software", es: "software" }),
+  e("ecommerce", "ecommerce", { en: "eCommerce", fr: "E-commerce", de: "E-Commerce", it: "E-commerce", es: "Comercio electrónico" }, { fr: "e-commerce", de: "e-commerce", it: "e-commerce", es: "comercio-electronico" }),
+  e("transportation", "transportation", { en: "Transportation", fr: "Transport", de: "Transport", it: "Trasporti", es: "Transporte" }, { fr: "transport", de: "transport", it: "trasporti", es: "transporte" }),
+  e("autos", "autos", { en: "Autos", fr: "Automobile", de: "Automobil", it: "Automobili", es: "Automóviles" }, { fr: "automobile", de: "automobil", it: "automobili", es: "automoviles" }),
+  e("airlines", "airlines", { en: "Airlines", fr: "Compagnies aériennes", de: "Fluggesellschaften", it: "Compagnie aeree", es: "Aerolíneas" }, { fr: "compagnies-aeriennes", de: "fluggesellschaften", it: "compagnie-aeree", es: "aerolineas" }),
+  e("shipping", "shipping", { en: "Shipping", fr: "Transport maritime", de: "Schifffahrt", it: "Trasporto marittimo", es: "Transporte marítimo" }, { fr: "transport-maritime", de: "schifffahrt", it: "trasporto-marittimo", es: "transporte-maritimo" }),
+  e("cruise-lines", "cruise-lines", { en: "Cruise Lines", fr: "Croisières", de: "Kreuzfahrten", it: "Crociere", es: "Cruceros" }, { fr: "croisieres", de: "kreuzfahrten", it: "crociere", es: "cruceros" }),
+  e("hotels", "hotels", { en: "Hotels", fr: "Hôtels", de: "Hotels", it: "Hotel", es: "Hoteles" }, { fr: "hotels", de: "hotels", it: "hotel", es: "hoteles" }),
+  e("retail", "retail", { en: "Retail", fr: "Distribution", de: "Einzelhandel", it: "Distribuzione", es: "Comercio minorista" }, { fr: "distribution", de: "einzelhandel", it: "distribuzione", es: "comercio-minorista" }),
+  e("iron-steel", "iron-steel", { en: "Iron & Steel", fr: "Fer et acier", de: "Eisen & Stahl", it: "Ferro e acciaio", es: "Hierro y acero" }, { fr: "fer-acier", de: "eisen-stahl", it: "ferro-acciaio", es: "hierro-acero" }),
+  e("chemicals", "chemicals", { en: "Chemicals", fr: "Chimie", de: "Chemie", it: "Chimica", es: "Química" }, { fr: "chimie", de: "chemie", it: "chimica", es: "quimica" }),
+  e("pharma", "pharma", { en: "Pharma", fr: "Pharmacie", de: "Pharma", it: "Farmaceutica", es: "Farmacéutica" }, { fr: "pharmacie", de: "pharma", it: "farmaceutica", es: "farmaceutica" }),
+  e("insurance", "insurance", { en: "Insurance", fr: "Assurance", de: "Versicherung", it: "Assicurazioni", es: "Seguros" }, { fr: "assurance", de: "versicherung", it: "assicurazioni", es: "seguros" }),
+  e("aerospace-defense", "aerospace-defense", { en: "Aerospace & Defense", fr: "Aérospatiale et défense", de: "Luft- & Raumfahrt", it: "Aerospazio e difesa", es: "Aeroespacial y defensa" }, { fr: "aerospatiale-defense", de: "luft-raumfahrt", it: "aerospazio-difesa", es: "aeroespacial-defensa" }),
+];
+
+export const industryUrl = (locale: Locale, entry: TaxoEntry) => categoryUrl(INDUSTRY_PATH, locale, entry);
+export const industryBySlug = (locale: Locale, slug: string) => categoryBySlug(INDUSTRIES, locale, slug);
+export const industrySlugs = (locale: Locale) => categorySlugs(INDUSTRIES, locale);
+export const industryHreflang = (entry: TaxoEntry) => categoryHreflang(INDUSTRY_PATH, entry);
+
+/** Localized ListStrings for an industry page (templated from the label). */
+export function industryStrings(locale: ContentLocale, label: string) {
+  const l = label.toLowerCase();
+  const t = {
+    fr: {
+      h1: `Actions à dividende — ${label}`,
+      intro: [
+        `Les actions du secteur ${l} qui versent un dividende, classées par rendement. Comparez les payeurs de dividende du secteur ${l} et repérez le revenu le plus sûr.`,
+        `Tableau mis à jour à partir des données de marché. Cliquez sur une action pour voir son historique de dividendes et sa note.`,
+      ],
+      sectionTitle: `Payeurs de dividende — ${label}`,
+      th: { symbol: "Action", name: "Société", sector: "Secteur", yield: "Rendement", price: "Cours" },
+      empty: "Aucune action à afficher pour le moment.",
+      cta: [
+        { label: "Calendrier des dividendes", href: "/fr/calendrier-dividendes" },
+        { label: "Actions à fort dividende", href: "/fr/actions-haut-rendement" },
+        { label: "Screener de dividendes", href: "/screener" },
+      ],
+      faqs: [
+        { q: `Quelles sont les meilleures actions à dividende du secteur ${l} ?`, a: `Le tableau classe les payeurs de dividende du secteur ${l} par rendement. Privilégiez ceux dont le dividende est bien couvert par les bénéfices.` },
+        { q: "Un rendement élevé est-il toujours une bonne chose ?", a: "Non. Un rendement très élevé signale souvent un risque de baisse du dividende. Regardez le ratio de distribution et la régularité des versements." },
+      ],
+    },
+    de: {
+      h1: `Dividenden-Aktien — ${label}`,
+      intro: [
+        `Aktien aus der Branche ${label}, die eine Dividende zahlen, sortiert nach Rendite. Vergleichen Sie die Dividendenzahler der Branche ${label} und finden Sie das sicherste Einkommen.`,
+        `Tabelle aus Marktdaten aktualisiert. Klicken Sie auf eine Aktie für Dividendenhistorie und Bewertung.`,
+      ],
+      sectionTitle: `Dividendenzahler — ${label}`,
+      th: { symbol: "Aktie", name: "Unternehmen", sector: "Sektor", yield: "Rendite", price: "Kurs" },
+      empty: "Derzeit keine Aktien verfügbar.",
+      cta: [
+        { label: "Dividendenkalender", href: "/de/dividendenkalender" },
+        { label: "Aktien mit hoher Dividende", href: "/de/aktien-hohe-dividende" },
+        { label: "Dividenden-Screener", href: "/screener" },
+      ],
+      faqs: [
+        { q: `Welche sind die besten Dividenden-Aktien der Branche ${label}?`, a: `Die Tabelle sortiert die Dividendenzahler der Branche ${label} nach Rendite. Bevorzugen Sie Aktien mit gut gedeckter Dividende.` },
+        { q: "Ist eine hohe Dividendenrendite immer gut?", a: "Nein. Eine sehr hohe Rendite deutet oft auf ein Risiko einer Dividendenkürzung hin. Achten Sie auf Ausschüttungsquote und Beständigkeit." },
+      ],
+    },
+    it: {
+      h1: `Azioni con dividendo — ${label}`,
+      intro: [
+        `Le azioni del settore ${l} che pagano un dividendo, ordinate per rendimento. Confronta chi paga dividendi nel settore ${l} e individua il reddito più sicuro.`,
+        `Tabella aggiornata con i dati di mercato. Clicca su un titolo per vedere lo storico dei dividendi e la valutazione.`,
+      ],
+      sectionTitle: `Chi paga dividendi — ${label}`,
+      th: { symbol: "Titolo", name: "Società", sector: "Settore", yield: "Rendimento", price: "Prezzo" },
+      empty: "Nessun titolo da mostrare al momento.",
+      cta: [
+        { label: "Calendario dividendi", href: "/it/calendario-dividendi" },
+        { label: "Azioni ad alto rendimento", href: "/it/azioni-alto-rendimento" },
+        { label: "Screener dividendi", href: "/screener" },
+      ],
+      faqs: [
+        { q: `Quali sono le migliori azioni con dividendo del settore ${l}?`, a: `La tabella ordina chi paga dividendi nel settore ${l} per rendimento. Privilegia i titoli con un dividendo ben coperto.` },
+        { q: "Un rendimento elevato è sempre positivo?", a: "No. Un rendimento molto alto segnala spesso il rischio di un taglio del dividendo. Controlla il payout e la regolarità dei pagamenti." },
+      ],
+    },
+    es: {
+      h1: `Acciones por dividendo — ${label}`,
+      intro: [
+        `Las acciones del sector ${l} que pagan dividendo, ordenadas por rentabilidad. Compara los pagadores de dividendo del sector ${l} y encuentra el ingreso más seguro.`,
+        `Tabla actualizada con datos de mercado. Haz clic en una acción para ver su historial de dividendos y su valoración.`,
+      ],
+      sectionTitle: `Pagadores de dividendo — ${label}`,
+      th: { symbol: "Acción", name: "Empresa", sector: "Sector", yield: "Rentabilidad", price: "Precio" },
+      empty: "No hay acciones para mostrar por el momento.",
+      cta: [
+        { label: "Próximos dividendos", href: "/es/proximos-dividendos" },
+        { label: "Acciones de alta rentabilidad", href: "/es/acciones-alta-rentabilidad" },
+        { label: "Screener de dividendos", href: "/screener" },
+      ],
+      faqs: [
+        { q: `¿Cuáles son las mejores acciones por dividendo del sector ${l}?`, a: `La tabla ordena los pagadores de dividendo del sector ${l} por rentabilidad. Prioriza los que tienen un dividendo bien cubierto.` },
+        { q: "¿Una rentabilidad alta es siempre buena?", a: "No. Una rentabilidad muy alta suele indicar riesgo de recorte del dividendo. Fíjate en el pay-out y en la regularidad de los pagos." },
+      ],
+    },
+  };
+  return t[locale];
+}
+
 // Registry of every taxonomy family — taxonomyEquivalent() iterates this.
 const CATEGORIES: { path: Record<Locale, string>; entries: TaxoEntry[] }[] = [
   { path: SECTOR_PATH, entries: SECTORS },
   { path: GROWER_PATH, entries: GROWERS },
+  { path: INDUSTRY_PATH, entries: INDUSTRIES },
 ];
