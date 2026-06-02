@@ -304,9 +304,10 @@ export async function GET(): Promise<NextResponse> {
     type R = { symbol: string; is_etf: boolean | null; is_fund: boolean | null; updated_at: string | null };
     for (const r of (stocks as R[] | null) ?? []) {
       if (!r.symbol || !SAFE_SYMBOL.test(r.symbol)) continue;
-      const path = r.is_etf || r.is_fund
-        ? `/etfs/symbol/${r.symbol}`
-        : `/stocks/${r.symbol}`;
+      // ETFs, funds, and mutual-fund symbols (5-letter …X, often mis-flagged as
+      // stocks) belong under /etfs/symbol — never /stocks (which 404s for them).
+      const isFundLike = r.is_etf || r.is_fund || /^[A-Z]{4}X$/.test(r.symbol);
+      const path = isFundLike ? `/etfs/symbol/${r.symbol}` : `/stocks/${r.symbol}`;
       entries.push({
         loc: `${BASE}${path}`,
         lastmod: r.updated_at ?? now,

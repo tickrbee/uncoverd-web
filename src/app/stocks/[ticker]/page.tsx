@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PriceChart } from "@/components/price-chart";
@@ -48,6 +48,13 @@ import { unstable_cache } from "next/cache";
 // enters the cached HTML. The heavy DB reads are still memoised below.
 export const revalidate = 600;
 export const dynamicParams = true;
+
+// US open-end mutual funds use a 5-letter symbol ending in X (WFEMX, VFIAX,
+// FXAIX…). Many are mis-flagged as common stocks in the data, so we detect
+// them by symbol and keep them out of /stocks (they belong under /etfs/symbol).
+function isFundSymbol(symbol: string): boolean {
+  return /^[A-Z]{4}X$/.test(symbol);
+}
 
 // Prerender none at build (65k tickers), but exporting generateStaticParams is
 // what flips this dynamic-param route into ISR mode: on-demand renders are then
@@ -147,12 +154,9 @@ export async function generateMetadata({
       alternates: { canonical: `/stocks/${upper}` },
     };
   }
-  // ETFs/funds canonicalize to /etfs/symbol/… (the page itself 308-redirects).
-  if (stock.is_etf || stock.is_fund) {
-    return {
-      title: pickTitle([`${stock.name ?? upper} (${upper}) — ETF`, `${upper} ETF`]),
-      alternates: { canonical: `/etfs/symbol/${upper}` },
-    };
+  // ETFs/funds don't get a /stocks/ page (it 404s) — noindex defensively.
+  if (stock.is_etf || stock.is_fund || isFundSymbol(upper)) {
+    return { title: `${upper}`, robots: { index: false, follow: false } };
   }
   const company = stock.name ?? upper;
   const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
@@ -213,10 +217,11 @@ export default async function StockPage({
   } = await getStockCore(symbol);
 
   if (!stock) notFound();
-  // ETFs/funds live at /etfs/symbol/[symbol]. A /stocks/[ticker] hit for one is
-  // the wrong URL type (duplicate content) — 308 to the canonical ETF page so
-  // Google consolidates and drops the bogus /stocks/ version.
-  if (stock.is_etf || stock.is_fund) permanentRedirect(`/etfs/symbol/${symbol}`);
+  // ETFs & funds must NOT exist under /stocks — they're the wrong URL type and
+  // inflate the indexable page count. 404 them so Google drops them. This also
+  // catches US mutual funds mis-flagged as common stocks (5-letter …X symbols
+  // like WFEMX/VFIAX). The real fund page lives at /etfs/symbol/[symbol].
+  if (stock.is_etf || stock.is_fund || isFundSymbol(symbol)) notFound();
   const isPositive = (stock.change_percent ?? 0) >= 0;
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
