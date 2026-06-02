@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { plans, type TierCode } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/browser";
 import { getSupabaseUrl } from "@/lib/env";
+import { useLocale } from "@/lib/use-locale";
+import { pLabel, planName, planCta } from "@/lib/pricing-i18n";
 
 type CheckoutStatus = "idle" | "busy";
 
@@ -22,6 +24,7 @@ export function PricingCards() {
     gold: "idle",
   });
   const router = useRouter();
+  const locale = useLocale();
 
   // Fetch current user's subscription tier
   useEffect(() => {
@@ -96,14 +99,14 @@ export function PricingCards() {
       {visiblePlans.map((plan) => (
         <article key={plan.tier} className={`pricing-card ${plan.tier === "plus" ? "pricing-card--highlight" : ""}`}>
           <header>
-            <p className="pricing-card__tier">{plan.name}</p>
-            <h2>{plan.monthlyPrice}</h2>
-            <p>{plan.description}</p>
+            <p className="pricing-card__tier">{planName(plan.name, locale)}</p>
+            <h2>{pLabel(plan.monthlyPrice, locale)}</h2>
+            <p>{pLabel(plan.description, locale)}</p>
           </header>
 
           <ul>
             {plan.features.map((feature) => (
-              <li key={feature}>{feature}</li>
+              <li key={feature}>{pLabel(feature, locale)}</li>
             ))}
           </ul>
 
@@ -115,13 +118,13 @@ export function PricingCards() {
               if (!isLoggedIn) {
                 return (
                   <button className="btn btn--ghost" onClick={() => router.push("/login")}>
-                    Log in
+                    {pLabel("Log in", locale)}
                   </button>
                 );
               } else {
                 return (
                   <button className="btn btn--ghost btn--disabled" disabled>
-                    Current Plan
+                    {pLabel("Current Plan", locale)}
                   </button>
                 );
               }
@@ -129,32 +132,32 @@ export function PricingCards() {
               if (isCurrentPlan) {
                 return (
                   <button className="btn btn--disabled" disabled>
-                    Current Plan
+                    {pLabel("Current Plan", locale)}
                   </button>
                 );
               } else {
                 // Determine button text based on current tier and target tier
                 const getButtonText = () => {
-                  if (statusByPlan[plan.tier] === "busy") return "Redirecting...";
-                  
+                  if (statusByPlan[plan.tier] === "busy") return pLabel("Redirecting...", locale);
+
                   if (!currentTier || currentTier === "free") {
-                    return `Choose ${plan.name}`;
+                    return planCta("choose", plan.name, locale);
                   }
-                  
+
                   // User has a paid plan
                   if (plan.tier === "free") {
-                    return "Downgrade";
+                    return pLabel("Downgrade", locale);
                   }
-                  
+
                   // Comparing paid plans
                   const tierOrder: TierCode[] = ["free", "plus", "gold"];
                   const currentIndex = tierOrder.indexOf(currentTier);
                   const targetIndex = tierOrder.indexOf(plan.tier);
-                  
+
                   if (targetIndex > currentIndex) {
-                    return `Upgrade to ${plan.name}`;
+                    return planCta("upgrade", plan.name, locale);
                   } else {
-                    return `Downgrade to ${plan.name}`;
+                    return planCta("downgrade", plan.name, locale);
                   }
                 };
 
