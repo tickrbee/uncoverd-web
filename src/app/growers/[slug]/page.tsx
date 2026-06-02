@@ -18,6 +18,7 @@ import {
 } from "@/lib/data";
 import { getPremiumStatus } from "@/lib/premium";
 import { metaDescription } from "@/lib/seo";
+import { growerBySlug, growerHreflang } from "@/lib/i18n-taxonomy";
 
 const PAGE_SIZE = 100;
 
@@ -64,12 +65,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const info = GROWER_INFO[slug as GrowerSlug];
   if (!info) return { title: "Dividend Growers" };
+  const taxo = growerBySlug("en", slug);
   return {
     title: info.label,
     description: metaDescription(
       `${info.description} See the full ${info.label} list with current yields, payout ratios and uncoverd ratings.`
     ),
-    alternates: { canonical: `/growers/${slug}` },
+    alternates: {
+      canonical: `/growers/${slug}`,
+      languages: taxo ? growerHreflang(taxo) : undefined,
+    },
   };
 }
 

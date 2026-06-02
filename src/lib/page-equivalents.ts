@@ -1,5 +1,5 @@
 import { DEFAULT_LOCALE, localePrefix, type Locale } from "@/lib/i18n";
-import { sectorEquivalent } from "@/lib/i18n-taxonomy";
+import { taxonomyEquivalent } from "@/lib/i18n-taxonomy";
 
 // Cross-language equivalents for the pages that have localized versions, so the
 // language switcher can translate the CURRENT page instead of always dumping
@@ -60,9 +60,9 @@ const GROUPS: Partial<Record<Locale, string>>[] = [
  */
 export function localizedHref(pathname: string, target: Locale): string {
   const clean = pathname.replace(/\/+$/, "") || "/";
-  // Table-driven categories (sectors today; growers/industries next) first.
-  const sector = sectorEquivalent(clean, target);
-  if (sector) return sector;
+  // Table-driven categories (sectors, growers, industries) first.
+  const taxo = taxonomyEquivalent(clean, target);
+  if (taxo) return taxo;
   for (const group of GROUPS) {
     const match = Object.values(group).includes(clean);
     if (match && group[target]) return group[target] as string;
@@ -86,8 +86,8 @@ export function localeNavHref(href: string, locale: Locale): string {
   if (locale === DEFAULT_LOCALE || !href.startsWith("/")) return href;
   const [path] = href.split("?");
   const clean = path.replace(/\/+$/, "") || "/";
-  const sector = sectorEquivalent(clean, locale);
-  if (sector) return sector;
+  const taxo = taxonomyEquivalent(clean, locale);
+  if (taxo) return taxo;
   for (const group of GROUPS) {
     if (Object.values(group).includes(clean) && group[locale]) return group[locale] as string;
   }

@@ -45,48 +45,86 @@ function e(
   return { key, db, label, slug: { en: key, ...locSlug } as Record<Locale, string> };
 }
 
-/** Build the URL for a sector concept in a given locale. */
-export function sectorUrl(locale: Locale, entry: TaxoEntry): string {
-  return `${locale === "en" ? "" : `/${locale}`}/${SECTOR_PATH[locale]}/${entry.slug[locale]}`;
+// ============================================================
+// Generic, category-agnostic helpers. A "category" is a localized path segment
+// (SECTOR_PATH / GROWER_PATH / INDUSTRY_PATH) + its list of TaxoEntry. Every
+// nav landing family (sectors, growers, industries, …) reuses these, so adding
+// a family is a data change: define PATH + entries, register in CATEGORIES.
+// ============================================================
+type LocalePath = Record<Locale, string>;
+
+/** Build the relative URL for a concept in a given locale. */
+export function categoryUrl(path: LocalePath, locale: Locale, entry: TaxoEntry): string {
+  return `${locale === "en" ? "" : `/${locale}`}/${path[locale]}/${entry.slug[locale]}`;
 }
 
-/** Look up a sector entry by its localized slug. */
-export function sectorBySlug(locale: Locale, slug: string): TaxoEntry | undefined {
-  return SECTORS.find((s) => s.slug[locale] === slug);
+function absCategoryUrl(path: LocalePath, locale: Locale, entry: TaxoEntry): string {
+  const prefix = locale === "en" ? "" : `/${locale}`;
+  return `https://uncoverd.org${prefix}/${path[locale]}/${entry.slug[locale]}`;
+}
+
+/** Look up an entry by its localized slug within a category. */
+export function categoryBySlug(
+  entries: TaxoEntry[],
+  locale: Locale,
+  slug: string,
+): TaxoEntry | undefined {
+  return entries.find((s) => s.slug[locale] === slug);
 }
 
 /** All localized slugs for a locale (for generateStaticParams). */
-export function sectorSlugs(locale: Locale): { slug: string }[] {
-  return SECTORS.map((s) => ({ slug: s.slug[locale] }));
+export function categorySlugs(entries: TaxoEntry[], locale: Locale): { slug: string }[] {
+  return entries.map((s) => ({ slug: s.slug[locale] }));
 }
 
-/** hreflang alternates (absolute URLs) for a sector across all locales. */
-export function sectorHreflang(entry: TaxoEntry): Record<string, string> {
+/** hreflang alternates (absolute URLs) for a concept across all locales. */
+export function categoryHreflang(path: LocalePath, entry: TaxoEntry): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const loc of ALL_LOCALES) out[HTML_LANG[loc]] = absSectorUrl(loc, entry);
-  out["x-default"] = absSectorUrl("en", entry);
+  for (const loc of ALL_LOCALES) out[HTML_LANG[loc]] = absCategoryUrl(path, loc, entry);
+  out["x-default"] = absCategoryUrl(path, "en", entry);
   return out;
 }
 
-function absSectorUrl(locale: Locale, entry: TaxoEntry): string {
-  const prefix = locale === "en" ? "" : `/${locale}`;
-  return `https://uncoverd.org${prefix}/${SECTOR_PATH[locale]}/${entry.slug[locale]}`;
-}
-
 /**
- * If `pathname` is a sector page (English or localized), return the concept +
- * the URL for it in the target locale. Used by the language switcher.
+ * If `pathname` is a page in this category (English or localized), return the
+ * URL for the same concept in the target locale; otherwise null.
  */
-export function sectorEquivalent(pathname: string, target: Locale): string | null {
+export function categoryEquivalent(
+  path: LocalePath,
+  entries: TaxoEntry[],
+  pathname: string,
+  target: Locale,
+): string | null {
   const clean = pathname.replace(/\/+$/, "");
   for (const loc of ALL_LOCALES) {
     const prefix = loc === "en" ? "" : `/${loc}`;
-    const base = `${prefix}/${SECTOR_PATH[loc]}/`;
+    const base = `${prefix}/${path[loc]}/`;
     if (clean.startsWith(base)) {
       const slug = clean.slice(base.length);
-      const entry = SECTORS.find((s) => s.slug[loc] === slug);
-      if (entry) return sectorUrl(target, entry);
+      const entry = entries.find((s) => s.slug[loc] === slug);
+      if (entry) return categoryUrl(path, target, entry);
     }
+  }
+  return null;
+}
+
+// --- Sector wrappers (kept for existing imports) -----------------------------
+export const sectorUrl = (locale: Locale, entry: TaxoEntry) => categoryUrl(SECTOR_PATH, locale, entry);
+export const sectorBySlug = (locale: Locale, slug: string) => categoryBySlug(SECTORS, locale, slug);
+export const sectorSlugs = (locale: Locale) => categorySlugs(SECTORS, locale);
+export const sectorHreflang = (entry: TaxoEntry) => categoryHreflang(SECTOR_PATH, entry);
+export const sectorEquivalent = (pathname: string, target: Locale) =>
+  categoryEquivalent(SECTOR_PATH, SECTORS, pathname, target);
+
+/**
+ * Cross-language equivalent across EVERY registered taxonomy category (sectors,
+ * growers, industries, …). The language switcher / nav rewriter calls this one
+ * function instead of knowing about each family.
+ */
+export function taxonomyEquivalent(pathname: string, target: Locale): string | null {
+  for (const cat of CATEGORIES) {
+    const r = categoryEquivalent(cat.path, cat.entries, pathname, target);
+    if (r) return r;
   }
   return null;
 }
@@ -173,3 +211,139 @@ export function sectorStrings(locale: ContentLocale, label: string) {
   };
   return t[locale];
 }
+
+// ============================================================
+// Dividend Growers (aristocrats / kings / champions / …). The English route is
+// /growers/[slug]; data comes from listGrowersWithStocks(key), not a screener
+// query, so the localized routes pass pre-fetched rows. `db` holds the English
+// GrowerSlug used to fetch the list.
+// ============================================================
+export const GROWER_PATH: Record<Locale, string> = {
+  en: "growers",
+  fr: "croissance-dividende",
+  de: "dividendenwachstum",
+  it: "crescita-dividendi",
+  es: "crecimiento-dividendos",
+};
+
+export const GROWERS: TaxoEntry[] = [
+  e("aristocrats", "aristocrats",
+    { en: "Dividend Aristocrats", fr: "Aristocrates du dividende", de: "Dividenden-Aristokraten", it: "Aristocratici del dividendo", es: "Aristócratas del dividendo" },
+    { fr: "aristocrates-dividende", de: "dividenden-aristokraten", it: "aristocratici-dividendo", es: "aristocratas-dividendo" }),
+  e("kings", "kings",
+    { en: "Dividend Kings", fr: "Rois du dividende", de: "Dividenden-Könige", it: "Re del dividendo", es: "Reyes del dividendo" },
+    { fr: "rois-dividende", de: "dividenden-koenige", it: "re-dividendo", es: "reyes-dividendo" }),
+  e("champions", "champions",
+    { en: "Dividend Champions", fr: "Champions du dividende", de: "Dividenden-Champions", it: "Campioni del dividendo", es: "Campeones del dividendo" },
+    { fr: "champions-dividende", de: "dividenden-champions", it: "campioni-dividendo", es: "campeones-dividendo" }),
+  e("contenders", "contenders",
+    { en: "Dividend Contenders", fr: "Prétendants au dividende", de: "Dividenden-Anwärter", it: "Contendenti del dividendo", es: "Aspirantes al dividendo" },
+    { fr: "pretendants-dividende", de: "dividenden-anwaerter", it: "contendenti-dividendo", es: "aspirantes-dividendo" }),
+  e("challengers", "challengers",
+    { en: "Dividend Challengers", fr: "Challengers du dividende", de: "Dividenden-Herausforderer", it: "Sfidanti del dividendo", es: "Retadores del dividendo" },
+    { fr: "challengers-dividende", de: "dividenden-herausforderer", it: "sfidanti-dividendo", es: "retadores-dividendo" }),
+  e("achievers", "achievers",
+    { en: "Dividend Achievers", fr: "Achievers du dividende", de: "Dividenden-Achiever", it: "Achiever del dividendo", es: "Achievers del dividendo" },
+    { fr: "achievers-dividende", de: "dividenden-achiever", it: "achiever-dividendo", es: "achievers-dividendo" }),
+];
+
+// Consecutive-years phrase per grower key (localized inline below).
+const GROWER_YEARS: Record<string, string> = {
+  aristocrats: "25+", kings: "50+", champions: "25+",
+  contenders: "10–24", challengers: "5–9", achievers: "10+",
+};
+
+export const growerUrl = (locale: Locale, entry: TaxoEntry) => categoryUrl(GROWER_PATH, locale, entry);
+export const growerBySlug = (locale: Locale, slug: string) => categoryBySlug(GROWERS, locale, slug);
+export const growerSlugs = (locale: Locale) => categorySlugs(GROWERS, locale);
+export const growerHreflang = (entry: TaxoEntry) => categoryHreflang(GROWER_PATH, entry);
+
+/** Localized ListStrings for a grower page (templated from the label + years). */
+export function growerStrings(locale: ContentLocale, key: string, label: string) {
+  const y = GROWER_YEARS[key] ?? "25+";
+  const t = {
+    fr: {
+      h1: label,
+      intro: [
+        `${label} : des sociétés qui ont augmenté leur dividende pendant ${y} années consécutives. Cette régularité est un signe de solidité financière et de discipline dans la rémunération des actionnaires.`,
+        `Liste classée par rendement. Vérifiez toujours que le dividende reste couvert par les bénéfices avant d'investir.`,
+      ],
+      sectionTitle: `${label} — liste complète`,
+      th: { symbol: "Action", name: "Société", sector: "Secteur", yield: "Rendement", price: "Cours" },
+      empty: "La liste est en cours de constitution. Revenez bientôt.",
+      cta: [
+        { label: "Calendrier des dividendes", href: "/fr/calendrier-dividendes" },
+        { label: "Actions à fort dividende", href: "/fr/actions-haut-rendement" },
+        { label: "Meilleures actions à dividende", href: "/fr/meilleures-actions-dividende" },
+      ],
+      faqs: [
+        { q: `Qu'est-ce que les ${label} ?`, a: `Ce sont des sociétés qui ont augmenté leur dividende pendant ${y} années consécutives — un gage de constance et de santé financière.` },
+        { q: "Faut-il acheter une action uniquement parce qu'elle augmente son dividende ?", a: "Non. La régularité est un bon signe, mais regardez aussi la valorisation, le ratio de distribution et les perspectives de l'entreprise." },
+      ],
+    },
+    de: {
+      h1: label,
+      intro: [
+        `${label}: Unternehmen, die ihre Dividende ${y} Jahre in Folge erhöht haben. Diese Beständigkeit ist ein Zeichen für finanzielle Stärke und Disziplin gegenüber den Aktionären.`,
+        `Liste nach Rendite sortiert. Prüfen Sie immer, ob die Dividende weiterhin durch die Gewinne gedeckt ist, bevor Sie investieren.`,
+      ],
+      sectionTitle: `${label} — vollständige Liste`,
+      th: { symbol: "Aktie", name: "Unternehmen", sector: "Sektor", yield: "Rendite", price: "Kurs" },
+      empty: "Die Liste wird gerade zusammengestellt. Schauen Sie bald wieder vorbei.",
+      cta: [
+        { label: "Dividendenkalender", href: "/de/dividendenkalender" },
+        { label: "Aktien mit hoher Dividende", href: "/de/aktien-hohe-dividende" },
+        { label: "Beste Dividenden-Aktien", href: "/de/beste-dividenden-aktien" },
+      ],
+      faqs: [
+        { q: `Was sind die ${label}?`, a: `Das sind Unternehmen, die ihre Dividende ${y} Jahre in Folge erhöht haben — ein Beleg für Beständigkeit und finanzielle Gesundheit.` },
+        { q: "Sollte man eine Aktie nur kaufen, weil sie ihre Dividende erhöht?", a: "Nein. Beständigkeit ist ein gutes Zeichen, aber achten Sie auch auf Bewertung, Ausschüttungsquote und Geschäftsaussichten." },
+      ],
+    },
+    it: {
+      h1: label,
+      intro: [
+        `${label}: società che hanno aumentato il dividendo per ${y} anni consecutivi. Questa regolarità è un segno di solidità finanziaria e di disciplina verso gli azionisti.`,
+        `Elenco ordinato per rendimento. Verifica sempre che il dividendo resti coperto dagli utili prima di investire.`,
+      ],
+      sectionTitle: `${label} — elenco completo`,
+      th: { symbol: "Titolo", name: "Società", sector: "Settore", yield: "Rendimento", price: "Prezzo" },
+      empty: "L'elenco è in fase di compilazione. Torna presto.",
+      cta: [
+        { label: "Calendario dividendi", href: "/it/calendario-dividendi" },
+        { label: "Azioni ad alto rendimento", href: "/it/azioni-alto-rendimento" },
+        { label: "Migliori azioni da dividendo", href: "/it/migliori-azioni-dividendi" },
+      ],
+      faqs: [
+        { q: `Che cosa sono i ${label}?`, a: `Sono società che hanno aumentato il dividendo per ${y} anni consecutivi — una prova di costanza e salute finanziaria.` },
+        { q: "Conviene comprare un titolo solo perché aumenta il dividendo?", a: "No. La regolarità è un buon segnale, ma valuta anche prezzo, payout ratio e prospettive dell'azienda." },
+      ],
+    },
+    es: {
+      h1: label,
+      intro: [
+        `${label}: empresas que han aumentado su dividendo durante ${y} años consecutivos. Esta regularidad es señal de solidez financiera y de disciplina con los accionistas.`,
+        `Lista ordenada por rentabilidad. Comprueba siempre que el dividendo siga cubierto por los beneficios antes de invertir.`,
+      ],
+      sectionTitle: `${label} — lista completa`,
+      th: { symbol: "Acción", name: "Empresa", sector: "Sector", yield: "Rentabilidad", price: "Precio" },
+      empty: "La lista se está elaborando. Vuelve pronto.",
+      cta: [
+        { label: "Próximos dividendos", href: "/es/proximos-dividendos" },
+        { label: "Acciones de alta rentabilidad", href: "/es/acciones-alta-rentabilidad" },
+        { label: "Mejores acciones por dividendo", href: "/es/mejores-acciones-dividendos" },
+      ],
+      faqs: [
+        { q: `¿Qué son los ${label}?`, a: `Son empresas que han aumentado su dividendo durante ${y} años consecutivos — una prueba de constancia y salud financiera.` },
+        { q: "¿Conviene comprar una acción solo porque sube su dividendo?", a: "No. La regularidad es buena señal, pero fíjate también en la valoración, el pay-out y las perspectivas del negocio." },
+      ],
+    },
+  };
+  return t[locale];
+}
+
+// Registry of every taxonomy family — taxonomyEquivalent() iterates this.
+const CATEGORIES: { path: Record<Locale, string>; entries: TaxoEntry[] }[] = [
+  { path: SECTOR_PATH, entries: SECTORS },
+  { path: GROWER_PATH, entries: GROWERS },
+];
