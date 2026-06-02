@@ -210,7 +210,36 @@ export default async function StockPage({
   params: Promise<{ ticker: string }>;
 }) {
   const { ticker } = await params;
-  const symbol = ticker.toUpperCase();
+  const requested = ticker.toUpperCase();
+  let symbol = requested;
+
+  let core = await getStockCore(symbol);
+
+  if (!core.stock) notFound();
+  // ETFs & funds must NOT exist under /stocks — they're the wrong URL type and
+  // inflate the indexable page count. 404 them so Google drops them. This also
+  // catches US mutual funds mis-flagged as common stocks (5-letter …X symbols
+  // like WFEMX/VFIAX). The real fund page lives at /etfs/symbol/[symbol].
+  if (core.stock.is_etf || core.stock.is_fund || isFundSymbol(symbol)) notFound();
+
+  // All listings of this company (TradingView-style switcher in the header).
+  const listings = await getListings(core.stock.name).catch(() => []);
+  const primarySymbol = listings[0]?.symbol ?? symbol;
+
+  // Multi-listing v2: a thin secondary listing (US grey-market shells like
+  // REPYY/REPYF) has no usable price history and no dividend of its own. Rather
+  // than show an empty page, render the primary listing's full company data
+  // (cached + shared across all siblings). Rich listings — REP.DE in EUR,
+  // AAPL.MX in MXN — keep their own data/currency. `requested` is preserved so
+  // we can show a "secondary listing" note.
+  const usablePrices = core.prices.filter((p) => p.close != null).length >= 2;
+  if (primarySymbol !== symbol && !usablePrices && core.stock.annual_dividend == null) {
+    const primaryCore = await getStockCore(primarySymbol);
+    if (primaryCore.stock && !primaryCore.stock.is_etf && !primaryCore.stock.is_fund) {
+      core = primaryCore;
+      symbol = primarySymbol;
+    }
+  }
 
   const {
     stock,
@@ -224,21 +253,14 @@ export default async function StockPage({
     cashFlowAnnualRows,
     cashFlowQuarterlyRows,
     ratios,
-  } = await getStockCore(symbol);
-
+  } = core;
+  // Non-null after the notFound() guard above (or the primary refetch).
   if (!stock) notFound();
-  // ETFs & funds must NOT exist under /stocks — they're the wrong URL type and
-  // inflate the indexable page count. 404 them so Google drops them. This also
-  // catches US mutual funds mis-flagged as common stocks (5-letter …X symbols
-  // like WFEMX/VFIAX). The real fund page lives at /etfs/symbol/[symbol].
-  if (stock.is_etf || stock.is_fund || isFundSymbol(symbol)) notFound();
   const isPositive = (stock.change_percent ?? 0) >= 0;
+  const isSecondaryRedirect = requested !== symbol;
 
   // Related-content for the bottom-of-page widget (internal linking + UX).
   const { peerStocks, topEtfHolders } = await getStockRelated(symbol, stock.sector ?? null);
-
-  // All listings of this company (TradingView-style switcher in the header).
-  const listings = await getListings(stock.name).catch(() => []);
 
   // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
   // <script type="application/ld+json"> tags in the <head>-equivalent slot
@@ -469,6 +491,12 @@ export default async function StockPage({
             listings={listings.map((l) => ({ symbol: l.symbol, exchange: l.exchange, currency: l.currency }))}
             current={symbol}
           />
+          {isSecondaryRedirect && (
+            <p style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
+              {requested} is a secondary listing of {stock.name ?? symbol}. Showing the primary
+              listing ({symbol}{stock.exchange ? ` · ${stock.exchange}` : ""}).
+            </p>
+          )}
           <div
             style={{
               display: "flex",
