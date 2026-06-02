@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { latestNews, formatDate, SECTOR_LABEL_MAP, SECTOR_SLUG_MAP, type NewsRow } from "@/lib/data";
+import { T } from "@/components/t";
 
 export const metadata: Metadata = {
   title: "Dividend & Market News",
@@ -67,18 +68,18 @@ export default async function NewsPage({
               href={`/news?filter=${ind.slug}`}
               className={`dv-chip ${filterSlug === ind.slug ? "dv-chip--active" : ""}`}
             >
-              {ind.label}
+              <T>{ind.label}</T>
             </Link>
           ))}
         </div>
 
         <h3 className="dv-section-title" style={{ marginTop: "1rem", fontSize: "1.05rem" }}>
-          Or browse by sector:
+          <T>Or browse by sector:</T>
         </h3>
         <div className="dv-filters">
           {Object.entries(SECTOR_SLUG_MAP).map(([slug, name]) => (
             <Link key={slug} href={`/sectors/${slug}`} className="dv-chip">
-              {SECTOR_LABEL_MAP[name] || name}
+              <T>{SECTOR_LABEL_MAP[name] || name}</T>
             </Link>
           ))}
         </div>

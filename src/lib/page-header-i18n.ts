@@ -57,6 +57,32 @@ const HEADER_I18N: Record<string, Tr> = {
   "Compare dividend stocks & ETFs": { fr: "Comparer des actions à dividende et des ETF", de: "Dividenden-Aktien & ETFs vergleichen", it: "Confronta azioni da dividendo ed ETF", es: "Compara acciones por dividendo y ETF" },
   "Drop in 2–4 tickers. See yield, dividend growth, payout, rating, expense ratio, returns, and ETF overlap — side by side. Stock-vs-stock, ETF-vs-ETF, or mixed.": { fr: "Ajoutez 2 à 4 symboles. Comparez côte à côte le rendement, la croissance du dividende, la distribution, la note, les frais, la performance et le chevauchement d'ETF. Action contre action, ETF contre ETF, ou mixte.", de: "Geben Sie 2–4 Ticker ein. Vergleichen Sie Rendite, Dividendenwachstum, Ausschüttung, Bewertung, Kosten, Performance und ETF-Überschneidung — nebeneinander. Aktie gegen Aktie, ETF gegen ETF oder gemischt.", it: "Inserisci 2–4 simboli. Confronta fianco a fianco rendimento, crescita del dividendo, payout, valutazione, costi, performance e sovrapposizione tra ETF. Azione contro azione, ETF contro ETF o misto.", es: "Añade 2–4 símbolos. Compara lado a lado la rentabilidad, el crecimiento del dividendo, el reparto, la calificación, los costes, la rentabilidad y el solapamiento de ETF. Acción contra acción, ETF contra ETF o mixto." },
   "Side-by-side dividend comparison. Green badges mark the leader on each metric.": { fr: "Comparaison de dividendes côte à côte. Les badges verts indiquent le leader pour chaque indicateur.", de: "Dividendenvergleich nebeneinander. Grüne Badges markieren den Spitzenreiter je Kennzahl.", it: "Confronto dei dividendi fianco a fianco. I badge verdi indicano il leader per ogni metrica.", es: "Comparación de dividendos lado a lado. Las insignias verdes marcan al líder en cada métrica." },
+
+  // --- News filter chips ---
+  "All News": { fr: "Toutes les actus", de: "Alle News", it: "Tutte le notizie", es: "Todas las noticias" },
+  Dividends: { fr: "Dividendes", de: "Dividenden", it: "Dividendi", es: "Dividendos" },
+  Earnings: { fr: "Résultats", de: "Ergebnisse", it: "Risultati", es: "Resultados" },
+  Buybacks: { fr: "Rachats d'actions", de: "Aktienrückkäufe", it: "Riacquisti", es: "Recompras" },
+  "Fed & Rates": { fr: "Fed et taux", de: "Fed & Zinsen", it: "Fed e tassi", es: "Fed y tipos" },
+  "Or browse by sector:": { fr: "Ou parcourir par secteur :", de: "Oder nach Sektor stöbern:", it: "Oppure sfoglia per settore:", es: "O explora por sector:" },
+
+  // --- Screener sort + sector filter ---
+  "All Sectors": { fr: "Tous les secteurs", de: "Alle Sektoren", it: "Tutti i settori", es: "Todos los sectores" },
+  "Sort: Market Cap": { fr: "Tri : Capitalisation", de: "Sortierung: Marktkap.", it: "Ordina: Capitalizzazione", es: "Orden: Capitalización" },
+  "Sort: Yield": { fr: "Tri : Rendement", de: "Sortierung: Rendite", it: "Ordina: Rendimento", es: "Orden: Rentabilidad" },
+
+  // --- Sector display names (chips on news / screener; match the taxonomy labels) ---
+  Financials: { fr: "Finance", de: "Finanzwesen", it: "Finanza", es: "Finanzas" },
+  "Real Estate": { fr: "Immobilier", de: "Immobilien", it: "Immobiliare", es: "Inmobiliario" },
+  Communications: { fr: "Communications", de: "Kommunikation", it: "Comunicazioni", es: "Comunicaciones" },
+  "Consumer Discretionary": { fr: "Consommation discrétionnaire", de: "Zyklische Konsumgüter", it: "Beni di consumo ciclici", es: "Consumo discrecional" },
+  "Consumer Staples": { fr: "Consommation de base", de: "Basiskonsumgüter", it: "Beni di prima necessità", es: "Consumo básico" },
+  Energy: { fr: "Énergie", de: "Energie", it: "Energia", es: "Energía" },
+  "Health Care": { fr: "Santé", de: "Gesundheit", it: "Sanità", es: "Salud" },
+  Industrials: { fr: "Industrie", de: "Industrie", it: "Industria", es: "Industria" },
+  Technology: { fr: "Technologie", de: "Technologie", it: "Tecnologia", es: "Tecnología" },
+  Materials: { fr: "Matériaux de base", de: "Grundstoffe", it: "Materiali di base", es: "Materiales básicos" },
+  Utilities: { fr: "Services aux collectivités", de: "Versorger", it: "Servizi di pubblica utilità", es: "Servicios públicos" },
 };
 
 /** Translate a PageHeader string by its English text; English falls through. */

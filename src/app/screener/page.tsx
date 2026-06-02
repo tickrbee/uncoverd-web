@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
+import { T } from "@/components/t";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { Pager } from "@/components/pager";
 import { ListingToolbar } from "@/components/listing-toolbar";
@@ -184,7 +185,7 @@ export default async function ScreenerPage({
             href={`/screener${filterQs({ sector: undefined, page: undefined }) ? `?${filterQs({ sector: undefined, page: undefined })}` : ""}`}
             className={`dv-chip ${!sectorParam ? "dv-chip--active" : ""}`}
           >
-            All Sectors
+            <T>All Sectors</T>
           </Link>
           {sectorChips.map(([slug, name]) => (
             <Link
@@ -192,7 +193,7 @@ export default async function ScreenerPage({
               href={`/screener?${filterQs({ sector: slug, page: undefined })}`}
               className={`dv-chip ${sectorParam === slug ? "dv-chip--active" : ""}`}
             >
-              {SECTOR_LABEL_MAP[name] || name}
+              <T>{SECTOR_LABEL_MAP[name] || name}</T>
             </Link>
           ))}
         </div>
@@ -202,13 +203,13 @@ export default async function ScreenerPage({
             href={`/screener?${filterQs({ sort: undefined, page: undefined })}`}
             className={`dv-chip ${!sp.sort || sp.sort === "market_cap" ? "dv-chip--active" : ""}`}
           >
-            Sort: Market Cap
+            <T>Sort: Market Cap</T>
           </Link>
           <Link
             href={`/screener?${filterQs({ sort: "yield", page: undefined })}`}
             className={`dv-chip ${sp.sort === "yield" ? "dv-chip--active" : ""}`}
           >
-            Sort: Yield
+            <T>Sort: Yield</T>
           </Link>
         </div>
 
