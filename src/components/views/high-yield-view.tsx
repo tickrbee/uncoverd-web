@@ -9,16 +9,9 @@ import { Pager } from "@/components/pager";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  gatedMap,
   type StockRow,
 } from "@/lib/data";
-import {
-  cachedListStocks as listStocks,
-  cachedGetStockRatings as getStockRatings,
-  cachedNextDividendBySymbols as nextDividendBySymbols,
-  cachedGetStockExtras as getStockExtras,
-} from "@/lib/cached-data";
-import { getPremiumStatus } from "@/lib/premium";
+import { cachedListStocks as listStocks } from "@/lib/cached-data";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { highYieldHeader, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
 
@@ -64,21 +57,11 @@ export async function HighYieldView({ locale, sp }: { locale: Locale; sp: HighYi
   const offset = (page - 1) * PAGE_SIZE;
   const rows = allRows.slice(offset, offset + PAGE_SIZE);
 
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  const needsExtras = view === "growth" || view === "returns" || view === "buy-reco" || view === "upside";
-  const [ratings, upcomingDividends, extras, displayCurrency] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
-    getDisplayCurrency(),
-  ]);
-  const isPrem = premium.isPremium;
-  const safeRows = rows; // Stock identities are free for everyone; the rating + extras stay gated below.
-  const displayRows = await applyDisplayCurrency(safeRows, displayCurrency);
-  const safeRatings = gatedMap(ratings, isPrem);
-  const safeExtras = gatedMap(extras, isPrem);
-  const safeUpcoming = gatedMap(upcomingDividends, isPrem);
+  // Free/gated render — no server auth read (keeps the page light; paying users
+  // get ratings/extras revealed client-side via <DividendTable revealPremium>).
+  // Identities + price + yield are free; currency is applied server-side.
+  const displayCurrency = await getDisplayCurrency();
+  const displayRows = await applyDisplayCurrency(rows, displayCurrency);
 
   return (
     <>
@@ -89,20 +72,12 @@ export async function HighYieldView({ locale, sp }: { locale: Locale; sp: HighYi
         <ColumnTabs active={view} baseHref={basePath} />
         <ListingToolbar
           active="stocks"
-          rows={safeRows}
-          isPremium={premium.isPremium}
+          rows={displayRows}
           csvFilename="uncoverd-high-yield.csv"
           hideSecurityType
         />
         <CountryFilter active={country} />
-        <DividendTable
-          rows={displayRows}
-          ratings={safeRatings}
-          upcomingDividends={safeUpcoming}
-          extras={safeExtras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={displayRows} isPremium={false} revealPremium view={view} />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {pageSummary(locale, page, totalPages, total)}
         </p>

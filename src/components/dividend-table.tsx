@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WatchButton } from "@/components/watch-button";
 import { PremiumLock } from "@/components/premium-lock";
@@ -836,19 +836,61 @@ export type DividendTableOptions = {
   meta?: Map<string, RowMeta>;
   isPremium?: boolean;
   view?: ColumnView;
+  // When true, the page rendered the free/gated version (no server auth read,
+  // so it's CDN-cacheable) and the table fetches the real premium data
+  // client-side for paying users. When false/omitted (e.g. server-gated pages
+  // like the model portfolios), the table uses the props as-is.
+  revealPremium?: boolean;
 };
 
 export function DividendTable({
   rows,
-  ratings,
-  upcomingDividends,
-  extras,
+  ratings: ratingsProp,
+  upcomingDividends: upcomingProp,
+  extras: extrasProp,
   meta,
-  isPremium,
+  isPremium: isPremiumProp,
   view = "overview",
+  revealPremium = false,
 }: DividendTableOptions) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const locale = useLocale();
+
+  // Premium reveal — paying users fetch ratings/extras/upcoming for the visible
+  // rows and the table un-blurs. Free users + bots keep the cached free render.
+  const [revealed, setRevealed] = useState<{
+    ratings: Map<string, StockRating>;
+    extras: Map<string, StockExtras>;
+    upcoming: Map<string, DividendEvent>;
+  } | null>(null);
+  const symbolsKey = useMemo(() => rows.map((r) => r.symbol).join(","), [rows]);
+  useEffect(() => {
+    if (!revealPremium) return;
+    const syms = rows.map((r) => r.symbol).filter((s) => s && !s.startsWith("PRM-"));
+    if (syms.length === 0) return;
+    let alive = true;
+    fetch(`/api/lists/premium?symbols=${encodeURIComponent(syms.join(","))}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive || !d?.isPremium) return;
+        setRevealed({
+          ratings: new Map(Object.entries(d.ratings ?? {})) as Map<string, StockRating>,
+          extras: new Map(Object.entries(d.extras ?? {})) as Map<string, StockExtras>,
+          upcoming: new Map(Object.entries(d.upcoming ?? {})) as Map<string, DividendEvent>,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealPremium, symbolsKey]);
+
+  // Effective values: revealed premium data when present, else the (gated) props.
+  const ratings = revealed?.ratings ?? ratingsProp;
+  const extras = revealed?.extras ?? extrasProp;
+  const upcomingDividends = revealed?.upcoming ?? upcomingProp;
+  const isPremium = revealed != null ? true : isPremiumProp;
 
   const sortedRows = useMemo(() => {
     if (!sort) return rows;

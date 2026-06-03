@@ -5,6 +5,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { StockRow } from "@/lib/data";
 import { useLocale } from "@/lib/use-locale";
+import { usePremiumStatus } from "@/components/use-premium-status";
 import { chromeStrings } from "@/lib/ui-i18n";
 import { tHeader } from "@/lib/page-header-i18n";
 
@@ -40,6 +41,10 @@ export function ListingToolbar({
   const pathname = usePathname();
   const params = useSearchParams();
   const chrome = chromeStrings(useLocale());
+  // The listing pages render the free version (isPremium=false) so they stay
+  // CDN-cacheable; detect a paying user client-side so CSV export still unlocks.
+  const { isPremium: clientPremium } = usePremiumStatus();
+  const canDownload = isPremium || clientPremium;
   const securityLabel = (key: SecurityType) =>
     key === "etfs" ? chrome.securityEtfs : chrome.securityStocks;
 
@@ -62,7 +67,7 @@ export function ListingToolbar({
   }
 
   function downloadCsv() {
-    if (!isPremium) {
+    if (!canDownload) {
       window.location.href = "/pricing";
       return;
     }
@@ -146,9 +151,9 @@ export function ListingToolbar({
 
         <button
           type="button"
-          className={`dv-icon-circle dv-icon-circle--filled ${isPremium ? "" : "dv-icon-circle--locked"}`}
-          aria-label={isPremium ? "Download CSV" : "Download (Premium)"}
-          title={isPremium ? "Download as CSV" : "Premium feature — upgrade to download"}
+          className={`dv-icon-circle dv-icon-circle--filled ${canDownload ? "" : "dv-icon-circle--locked"}`}
+          aria-label={canDownload ? "Download CSV" : "Download (Premium)"}
+          title={canDownload ? "Download as CSV" : "Premium feature — upgrade to download"}
           onClick={downloadCsv}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
