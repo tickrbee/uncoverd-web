@@ -39,10 +39,25 @@ function loadEnvFiles(): void {
 }
 loadEnvFiles();
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
+// Accept the common name variants (Next `NEXT_PUBLIC_`, Vite `VITE_`, bare).
+function pickEnv(names: string[]): string | undefined {
+  for (const n of names) {
+    const v = process.env[n];
+    if (v && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+const OPENAI_KEY = pickEnv(["OPENAI_API_KEY", "VITE_OPENAI_API_KEY", "OPENAI_KEY", "NEXT_PUBLIC_OPENAI_API_KEY"]);
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
-const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = pickEnv([
+  "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "VITE_SUPABASE_URL",
+  "VITE_PUBLIC_SUPABASE_URL", "SUPABASE_PROJECT_URL",
+]);
+const SUPABASE_KEY = pickEnv([
+  "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY",
+  "SERVICE_ROLE_KEY", "VITE_SUPABASE_SERVICE_ROLE_KEY",
+]);
 
 const COUNTRY = process.env.MOVERS_COUNTRY ?? "US";
 const MIN_PRICE = Number(process.env.MOVERS_MIN_PRICE ?? 5);
@@ -50,10 +65,18 @@ const MIN_MKTCAP = Number(process.env.MOVERS_MIN_MKTCAP ?? 1_000_000_000);
 const COUNT = Number(process.env.MOVERS_COUNT ?? 10);
 
 if (!OPENAI_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
-  console.error(
-    "Missing env. Need OPENAI_API_KEY + (SUPABASE_URL|NEXT_PUBLIC_SUPABASE_URL) + SUPABASE_SERVICE_ROLE_KEY.\n" +
-      "Add them to .env.local (the script auto-loads it) or pass them inline.",
-  );
+  const missing = [
+    !OPENAI_KEY && "an OpenAI key",
+    !SUPABASE_URL && "a Supabase URL",
+    !SUPABASE_KEY && "a Supabase SERVICE-ROLE key",
+  ].filter(Boolean).join(", ");
+  // Print NAMES only (never values) of anything that looks related, so we can
+  // map your actual variable names without you pasting secrets.
+  const related = Object.keys(process.env).filter((k) => /supabase|openai|service|anon/i.test(k)).sort();
+  console.error(`Missing ${missing}.`);
+  console.error("Related env var NAMES I can see (values hidden): " + (related.join(", ") || "(none)"));
+  console.error("Rename them to SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / OPENAI_API_KEY in .env.local, or tell me the names above and I'll map them.");
+  console.error("NOTE: this reads the `backend` schema, so it needs the SERVICE-ROLE key — the anon/publishable key won't work.");
   process.exit(1);
 }
 
