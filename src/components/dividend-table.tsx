@@ -135,12 +135,14 @@ function priceCell(row: StockRow): React.ReactNode {
   );
 }
 
-function nameCell(row: StockRow, isPremium?: boolean): React.ReactNode {
-  const href = tickerHref(row.symbol, row.is_etf, row.is_fund);
-  // Free users: both the ticker symbol AND the company name are blurred.
-  // Clicking either opens the upgrade prompt. The cell is fully gated so the
-  // listing is browse-able but every identifier is paywalled.
-  if (!isPremium) {
+function nameCell(row: StockRow): React.ReactNode {
+  // Identity is locked per-LIST, not per-user: premium-only lists (Model
+  // Portfolios, payout-changes) scrub the row server-side via redactRowsForFree
+  // (symbol → "PRM-N", name → "Premium content"), and we detect that scrub here.
+  // Free listing views (screener, high-yield, sectors, growers, monthly) send
+  // real rows, so everyone sees the ticker + name. Ratings stay gated separately.
+  const gated = row.symbol.startsWith("PRM-");
+  if (gated) {
     return (
       <PremiumLock isPremium={false} inline>
         <span className="dv-ticker">
@@ -150,6 +152,7 @@ function nameCell(row: StockRow, isPremium?: boolean): React.ReactNode {
       </PremiumLock>
     );
   }
+  const href = tickerHref(row.symbol, row.is_etf, row.is_fund);
   return (
     <Link href={href} className="dv-ticker">
       <span className="dv-ticker__name">{row.symbol}</span>
@@ -162,7 +165,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // OVERVIEW matches dividend.com's overview tab:
   // Name | Price | Market Cap | Yield FWD | Ex-Div Date | Amount | Rating | Sector
   overview: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "Market Cap",
@@ -198,7 +201,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   ],
   // PAYOUT — focused on income metrics: Price | Yield | Amount | Frequency | Ex-Div | Payment | Rating
   payout: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     { header: "Yield (FWD)", className: "dv-th--num", sortKey: "dividend_yield", cell: (r) => formatPercent(r.dividend_yield) },
     {
@@ -252,7 +255,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // DIV GROWTH (matches dividend.com):
   // Name | Yield FWD DIV | Consec Increases | 1Y CAGR | 5Y CAGR | EPS G FY1 | P/E FY1 | Net Debt/EBITDA | Payout Ratio
   growth: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     {
       header: "Yield FWD Div",
       className: "dv-th--num",
@@ -312,7 +315,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // RETURNS (matches dividend.com):
   // Name | Price/NAV | Yield | YTD | 1Y | 3Y CAGR | 5Y CAGR | 10Y CAGR | % Off 52w High
   returns: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "Yield FWD Div",
@@ -395,7 +398,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // INCOME — matches dividend.com:
   // Name | 1Y CAGR | 5Y CAGR | Consec Increases | Yield FWD Div | Yield Attractiveness (Premium)
   income: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     {
       header: "1Y Div CAGR",
       className: "dv-th--num",
@@ -432,7 +435,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // INCOME RISK — matches dividend.com:
   // Name | Payout Ratio | EPS Growth | P/E | Reliability | Earnings Growth | Uptrend (3 ratings premium-blurred)
   "income-risk": [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     {
       header: "Payout Ratio",
       className: "dv-th--num",
@@ -471,7 +474,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   ],
   // BUY RECO — Composite verdict + key metrics
   "buy-reco": [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "Verdict",
@@ -503,7 +506,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   ],
   // UPSIDE — % off 52w high + momentum + relative-strength proxy
   upside: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "% Off 52w High",
@@ -551,7 +554,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
   // per-stock fundamentals (P/E, payout ratio) but have expense ratio, AUM,
   // holdings count and asset class.
   "etf-overview": [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "AUM",
@@ -599,7 +602,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       sortKey: "rank",
       cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
     },
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Sector", sortKey: "sector", cell: (r) => r.sector ?? "—" },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
@@ -642,7 +645,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       sortKey: "rank",
       cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
     },
-    { header: "ETF", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "ETF", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     {
       header: "Weight in ETF",
       className: "dv-th--num",
@@ -690,7 +693,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       sortKey: "rank",
       cell: (_r, _rt, _p, _d, _e, meta) => (meta?.rank != null ? meta.rank : "—"),
     },
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     { header: "Price", className: "dv-th--num", sortKey: "price", cell: (r) => priceCell(r) },
     {
       header: "Yield (FWD)",
@@ -749,7 +752,7 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
     },
   ],
   ratings: [
-    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r, p) },
+    { header: "Name", sortKey: "symbol", cell: (r, _rt, p) => nameCell(r) },
     {
       header: "Overall",
       className: "dv-th--num",
