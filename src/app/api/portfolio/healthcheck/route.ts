@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStock, historicalPrices } from "@/lib/data";
+import { getStock, historicalPrices, getCompanyListings } from "@/lib/data";
 import { computeHealth, type Series, type HoldingMeta } from "@/lib/portfolio-health";
 
 export const runtime = "nodejs";
@@ -28,16 +28,35 @@ export async function POST(req: Request) {
   // Fetch ~1.5y of daily closes + the ticker meta for each holding in parallel.
   const fetched = await Promise.all(
     symbols.map(async (symbol) => {
-      const [stock, prices] = await Promise.all([
-        getStock(symbol).catch(() => null),
-        historicalPrices(symbol, 400).catch(() => []),
-      ]);
-      return { symbol, stock, prices };
+      const stock = await getStock(symbol).catch(() => null);
+      let prices = await historicalPrices(symbol, 400).catch(() => []);
+      let priceSymbol = symbol;
+      // Foreign / secondary listings (VONOY, REPYF, RACE vs RACE.MI, …) often
+      // carry little or no daily history — which is exactly what starves the
+      // correlation / volatility / return stats. When this listing is thin,
+      // fall back to the company's PRIMARY (highest-volume) listing for the
+      // price series. Returns-based stats are currency-invariant, so mixing
+      // the foreign listing's quote with its primary's history is fine.
+      if (stock?.name && prices.length < 60) {
+        const listings = await getCompanyListings(stock.name, {
+          funds: !!(stock.is_etf || stock.is_fund),
+        }).catch(() => []);
+        const alt = listings.find((l) => l.symbol && l.symbol !== symbol);
+        if (alt) {
+          const altPrices = await historicalPrices(alt.symbol, 400).catch(() => []);
+          if (altPrices.length > prices.length) {
+            prices = altPrices;
+            priceSymbol = alt.symbol;
+          }
+        }
+      }
+      return { symbol, priceSymbol, stock, prices };
     }),
   );
 
   const valid = fetched.filter((f) => f.stock); // drop unknown tickers
   const missing = fetched.filter((f) => !f.stock).map((f) => f.symbol);
+  const resolved = valid.filter((f) => f.priceSymbol !== f.symbol);
 
   if (valid.length < 1) {
     return NextResponse.json({ error: "None of those symbols were found." }, { status: 404 });
@@ -57,6 +76,13 @@ export async function POST(req: Request) {
   }));
 
   const result = computeHealth(series, meta);
+  if (resolved.length) {
+    result.notes.push(
+      `Used the primary listing for price history: ${resolved
+        .map((f) => `${f.symbol} → ${f.priceSymbol}`)
+        .join(", ")}.`,
+    );
+  }
   if (missing.length) result.notes.push(`Skipped (not found): ${missing.join(", ")}.`);
 
   return NextResponse.json(result, {

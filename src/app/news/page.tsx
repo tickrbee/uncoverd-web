@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
-import { latestNews, formatDate, SECTOR_LABEL_MAP, SECTOR_SLUG_MAP, type NewsRow } from "@/lib/data";
+import { latestNews, formatDate, sectorBySymbols, SECTOR_LABEL_MAP, SECTOR_SLUG_MAP, type NewsRow } from "@/lib/data";
 import { T } from "@/components/t";
 
 export const metadata: Metadata = {
@@ -30,11 +30,12 @@ const FILTERS = [
 export default async function NewsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; sector?: string }>;
 }) {
   const sp = await searchParams;
   const filterSlug = sp.filter || "all";
   const filterItem = FILTERS.find((i) => i.slug === filterSlug) || FILTERS[0];
+  const sectorSlug = sp.sector && SECTOR_SLUG_MAP[sp.sector] ? sp.sector : null;
 
   let items: NewsRow[] = [];
   try {
@@ -43,13 +44,34 @@ export default async function NewsPage({
     console.error(e);
   }
 
-  const filtered = filterItem.filter
+  let filtered = filterItem.filter
     ? items.filter(
         (n) =>
           (n.title ?? "").toLowerCase().includes(filterItem.filter!.toLowerCase()) ||
           (n.text ?? "").toLowerCase().includes(filterItem.filter!.toLowerCase()),
       )
     : items;
+
+  // Sector chips filter the feed in-place (via each headline's ticker → sector)
+  // rather than navigating away to the sector stock list.
+  if (sectorSlug) {
+    const fmpSector = SECTOR_SLUG_MAP[sectorSlug];
+    const syms = Array.from(new Set(filtered.map((n) => n.symbol).filter((s): s is string => !!s)));
+    const bySymbol = await sectorBySymbols(syms);
+    filtered = filtered.filter((n) => n.symbol && bySymbol.get(n.symbol) === fmpSector);
+  }
+
+  // Build /news hrefs that keep the other dimension intact (sector | topic).
+  // Pass `null` to clear a dimension (e.g. clicking the active sector chip).
+  function buildHref(next: { filter?: string | null; sector?: string | null }): string {
+    const params = new URLSearchParams();
+    const f = next.filter !== undefined ? next.filter : filterSlug !== "all" ? filterSlug : null;
+    const s = next.sector !== undefined ? next.sector : sectorSlug;
+    if (f && f !== "all") params.set("filter", f);
+    if (s) params.set("sector", s);
+    const qs = params.toString();
+    return qs ? `/news?${qs}` : "/news";
+  }
 
   return (
     <>
@@ -65,7 +87,7 @@ export default async function NewsPage({
           {FILTERS.map((ind) => (
             <Link
               key={ind.slug}
-              href={`/news?filter=${ind.slug}`}
+              href={buildHref({ filter: ind.slug })}
               className={`dv-chip ${filterSlug === ind.slug ? "dv-chip--active" : ""}`}
             >
               <T>{ind.label}</T>
@@ -74,18 +96,33 @@ export default async function NewsPage({
         </div>
 
         <h3 className="dv-section-title" style={{ marginTop: "1rem", fontSize: "1.05rem" }}>
-          <T>Or browse by sector:</T>
+          <T>Filter by sector:</T>
         </h3>
         <div className="dv-filters">
           {Object.entries(SECTOR_SLUG_MAP).map(([slug, name]) => (
-            <Link key={slug} href={`/sectors/${slug}`} className="dv-chip">
+            <Link
+              key={slug}
+              href={buildHref({ sector: sectorSlug === slug ? null : slug })}
+              className={`dv-chip ${sectorSlug === slug ? "dv-chip--active" : ""}`}
+            >
               <T>{SECTOR_LABEL_MAP[name] || name}</T>
             </Link>
           ))}
         </div>
 
         {filtered.length === 0 ? (
-          <div className="dv-empty">No news matches this filter right now.</div>
+          <div className="dv-empty">
+            {sectorSlug ? (
+              <>
+                <T>No recent headlines tagged to this sector.</T>{" "}
+                <Link href={`/sectors/${sectorSlug}`} className="dv-action-link">
+                  <T>Browse the sector&apos;s dividend stocks instead.</T>
+                </Link>
+              </>
+            ) : (
+              <T>No news matches this filter right now.</T>
+            )}
+          </div>
         ) : (
           <div className="dv-news-grid" style={{ marginTop: "1.5rem" }}>
             {filtered.slice(0, 30).map((n) => (

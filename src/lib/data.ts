@@ -1662,6 +1662,19 @@ async function symbolNames(symbols: string[]): Promise<Map<string, string>> {
   return map;
 }
 
+// Resolve the FMP sector for a batch of symbols (from backend.tickers). Used by
+// the news page to filter headlines to a chosen sector via each item's symbol.
+export async function sectorBySymbols(symbols: string[]): Promise<Map<string, string>> {
+  if (symbols.length === 0) return new Map();
+  const sb = getBackendClient();
+  const { data } = await sb.from("tickers").select("symbol,sector").in("symbol", symbols);
+  const map = new Map<string, string>();
+  for (const r of (data as { symbol: string; sector: string | null }[]) ?? []) {
+    if (r.sector) map.set(r.symbol, r.sector);
+  }
+  return map;
+}
+
 // Returns dividend events matching a specific payout-change pattern, computed
 // by walking each symbol's most recent dividend events and comparing.
 export async function payoutChanges(kind: PayoutChangeKind, limit = 100): Promise<PayoutChangeEvent[]> {
