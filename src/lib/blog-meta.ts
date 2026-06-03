@@ -59,5 +59,11 @@ export function blogPostMetadata(locale: Locale, slug: string): Metadata {
       modifiedTime: post.meta.updated ?? post.meta.date,
       images: post.meta.cover ? [pexelsImage(post.meta.cover, 1200)] : undefined,
     },
+    twitter: {
+      card: "summary_large_image",
+      title: post.meta.title,
+      description: post.meta.description,
+      images: post.meta.cover ? [pexelsImage(post.meta.cover, 1200)] : undefined,
+    },
   };
 }

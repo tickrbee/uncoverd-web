@@ -61,6 +61,16 @@ const MD_COMPONENTS: Components = {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={typeof src === "string" ? src : undefined} alt={alt ?? ""} loading="lazy" decoding="async" />
   ),
+  // External links open in a new tab with rel="noopener noreferrer" (SEO/security);
+  // internal links (/path) render normally so they stay same-tab + crawlable.
+  a: ({ href, children }) => {
+    const url = typeof href === "string" ? href : "";
+    return /^https?:\/\//.test(url) ? (
+      <a href={url} target="_blank" rel="noopener noreferrer">{children}</a>
+    ) : (
+      <a href={url}>{children}</a>
+    );
+  },
 };
 
 export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
