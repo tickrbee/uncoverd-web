@@ -1165,17 +1165,19 @@ function colorForScore5(score: number): string {
 }
 
 function RatingBadge({ rating, isPremium }: { rating?: StockRating; isPremium: boolean }) {
-  if (!rating || rating.composite_total == null) {
-    return <span style={{ color: "var(--text-muted)" }}>—</span>;
-  }
+  // Free users have no rating data, but we still show a BLURRED placeholder grade
+  // (not an empty "—") so the column reads as locked-content, with a hover unlock.
   if (!isPremium) {
     return (
       <PremiumLock isPremium={false} inline>
         <span style={{ color: "var(--positive)", fontWeight: 700 }}>
-          {rating.composite_grade ?? "A+"}
+          {rating?.composite_grade ?? "B+"}
         </span>
       </PremiumLock>
     );
+  }
+  if (!rating || rating.composite_total == null) {
+    return <span style={{ color: "var(--text-muted)" }}>—</span>;
   }
   const color = colorForCompositeTotal(rating.composite_total);
   return (

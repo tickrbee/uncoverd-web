@@ -2772,6 +2772,25 @@ a {
   filter: blur(3.5px);
 }
 
+/* Hover "unlock" affordance over blurred cells — a 🔓 that fades in on hover.
+   pointer-events:none so the click still hits .dv-lock (opens the upgrade prompt). */
+.dv-lock__hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  font-size: 0.72rem;
+  border-radius: 4px;
+  background: rgba(10, 14, 24, 0.45);
+}
+.dv-lock:hover .dv-lock__hint {
+  opacity: 1;
+}
+
 /* Upgrade prompt popup */
 .dv-lock-popup-backdrop {
   position: fixed;

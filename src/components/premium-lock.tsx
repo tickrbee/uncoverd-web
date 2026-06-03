@@ -29,12 +29,11 @@ export function PremiumLock({
   if (isPremium) return <>{children}</>;
 
   const Tag = inline ? "span" : "div";
-  const className = noBlur ? "dv-lock" : `dv-lock ${blurClassName}`;
 
   return (
     <>
       <Tag
-        className={className}
+        className="dv-lock"
         onClick={(e) => {
           // Stop the click from bubbling to wrapping links/buttons.
           e.preventDefault();
@@ -46,10 +45,13 @@ export function PremiumLock({
         onCopy={noBlur ? undefined : (e) => e.preventDefault()}
         role="button"
         tabIndex={0}
-        aria-label="Premium content — click to learn more"
-        style={noBlur ? undefined : undefined}
+        aria-label="Premium content — click to unlock"
       >
-        {children}
+        {/* Blur lives on an inner element so the hover unlock hint stays crisp. */}
+        <span className={noBlur ? undefined : blurClassName}>{children}</span>
+        {!noBlur && (
+          <span className="dv-lock__hint" aria-hidden="true">🔓</span>
+        )}
       </Tag>
       {open && <UpgradePrompt onClose={() => setOpen(false)} />}
     </>
