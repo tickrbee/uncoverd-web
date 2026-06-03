@@ -745,7 +745,16 @@ export type PotentialPayerRow = {
   fcf_margin: number | null;
 };
 
-export async function getPotentialDividendPayers(limit = 120): Promise<PotentialPayerRow[]> {
+// Heavy LATERAL-join RPC (~5s uncached). Cache it — the underlying financials
+// change at most daily, and this page was running the full computation on every
+// load (force-dynamic). unstable_cache keyed by limit; revalidate hourly.
+export const getPotentialDividendPayers = unstable_cache(
+  _getPotentialDividendPayers,
+  ["potential-dividend-payers"],
+  { revalidate: 3600 },
+);
+
+async function _getPotentialDividendPayers(limit = 120): Promise<PotentialPayerRow[]> {
   const sb = getBackendClient();
   // Delegated to a SQL function so we get a single indexed query with
   // LATERAL joins instead of two giant .in(...) lookups that overflowed
@@ -1593,9 +1602,19 @@ export type RatingDimension = "value" | "growth" | "profit" | "momentum" | "heal
 // Rank by a specific rating dimension. Used for "Best Growth", "Best Protection"
 // (= health), etc — so each pick page surfaces stocks that excel on the
 // dimension that matches the theme.
+// Ratings fetch for the model-portfolio ranking, cached (the picks pages rank
+// ~500 symbols on every load via the uncached getStockRatings — that was the
+// bulk of their latency). Keyed by the symbol list; revalidate 30 min.
+const _rankRatingsEntries = unstable_cache(
+  async (symbols: string[]): Promise<[string, StockRating][]> =>
+    Array.from((await getStockRatings(symbols)).entries()),
+  ["rank-ratings"],
+  { revalidate: 1800 },
+);
+
 export async function rankByDimension(rows: StockRow[], dim: RatingDimension): Promise<StockRow[]> {
   if (rows.length === 0) return rows;
-  const ratings = await getStockRatings(rows.map((r) => r.symbol));
+  const ratings = new Map(await _rankRatingsEntries(rows.map((r) => r.symbol)));
   const get = (sym: string): number => {
     const r = ratings.get(sym);
     if (!r) return -1;
