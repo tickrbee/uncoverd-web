@@ -9,6 +9,7 @@ import {
   listWatchlistSymbols,
   listStocks,
   getStockRatings,
+  getStockExtras,
   nextDividendBySymbols,
   type StockRow,
 } from "@/lib/data";
@@ -68,9 +69,10 @@ export default async function WatchlistPage({
     rows = await listStocks({ symbols: symbolList, limit: 500, excludeEtfs: false });
   }
 
-  const [ratings, upcomingDividends] = await Promise.all([
+  const [ratings, upcomingDividends, extras] = await Promise.all([
     getStockRatings(rows.map((r) => r.symbol)),
     nextDividendBySymbols(rows.map((r) => r.symbol)),
+    getStockExtras(rows.map((r) => r.symbol)),
   ]);
 
   return (
@@ -97,6 +99,7 @@ export default async function WatchlistPage({
               rows={rows}
               ratings={ratings}
               upcomingDividends={upcomingDividends}
+              extras={extras}
               isPremium={true}
               view={view}
             />

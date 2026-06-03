@@ -60,7 +60,7 @@ export function DeclarationView({
         ))}
       </div>
 
-      <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-declarations.csv" />
+      <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-declarations.csv" hideSecurityType />
 
       {items.length === 0 ? (
         <div className="dv-empty">{declarationEmpty(locale)}</div>

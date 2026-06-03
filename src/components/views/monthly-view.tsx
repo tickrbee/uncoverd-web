@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import { Pager } from "@/components/pager";
+import { unstable_cache } from "next/cache";
 import { getBackendClient } from "@/lib/supabase/admin";
 import { type StockRow } from "@/lib/data";
 import { cachedListStocks as listStocks } from "@/lib/cached-data";
@@ -24,19 +25,27 @@ const MONTHLY_PATH: Record<Locale, string> = {
 
 export type MonthlySearch = { view?: string; page?: string; type?: string };
 
-async function monthlyDividendSymbols(): Promise<string[]> {
-  const sb = getBackendClient();
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 18);
-  const { data, error } = await sb
-    .from("dividends")
-    .select("symbol")
-    .ilike("frequency", "Monthly")
-    .gte("date", cutoff.toISOString().slice(0, 10))
-    .limit(5000);
-  if (error || !data) return [];
-  return Array.from(new Set((data as { symbol: string }[]).map((r) => r.symbol)));
-}
+// Cached: the "which symbols pay monthly" scan is user-independent and was
+// re-running a 5000-row dividends scan on every request (a big chunk of the
+// /monthly slowness). Sorted so the downstream cachedListStocks({ symbols })
+// cache key is stable across requests.
+const monthlyDividendSymbols = unstable_cache(
+  async (): Promise<string[]> => {
+    const sb = getBackendClient();
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 18);
+    const { data, error } = await sb
+      .from("dividends")
+      .select("symbol")
+      .ilike("frequency", "Monthly")
+      .gte("date", cutoff.toISOString().slice(0, 10))
+      .limit(5000);
+    if (error || !data) return [];
+    return Array.from(new Set((data as { symbol: string }[]).map((r) => r.symbol))).sort();
+  },
+  ["monthly-dividend-symbols"],
+  { revalidate: 3600 },
+);
 
 // Shared, locale-aware monthly-dividend listing — identical to the English
 // /monthly page, only translated.

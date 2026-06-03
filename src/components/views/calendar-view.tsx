@@ -124,7 +124,7 @@ export async function CalendarView({ locale, sp }: { locale: Locale; sp: Calenda
           ))}
         </div>
 
-        <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-ex-dividend.csv" />
+        <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-ex-dividend.csv" hideSecurityType />
 
         <p style={{ marginTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {calendarSummary(locale, total, page, totalPages)}
