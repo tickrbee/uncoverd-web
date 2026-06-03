@@ -49,7 +49,7 @@ function pickEnv(names: string[]): string | undefined {
 }
 
 const OPENAI_KEY = pickEnv(["OPENAI_API_KEY", "VITE_OPENAI_API_KEY", "OPENAI_KEY", "NEXT_PUBLIC_OPENAI_API_KEY"]);
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.2";
 const SUPABASE_URL = pickEnv([
   "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "VITE_SUPABASE_URL",
   "VITE_PUBLIC_SUPABASE_URL", "SUPABASE_PROJECT_URL",
@@ -119,25 +119,37 @@ function moverLine(m: Mover, sign: string): string {
   return `- ${m.symbol} (${m.name}${sector}): ${sign}${m.changePct.toFixed(2)}% to $${m.price.toFixed(2)} — ${pays}`;
 }
 
+const SYSTEM_PROMPT =
+  "You are the editorial engine for uncoverd, a dividend-research site. You write accurate, lively financial-news posts in clear 8th-10th grade English, active voice, short paragraphs. You NEVER fabricate numbers — use only the data provided. You follow on-page SEO best practice and always tie the day's moves back to a dividend investor's perspective. No author byline. Output STRICT JSON only.";
+
 async function openaiDraftJson(prompt: string): Promise<Record<string, unknown>> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are the editorial engine for uncoverd, a dividend-research site. You write accurate, lively financial-news posts in clear 8th-10th grade English, active voice, short paragraphs. You NEVER fabricate numbers — use only the data provided. You follow on-page SEO best practice and always tie the day's moves back to a dividend investor's perspective. No author byline. Output STRICT JSON only.",
-        },
-        { role: "user", content: prompt },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  const base: Record<string, unknown> = {
+    model: OPENAI_MODEL,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+  };
+  const post = (body: Record<string, unknown>) =>
+    fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify(body),
+    });
+
+  // Try with a custom temperature; some gpt-5.x / o-series models only allow
+  // the default and 400 on a custom value — retry without it in that case.
+  let res = await post({ ...base, temperature: 0.7 });
+  if (!res.ok) {
+    const errText = await res.text();
+    if (res.status === 400 && /temperature/i.test(errText)) {
+      res = await post(base);
+      if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 400)}`);
+    } else {
+      throw new Error(`OpenAI ${res.status}: ${errText.slice(0, 400)}`);
+    }
+  }
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return JSON.parse(json.choices?.[0]?.message?.content ?? "{}") as Record<string, unknown>;
 }
