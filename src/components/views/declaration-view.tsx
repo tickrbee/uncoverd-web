@@ -27,7 +27,6 @@ type RangeKey = "week" | "month" | "quarter";
 export function DeclarationView({
   items,
   csvEvents,
-  isPremium,
   page,
   totalPages,
   total,
@@ -35,7 +34,6 @@ export function DeclarationView({
 }: {
   items: DeclarationItem[];
   csvEvents: PayoutChangeEvent[];
-  isPremium: boolean;
   page: number;
   totalPages: number;
   total: number;
@@ -62,7 +60,7 @@ export function DeclarationView({
         ))}
       </div>
 
-      <PayoutChangesToolbar events={csvEvents} isPremium={isPremium} csvFilename="uncoverd-declarations.csv" />
+      <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-declarations.csv" />
 
       {items.length === 0 ? (
         <div className="dv-empty">{declarationEmpty(locale)}</div>

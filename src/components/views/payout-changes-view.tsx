@@ -4,7 +4,6 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { HtmlLang } from "@/components/html-lang";
 import { PageHeader } from "@/components/page-header";
-import { PremiumGate } from "@/components/premium-gate";
 import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
 import {
   formatDate,
@@ -14,16 +13,10 @@ import {
 } from "@/lib/data";
 import { cachedPayoutChanges as payoutChanges } from "@/lib/cached-data";
 import { tickerHref } from "@/lib/format";
-import { getPremiumStatus } from "@/lib/premium";
 import { PAYOUTS } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { th } from "@/lib/table-i18n";
 import { payoutHeader, payoutChrome } from "@/lib/ui-i18n";
-
-// Which kinds are gated behind Premium (mirrors the English page).
-const PAYOUT_PREMIUM: Record<PayoutChangeKind, boolean> = {
-  increasing: true, decreasing: true, initiating: true, suspending: false, special: true,
-};
 
 export async function PayoutChangesView({
   locale,
@@ -38,10 +31,8 @@ export async function PayoutChangesView({
   const label = locale === "en" ? taxo.label.en : taxo.label[locale];
   const header = payoutHeader(locale, kind, label);
   const chrome = payoutChrome(locale);
-  const isPremiumKind = PAYOUT_PREMIUM[kind];
 
   const events = await payoutChanges(kind, 200);
-  const premium = await getPremiumStatus();
 
   const showPctChange = kind === "increasing" || kind === "decreasing";
   const showPrevious = showPctChange || kind === "suspending";
@@ -50,7 +41,6 @@ export async function PayoutChangesView({
     <>
       <PayoutChangesToolbar
         events={events}
-        isPremium={premium.isPremium}
         csvFilename={`uncoverd-${slug}.csv`}
       />
       <div className="dv-table-wrap">
@@ -122,13 +112,7 @@ export async function PayoutChangesView({
       <SiteHeader />
       <main className="dv-page">
         <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} />
-        {isPremiumKind ? (
-          <PremiumGate title={`${label}${chrome.premiumTitleSuffix}`} description={chrome.premiumDesc}>
-            {content}
-          </PremiumGate>
-        ) : (
-          content
-        )}
+        {content}
       </main>
       <SiteFooter />
     </>

@@ -3,7 +3,9 @@ import { PicksView, PICKS } from "@/components/views/picks-view";
 import { metaDescription } from "@/lib/seo";
 import { pickBySlug, pickHreflang } from "@/lib/i18n-taxonomy";
 
-export const dynamic = "force-dynamic";
+// PicksView no longer reads the auth cookie, so ISR is fine instead of
+// force-dynamic (ratings reveal client-side; CSV gate is client-side).
+export const revalidate = 1800;
 
 export async function generateMetadata({
   params,

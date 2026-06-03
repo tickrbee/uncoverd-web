@@ -7,8 +7,6 @@ import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividen
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
 import {
   rankByDimension,
-  redactRowsForFree,
-  gatedMap,
   type StockRow,
   type ScreenerOptions,
   type RatingDimension,
@@ -16,12 +14,8 @@ import {
 import {
   cachedListStocks as listStocks,
   cachedListEtfsByCategory as listEtfsByCategory,
-  cachedGetStockRatings as getStockRatings,
-  cachedNextDividendBySymbols as nextDividendBySymbols,
-  cachedGetStockExtras as getStockExtras,
 } from "@/lib/cached-data";
 import { getBackendClient } from "@/lib/supabase/admin";
-import { getPremiumStatus } from "@/lib/premium";
 import { PICKS as PICKS_TAXO, pickUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { tHeader } from "@/lib/page-header-i18n";
@@ -164,18 +158,10 @@ export async function PicksView({
     console.error(e);
   }
 
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  let [ratings, upcomingDividends, extras] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    getStockExtras(symbols),
-  ]);
-  rows = redactRowsForFree(rows, premium.isPremium);
-  ratings = gatedMap(ratings, premium.isPremium);
-  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
-  extras = gatedMap(extras, premium.isPremium);
-
+  // Free/gated render — no server auth read. Identities + free columns (yield,
+  // price) show for everyone; ratings/returns reveal client-side for paying
+  // users via <DividendTable revealPremium>, and the CSV export stays gated in
+  // the toolbar (client-side premium detection).
   return (
     <>
       {locale !== "en" && <HtmlLang lang={HTML_LANG[locale]} />}
@@ -186,20 +172,12 @@ export async function PicksView({
         <ListingToolbar
           active={type}
           rows={rows}
-          isPremium={premium.isPremium}
           csvFilename={`uncoverd-${slug}-${type}.csv`}
         />
-        <DividendTable
-          rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {note.base}
-          {!premium.isPremium && pick.premium && note.premiumSuffix}
+          {pick.premium && note.premiumSuffix}
         </p>
       </main>
       <SiteFooter />

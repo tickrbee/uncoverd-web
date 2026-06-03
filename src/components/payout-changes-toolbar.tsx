@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { PayoutChangeEvent } from "@/lib/types";
+import { usePremiumStatus } from "@/components/use-premium-status";
 
 const SECURITY_TYPES = [
   { key: "stocks", label: "Stocks" },
@@ -24,6 +25,11 @@ export function PayoutChangesToolbar({
   const [filterOpen, setFilterOpen] = useState(false);
   const pathname = usePathname();
   const params = useSearchParams();
+  // Detect premium client-side so pages that render this toolbar don't have to
+  // read the auth cookie on the server (which would block CDN caching). OR'd
+  // with any server-passed prop so existing premium pages still work.
+  const { isPremium: clientPremium } = usePremiumStatus();
+  const canDownload = isPremium || clientPremium;
 
   // Preserve current path + params, only swap ?type=
   function hrefForType(key: string): string {
@@ -37,7 +43,7 @@ export function PayoutChangesToolbar({
   const activeType = params?.get("type") ?? "stocks";
 
   function downloadCsv() {
-    if (!isPremium) {
+    if (!canDownload) {
       window.location.href = "/pricing";
       return;
     }
@@ -103,8 +109,8 @@ export function PayoutChangesToolbar({
       </button>
       <button
         type="button"
-        className={`dv-icon-circle dv-icon-circle--filled ${isPremium ? "" : "dv-icon-circle--locked"}`}
-        aria-label={isPremium ? "Download CSV" : "Download (Premium)"}
+        className={`dv-icon-circle dv-icon-circle--filled ${canDownload ? "" : "dv-icon-circle--locked"}`}
+        aria-label={canDownload ? "Download CSV" : "Download (Premium)"}
         onClick={downloadCsv}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

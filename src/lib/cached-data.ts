@@ -7,6 +7,7 @@ import {
   payoutChanges,
   listEtfsByCategory,
   industriesInSector,
+  staggeredQuarterlyPortfolio,
   getStockRatings,
   nextDividendBySymbols,
   getStockExtras,
@@ -31,6 +32,7 @@ export const cachedDividendCalendar = unstable_cache(dividendCalendar, ["v1:divi
 export const cachedPayoutChanges = unstable_cache(payoutChanges, ["v1:payoutChanges"], OPTS);
 export const cachedListEtfsByCategory = unstable_cache(listEtfsByCategory, ["v1:listEtfsByCategory"], OPTS);
 export const cachedIndustriesInSector = unstable_cache(industriesInSector, ["v1:industriesInSector"], OPTS);
+export const cachedStaggeredQuarterlyPortfolio = unstable_cache(staggeredQuarterlyPortfolio, ["v1:staggeredQuarterlyPortfolio"], OPTS);
 
 // Per-row enrichers return Maps (not JSON-serializable). Cache the ENTRIES
 // array (which IS serializable) keyed by the sorted symbol list, then rebuild

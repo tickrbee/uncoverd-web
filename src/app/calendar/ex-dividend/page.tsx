@@ -8,7 +8,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/calendar/ex-dividend" },
 };
 
-export const dynamic = "force-dynamic";
+// CalendarView no longer reads the auth cookie (the CSV gate is detected
+// client-side in the toolbar), so the page can use ISR instead of force-dynamic.
+export const revalidate = 3600;
 
 export default async function ExDividendCalendarPage({
   searchParams,

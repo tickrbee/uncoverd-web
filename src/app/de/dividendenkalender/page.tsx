@@ -3,7 +3,8 @@ import { CalendarView, type CalendarSearch } from "@/components/views/calendar-v
 import { OG_LOCALE, localizedUrl } from "@/lib/i18n";
 import { metaDescription } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+// CalendarView no longer reads the auth cookie, so ISR is fine here.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: { absolute: "Dividendenkalender 2026: Ex-Dividenden-Termine | uncoverd" },

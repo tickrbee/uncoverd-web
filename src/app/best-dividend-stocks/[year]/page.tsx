@@ -5,17 +5,8 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
-import {
-  listStocks,
-  rankByDimension,
-  getStockRatings,
-  getStockExtras,
-  nextDividendBySymbols,
-  redactRowsForFree,
-  gatedMap,
-  type StockRow,
-} from "@/lib/data";
-import { getPremiumStatus } from "@/lib/premium";
+import { rankByDimension, type StockRow } from "@/lib/data";
+import { cachedListStocks as listStocks } from "@/lib/cached-data";
 import { breadcrumbList, faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
@@ -75,18 +66,6 @@ export default async function BestDividendStocksYearPage({
     console.error(e);
   }
 
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  let [ratings, upcomingDividends, extras] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    getStockExtras(symbols),
-  ]);
-  rows = redactRowsForFree(rows, premium.isPremium);
-  ratings = gatedMap(ratings, premium.isPremium);
-  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
-  extras = gatedMap(extras, premium.isPremium);
-
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: "/" },
     { name: "Best Dividend Stocks", url: "/best-dividend-stocks" },
@@ -131,14 +110,7 @@ export default async function BestDividendStocksYearPage({
 
         <ColumnTabs active={view} baseHref={`/best-dividend-stocks/${y}`} />
 
-        <DividendTable
-          rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
 
         <section className="dv-section" style={{ marginTop: "2rem" }}>
           <h2 className="dv-section__title">FAQ</h2>

@@ -17,7 +17,6 @@ import {
 import { cachedDividendCalendar as dividendCalendar } from "@/lib/cached-data";
 import { tickerHref } from "@/lib/format";
 import { getBackendClient } from "@/lib/supabase/admin";
-import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { th } from "@/lib/table-i18n";
 import { calendarHeader, CALENDAR_RANGE_LABELS, calendarSummary, calendarEmpty } from "@/lib/ui-i18n";
@@ -90,7 +89,6 @@ export async function CalendarView({ locale, sp }: { locale: Locale; sp: Calenda
     priors: Map<string, number>;
     freqs: Map<string, string>;
   };
-  const premium = await getPremiumStatus();
   const recoveryMap = await recoveryDaysBySymbols(items.map((d) => d.symbol));
 
   const csvEvents: PayoutChangeEvent[] = items.map((d) => ({
@@ -126,7 +124,7 @@ export async function CalendarView({ locale, sp }: { locale: Locale; sp: Calenda
           ))}
         </div>
 
-        <PayoutChangesToolbar events={csvEvents} isPremium={premium.isPremium} csvFilename="uncoverd-ex-dividend.csv" />
+        <PayoutChangesToolbar events={csvEvents} csvFilename="uncoverd-ex-dividend.csv" />
 
         <p style={{ marginTop: "0.5rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {calendarSummary(locale, total, page, totalPages)}

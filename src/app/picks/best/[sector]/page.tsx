@@ -3,21 +3,18 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
-import { PremiumGate } from "@/components/premium-gate";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { ListingToolbar } from "@/components/listing-toolbar";
 import { breadcrumbList, faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 import {
-  listStocks,
   rankByDimension,
-  getStockRatings,
   SECTOR_SLUG_MAP,
   SECTOR_LABEL_MAP,
   type StockRow,
 } from "@/lib/data";
-import { getPremiumStatus } from "@/lib/premium";
+import { cachedListStocks as listStocks } from "@/lib/cached-data";
 
 export const revalidate = 3600;
 
@@ -78,9 +75,6 @@ export default async function BestSectorPage({
     console.error(e);
   }
 
-  const premium = await getPremiumStatus();
-  const ratings = await getStockRatings(rows.map((r) => r.symbol));
-
   const year = new Date().getFullYear();
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: "/" },
@@ -122,20 +116,14 @@ export default async function BestSectorPage({
           title={`Best ${label} Dividend Stocks for ${year}`}
           description={`Top dividend picks within ${label.toLowerCase()}, ranked by uncoverd's composite rating (Value, Growth, Profitability, Momentum, Health) then market cap. Filters: $500M+ market cap, dividend payer.`}
         />
-        <PremiumGate
-          title={`Best ${label} — Premium`}
-          description="Best-of-sector lists are part of the Premium dividend research suite."
-        >
-          <ColumnTabs active={view} baseHref={`/picks/best/${sector}`} />
-          <ListingToolbar
-            active="stocks"
-            rows={rows}
-            isPremium={premium.isPremium}
-            csvFilename={`uncoverd-best-${sector}.csv`}
-            hideSecurityType
-          />
-          <DividendTable rows={rows} ratings={ratings} isPremium={premium.isPremium} view={view} />
-        </PremiumGate>
+        <ColumnTabs active={view} baseHref={`/picks/best/${sector}`} />
+        <ListingToolbar
+          active="stocks"
+          rows={rows}
+          csvFilename={`uncoverd-best-${sector}.csv`}
+          hideSecurityType
+        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
 
         <section className="dv-section" style={{ marginTop: "2rem" }}>
           <h2 className="dv-section__title">FAQ — best {label.toLowerCase()} dividend stocks</h2>

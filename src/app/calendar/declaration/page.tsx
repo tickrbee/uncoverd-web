@@ -10,7 +10,6 @@ import {
   type PayoutChangeEvent,
 } from "@/lib/data";
 import { getBackendClient } from "@/lib/supabase/admin";
-import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Declaration Date Calendar",
@@ -19,7 +18,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/calendar/declaration" },
 };
 
-export const dynamic = "force-dynamic";
+// No auth/cookie reads (the CSV gate is detected client-side in the toolbar),
+// so the page can use ISR instead of force-dynamic.
+export const revalidate = 3600;
 
 const RANGES = { week: 7, month: 30, quarter: 90 } as const;
 type RangeKey = keyof typeof RANGES;
@@ -59,7 +60,6 @@ export default async function DeclarationCalendarPage({
   const startIdx = (page - 1) * PAGE_SIZE;
   const items = allItems.slice(startIdx, startIdx + PAGE_SIZE);
   const names = await enrichWithNames(items);
-  const premium = await getPremiumStatus();
 
   const rows: DeclarationItem[] = items.map((d) => ({
     symbol: d.symbol,
@@ -89,7 +89,6 @@ export default async function DeclarationCalendarPage({
       <DeclarationView
         items={rows}
         csvEvents={csvEvents}
-        isPremium={premium.isPremium}
         page={page}
         totalPages={totalPages}
         total={total}
