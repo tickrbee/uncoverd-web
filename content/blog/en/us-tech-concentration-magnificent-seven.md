@@ -1,39 +1,51 @@
 ---
-title: "The $2.5 Trillion Bet: How Concentrated US Tech Has Become"
-description: "NVIDIA now sits in roughly 1,600 ETFs with ~$2.5T of combined fund exposure. We use our own ETF holdings data to show how concentrated US tech has become — and what it means if you own index funds."
+title: "How 7 Stocks Took Over the S&P 500 — and Your Savings"
+description: "NVIDIA alone is worth roughly twice the entire CAC 40, and seven tech giants now drive over a third of the S&P 500. Here's what that concentration means for your index funds — and a market correction."
 date: "2026-06-03"
 updated: "2026-06-03"
 keywords:
   - stock market concentration
   - magnificent seven stocks
-  - sp500 concentration
-  - nvidia etf exposure
-  - passive investing concentration risk
+  - sp500 concentration risk
+  - nvidia market cap
+  - passive investing concentration
   - most owned stocks by etfs
 translationKey: "us-tech-concentration"
-definition: "Market concentration is the degree to which a handful of stocks dominate an index or fund. In 2026 a small group of US technology giants — the 'Magnificent Seven' — make up an outsized share of the S&P 500 and sit inside nearly every diversified ETF."
+definition: "Market concentration is the degree to which a few stocks dominate an index. In 2026 seven US tech giants — the 'Magnificent Seven' — make up more than a third of the S&P 500 and sit inside almost every diversified ETF, so an index fund is far less diversified than it looks."
 keyTakeaways:
-  - "NVIDIA alone is held by roughly 1,600 of the ETFs we track, with combined fund exposure of about $2.5 trillion — more than Apple, Amazon or Microsoft."
-  - "The 'Magnificent Seven' now account for roughly a third of the entire S&P 500 by weight, so an S&P 500 index fund is far less diversified than it looks."
-  - "These mega-caps pay little or no dividend, so income investors get concentration risk without the income — a reason to check what your 'diversified' funds actually hold."
+  - "NVIDIA's $5.4 trillion market value is worth roughly twice the entire CAC 40 — all 40 of France's largest companies put together — and more than the annual GDP of Germany."
+  - "The Magnificent Seven now make up more than a third of the S&P 500. NVIDIA alone sits in ~1,600 ETFs with about $2.5 trillion of combined fund exposure."
+  - "Because most household savings sit in S&P 500 index funds, a sharp tech sell-off would transmit straight to retirement accounts — a 35% drop in seven stocks is roughly a 12% hit to the whole index before contagion."
 faqs:
   - q: "What are the Magnificent Seven stocks?"
-    a: "The Magnificent Seven are Apple (AAPL), Microsoft (MSFT), NVIDIA (NVDA), Amazon (AMZN), Alphabet (GOOGL/GOOG), Meta (META) and Tesla (TSLA). Together they make up roughly a third of the S&P 500's market value, which is why they dominate most US index funds."
-  - q: "Why is NVIDIA in so many ETFs?"
-    a: "NVIDIA is held by around 1,600 ETFs we track because it's a top weight in nearly every category an index can slice: total market, S&P 500, growth, technology, semiconductors and AI-themed funds all include it. Owning several broad ETFs often means owning the same NVIDIA shares many times over."
-  - q: "Is concentration in the S&P 500 a risk for passive investors?"
-    a: "It can be. When a third of an index sits in seven correlated stocks, a sharp tech sell-off drags the whole index down far more than the 'diversified' label suggests. It doesn't mean you should sell index funds — just that you should know your true exposure and consider whether you want to balance it."
+    a: "Apple (AAPL), Microsoft (MSFT), NVIDIA (NVDA), Amazon (AMZN), Alphabet (GOOGL/GOOG), Meta (META) and Tesla (TSLA). Together they're worth roughly $24 trillion and make up more than a third of the S&P 500's value, which is why they dominate almost every US index fund."
+  - q: "How big is NVIDIA compared to other markets?"
+    a: "At about $5.4 trillion, NVIDIA alone is worth roughly twice the entire CAC 40 (France's 40 largest listed companies combined) and more than the annual economic output of Germany or Japan. It's a single company larger than most national stock markets."
+  - q: "Is concentration in the S&P 500 a risk for ordinary investors?"
+    a: "Yes. When seven correlated stocks drive over a third of the index, a tech-led sell-off pulls the whole index down far more than its 'diversified' label implies. Because most 401(k) and pension money sits in S&P 500 funds, that risk lands directly on household balance sheets."
+  - q: "How would upcoming AI IPOs affect concentration?"
+    a: "When giants like OpenAI, SpaceX or Anthropic eventually list, index funds will be forced to buy them, funnelling even more passive money into a narrow set of AI names — deepening concentration rather than diluting it. Their listings could also pull liquidity away from existing stocks."
   - q: "Do the Magnificent Seven pay dividends?"
-    a: "Mostly very little. Apple and Microsoft pay small, growing dividends (well under a 1% yield); NVIDIA's is token; and Amazon, Alphabet, Meta and Tesla pay little to nothing. So income investors who hold them through index funds carry the concentration risk without meaningful dividend income."
+    a: "Barely. Apple and Microsoft pay small, growing dividends (yields well under 1%), NVIDIA's is a token amount, and Amazon, Alphabet, Meta and Tesla pay little to nothing. So index investors carry the concentration risk without meaningful dividend income to cushion it."
 ---
 
-A "total market" index fund is supposed to be the safe, boring, maximally-diversified choice. In 2026 it is anything but. A small group of US technology companies — the so-called **Magnificent Seven** — has grown so large that owning a broad index fund is, to a surprising degree, a leveraged bet on a handful of stocks.
+A "total market" index fund is supposed to be the safe, boring, maximally-diversified choice. In 2026 it is nothing of the sort. Thanks to extreme **stock market concentration**, owning a broad S&P 500 fund is, to a startling degree, a leveraged bet on seven companies — and because that's where most household savings now sit, the risk is far more personal than it looks.
 
-We can show you exactly how far this has gone, because we track the holdings of thousands of ETFs. The numbers are striking.
+We can prove how far it's gone, because we track the holdings of thousands of ETFs. The numbers are hard to believe.
 
-## NVIDIA is in almost everything
+## One company worth two of France
 
-Using our [most-held-by-ETF data](/etfs/top-held), here's the combined position value of the biggest US stocks across every ETF we track. Note that this counts each fund's stake separately — which is precisely the point: the same shares show up again and again across the funds in a typical portfolio.
+Start with the most extreme example. **NVIDIA is worth about $5.4 trillion.** To put that in terms you can actually feel:
+
+- It's worth **roughly twice the entire CAC 40** — *all 40* of France's largest listed companies, from LVMH to TotalEnergies, added together.
+- It's worth **more than the annual GDP of Germany** (~$4.5T) or Japan (~$4T) — a single stock larger than the yearly output of the world's third- or fourth-biggest economy.
+- Stack the seven together — Apple ($4.6T), NVIDIA ($5.4T), Alphabet ($4.6T), Microsoft ($3.4T), Amazon ($2.8T), Tesla ($1.6T), Meta ($1.5T) — and the **Magnificent Seven are worth about $24 trillion**, approaching the entire annual output of the United States economy.
+
+These aren't abstractions. They're the engine of nearly every fund you own.
+
+## NVIDIA is in almost everything you own
+
+Using our [most-owned-by-ETF data](/etfs/top-held), here's the combined position value of the largest US stocks across every ETF we track. Each fund's stake is counted separately — which is exactly the point: the same handful of names shows up over and over across the funds in a normal portfolio.
 
 | Stock | Held by (ETFs) | Combined ETF exposure |
 | --- | --- | --- |
@@ -45,41 +57,46 @@ Using our [most-held-by-ETF data](/etfs/top-held), here's the combined position 
 | Alphabet (GOOGL) | ~1,390 | ~$1.11 trillion |
 | Meta (META) | ~1,280 | ~$0.82 trillion |
 
-NVIDIA sits inside roughly **1,600 different ETFs**. It is a top weight in total-market funds, S&P 500 funds, growth funds, technology funds, semiconductor funds and the entire crop of AI-themed funds. If you own three or four "diversified" ETFs, there's a good chance you own NVIDIA in every one of them.
+NVIDIA sits inside roughly **1,600 different ETFs**: total-market funds, S&P 500 funds, growth funds, technology funds, semiconductor funds and the whole crop of AI-themed funds. Own three or four "diversified" ETFs and you very likely own NVIDIA in every single one.
 
-You can see the full, live ranking on our [most-owned-by-ETF tool](/etfs/top-held), and check which specific funds hold any stock with the [ETF holders lookup](/etfs/holders/NVDA).
+Want to see your own overlap? The [most-owned-by-ETF tool](/etfs/top-held) ranks the stocks the fund world is most exposed to, and the [which-ETF-owns-a-stock lookup](/etfs/which-owns) (try [the ETFs that hold NVIDIA](/etfs/holders/NVDA)) shows just how many of your funds are secretly the same bet.
 
 ## A third of the index in seven stocks
 
-Zoom out to the index level and the concentration is just as stark. By 2026 the Magnificent Seven account for **roughly a third of the entire S&P 500** by weight. That's a level of top-heavy concentration the US market has rarely seen — higher than the peaks of the late-1990s dot-com era on most measures.
+At the index level the math is just as stark. By 2026 the Magnificent Seven account for **more than a third of the entire [S&P 500](https://www.spglobal.com/spdji/en/indices/equity/sp-500/)** by weight — a more top-heavy market than even the peak of the late-1990s dot-com bubble. In practice:
 
-What that means in practice:
+- An **S&P 500 index fund** is no longer "500 stocks, evenly spread." Seven names drive a third of the outcome.
+- Buying an **S&P 500 fund *and* a Nasdaq-100 fund** for diversification mostly doubles down on the identical mega-caps.
+- Even many **"dividend" and "low-volatility" funds** have crept up in tech weight to keep pace with the benchmark.
 
-- An **S&P 500 index fund** is no longer "500 stocks, evenly spread." Seven names drive a third of its return.
-- A **total US market fund** isn't much better — those same seven dominate it too.
-- Buying an **S&P 500 fund and a Nasdaq-100 fund** for "diversification" mostly doubles down on the identical mega-caps.
+## The next wave will make it worse, not better
 
-To put the size in human terms: NVIDIA's market value alone is larger than the **entire annual economic output of most countries**, and bigger than every company in France's CAC 40 combined except a small handful. One company. Seven of them carry a third of America's benchmark index.
+You might assume a flood of new listings would dilute this. The opposite is likely. The giants waiting in the wings — [OpenAI, SpaceX and Anthropic](/blog/invest-in-openai-spacex-anthropic-pre-ipo) — are AI companies that would slot straight into the same growth and tech indices. When they list:
 
-## Why this matters for dividend investors
+- **Index funds will be *forced* to buy them.** Passive money doesn't choose; it tracks. New mega-cap AI names mean more automatic buying funnelled into an even narrower theme.
+- **They could drain liquidity** from existing stocks. A wave of trillion-dollar IPOs soaks up an enormous amount of investable cash; that money often comes out of other holdings.
+- **The concentration compounds.** Instead of seven dominant names you may soon have ten — all riding the same AI thesis, the same interest-rate sensitivity, the same sentiment.
 
-Here's the part that's easy to miss. The Magnificent Seven are **not income stocks**:
+There's a macro thread here too. These valuations have been inflated by a long era of abundant liquidity and cheap money. Richly-valued, long-duration growth stocks are the **most sensitive to interest rates and inflation**: if the cost of money rises or stays high, the names that led the market up are usually the ones that fall hardest. Concentration means that sensitivity is now baked into the whole index.
 
-- Apple and Microsoft pay small, growing dividends — yields well under 1%.
-- NVIDIA's dividend is a rounding error.
-- Amazon, Alphabet, Meta and Tesla pay little to nothing.
+## What a correction would actually do
 
-So if you hold the broad market for income, you're carrying enormous **concentration risk without the income to show for it**. A third of your "diversified" fund is parked in companies that hand back almost nothing in cash, and whose prices move together.
+Here's the part that makes it personal. Because the Magnificent Seven are ~35% of the S&P 500, a sell-off in just those seven drags everything down:
 
-That's not an argument to avoid these companies — they've been extraordinary businesses. It's an argument to **know what you actually own**, and to decide deliberately how much of your portfolio should sit in seven correlated, low-yield names.
+- A **35% drop** in the seven (a routine bear-market move for high-beta tech) is roughly a **12% hit to the entire index** — before any knock-on selling elsewhere.
+- A **50% drawdown** in those names — what several of them actually did in 2022 — is about a **17–18% index decline** from the seven alone, and historically the rest of the market doesn't stay calm while that happens.
+
+Now layer on *who owns it*. The overwhelming majority of American retirement savings — 401(k)s, IRAs, pensions — sits in S&P 500 and total-market index funds. That was sound advice built on the premise of broad diversification. But when a third of "the market" is seven correlated stocks, a tech-led correction transmits **directly into household net worth** on a scale that surprises people who thought they were diversified. The [U.S. Federal Reserve's Financial Stability Report](https://www.federalreserve.gov/publications/financial-stability-report.htm) has repeatedly flagged elevated valuations and concentration as a vulnerability for exactly this reason.
 
 ## How to check — and balance — your real exposure
 
-A few practical steps using tools on uncoverd:
+Concentration isn't automatically dangerous. *Unknowing* concentration is. A few practical steps using tools on uncoverd:
 
-- **See the concentration for yourself.** The [most-held-by-ETF ranking](/etfs/top-held) shows which stocks dominate the fund world, and [which ETFs own a given stock](/etfs/which-owns) reveals the overlap hiding in your portfolio.
-- **Check your own holdings.** Our [Portfolio Healthcheck](/tools/portfolio-healthcheck) computes how correlated your positions are and where you're concentrated — useful for spotting that three of your funds are really the same seven stocks.
-- **Add genuine income diversification.** If you want cash flow to offset all that low-yield growth, the [dividend screener](/screener) and [high-yield list](/high-yield) surface payers across sectors that the mega-cap indices barely touch — utilities, REITs, consumer staples, energy.
-- **Understand the ratings.** Before adding anything, see [how our ratings are calculated](/methodology) so you're buying durable income rather than a yield trap.
+- **See it for yourself.** The [most-owned-by-ETF ranking](/etfs/top-held) and the [which-ETF-owns-a-stock tool](/etfs/which-owns) reveal the overlap hiding across your funds.
+- **Check your own portfolio.** The [Portfolio Healthcheck](/tools/portfolio-healthcheck) measures how correlated your holdings are and where you're concentrated — handy for spotting that three of your funds are really the same seven stocks.
+- **Add genuine income diversification.** The [dividend screener](/screener) and [high-yield list](/high-yield) surface payers in sectors the mega-cap indices barely touch — utilities, REITs, staples, energy — that also pay you to wait.
+- **Know what you're buying.** See [how our ratings work](/methodology) so you're adding durable income, not a yield trap.
 
-Concentration isn't automatically dangerous — but *unknowing* concentration is. The whole point of an index fund was to never have to worry about single-stock risk. In 2026, that assumption deserves a second look. Open the [ETF tools](/etfs/top-held) and see exactly how much of "the market" is really just seven companies.
+The entire promise of an index fund was that you'd never have to worry about single-stock risk. In 2026, that promise deserves a hard second look. Open the [ETF tools](/etfs/top-held) and find out how much of "the market" is really just seven companies.
+
+*This article is for information only and is not investment advice. See our [investment disclaimer](/legal/disclaimer).*
