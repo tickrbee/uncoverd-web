@@ -7,17 +7,10 @@ import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividen
 import { ListingToolbar } from "@/components/listing-toolbar";
 import { Pager } from "@/components/pager";
 import {
-  gatedMap,
   type GrowerSlug,
   type StockRow,
 } from "@/lib/data";
-import {
-  cachedListGrowersWithStocks as listGrowersWithStocks,
-  cachedGetStockRatings as getStockRatings,
-  cachedNextDividendBySymbols as nextDividendBySymbols,
-  cachedGetStockExtras as getStockExtras,
-} from "@/lib/cached-data";
-import { getPremiumStatus } from "@/lib/premium";
+import { cachedListGrowersWithStocks as listGrowersWithStocks } from "@/lib/cached-data";
 import { GROWERS, GROWER_YEARS, growerUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { growerHeader, pageSummary } from "@/lib/ui-i18n";
@@ -59,20 +52,9 @@ export async function GrowerView({
   const offset = (page - 1) * PAGE_SIZE;
   const rows = allRows.slice(offset, offset + PAGE_SIZE);
 
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  const needsExtras = view === "growth" || view === "returns";
-  const [ratings, upcomingDividends, extras] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
-  ]);
-
-  const isPrem = premium.isPremium;
-  const safeRows = rows; // Stock identities are free for everyone; the rating + extras stay gated below.
-  const safeRatings = gatedMap(ratings, isPrem);
-  const safeExtras = gatedMap(extras, isPrem);
-  const safeUpcoming = gatedMap(upcomingDividends, isPrem);
+  // Free/gated render — no server auth read; paying users get ratings/extras
+  // revealed client-side via <DividendTable revealPremium>.
+  const safeRows = rows;
 
   return (
     <>
@@ -84,7 +66,6 @@ export async function GrowerView({
         <ListingToolbar
           active="stocks"
           rows={safeRows}
-          isPremium={premium.isPremium}
           csvFilename={`uncoverd-${slug}.csv`}
           hideSecurityType
         />
@@ -92,14 +73,7 @@ export async function GrowerView({
           <div className="dv-empty">List is being assembled. Check back soon.</div>
         ) : (
           <>
-            <DividendTable
-              rows={safeRows}
-              ratings={safeRatings}
-              upcomingDividends={safeUpcoming}
-              extras={safeExtras}
-              isPremium={premium.isPremium}
-              view={view}
-            />
+            <DividendTable rows={safeRows} isPremium={false} revealPremium view={view} />
             <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
               {pageSummary(locale, page, totalPages, total)}
             </p>

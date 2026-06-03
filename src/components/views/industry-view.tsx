@@ -10,7 +10,6 @@ import { CountryFilter } from "@/components/country-filter";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  gatedMap,
   INDUSTRY_SLUG_MAP,
   type StockRow,
 } from "@/lib/data";
@@ -18,11 +17,7 @@ import {
   cachedListStocks as listStocks,
   cachedCountStocks as countStocks,
   cachedListEtfsByCategory as listEtfsByCategory,
-  cachedGetStockRatings as getStockRatings,
-  cachedNextDividendBySymbols as nextDividendBySymbols,
-  cachedGetStockExtras as getStockExtras,
 } from "@/lib/cached-data";
-import { getPremiumStatus } from "@/lib/premium";
 import { INDUSTRIES, industryUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { industryHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
@@ -99,20 +94,10 @@ export async function IndustryView({
     console.error(e);
   }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  const needsExtras = view === "growth" || view === "returns";
-  let [ratings, upcomingDividends, extras, displayCurrency] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
-    getDisplayCurrency(),
-  ]);
+  // Free/gated render — no server auth read; paying users get ratings/extras
+  // revealed client-side via <DividendTable revealPremium>.
+  const displayCurrency = await getDisplayCurrency();
   rows = await applyDisplayCurrency(rows, displayCurrency);
-  // Stock identities are free for everyone; the rating + extras stay gated below.
-  ratings = gatedMap(ratings, premium.isPremium);
-  extras = gatedMap(extras, premium.isPremium);
-  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
 
   const params2 = new URLSearchParams();
   if (view !== "overview") params2.set("view", view);
@@ -129,18 +114,10 @@ export async function IndustryView({
         <ListingToolbar
           active={type}
           rows={rows}
-          isPremium={premium.isPremium}
           csvFilename={`uncoverd-${slug}-${type}.csv`}
         />
         <CountryFilter active={country} />
-        <DividendTable
-          rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {pageSummary(locale, page, totalPages, total)}
         </p>

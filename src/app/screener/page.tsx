@@ -11,20 +11,15 @@ import { CountryFilter } from "@/components/country-filter";
 import {
   listStocks,
   countStocks,
-  getStockRatings,
-  nextDividendBySymbols,
-  getStockExtras,
   listEtfsByCategory,
   countEtfsByCategory,
   applyDisplayCurrency,
   getDisplayCurrency,
-  gatedMap,
   SECTOR_LABEL_MAP,
   SECTOR_SLUG_MAP,
   type StockRow,
 } from "@/lib/data";
 import type { SecurityType } from "@/components/listing-toolbar";
-import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Dividend Stock Screener",
@@ -114,23 +109,12 @@ export default async function ScreenerPage({
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const sectorChips = Object.entries(SECTOR_SLUG_MAP);
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  const needsExtras = view === "growth" || view === "returns";
-  let [ratings, upcomingDividends, extras, displayCurrency] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
-    needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
-    getDisplayCurrency(),
-  ]);
+  // The screener (basic filters + results) is a free feature — identities/price/
+  // yield are visible to everyone. The rating + premium extras are revealed
+  // client-side via <DividendTable revealPremium> (no server auth read here, so
+  // the page is light); advanced filters / CSV are gated in the toolbar.
+  const displayCurrency = await getDisplayCurrency();
   rows = await applyDisplayCurrency(rows, displayCurrency);
-
-  // The screener (basic filters + results) is a free feature — stock identities
-  // are visible to everyone. Only the rating + premium extras stay gated, and
-  // advanced filters / CSV are gated in the toolbar.
-  ratings = gatedMap(ratings, premium.isPremium);
-  extras = gatedMap(extras, premium.isPremium);
-  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
 
   const baseHref = "/screener";
   const filterQs = (override: Record<string, string | undefined>) => {
@@ -175,7 +159,6 @@ export default async function ScreenerPage({
         <ListingToolbar
           active={type}
           rows={rows}
-          isPremium={premium.isPremium}
           csvFilename={`uncoverd-screener-${type}${sectorParam ? `-${sectorParam}` : ""}.csv`}
         />
 
@@ -214,14 +197,7 @@ export default async function ScreenerPage({
           </Link>
         </div>
 
-        <DividendTable
-          rows={rows}
-          ratings={ratings}
-          upcomingDividends={upcomingDividends}
-          extras={extras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
 
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           Page {page} of {totalPages} · {total.toLocaleString()} stocks{currency ? ` in ${currency}` : " (all currencies)"}

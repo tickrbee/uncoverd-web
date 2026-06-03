@@ -11,7 +11,6 @@ import { CountryFilter } from "@/components/country-filter";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  gatedMap,
   SECTOR_SLUG_MAP,
   SECTOR_LABEL_MAP,
   type StockRow,
@@ -21,11 +20,7 @@ import {
   cachedCountStocks as countStocks,
   cachedListEtfsByCategory as listEtfsByCategory,
   cachedIndustriesInSector as industriesInSector,
-  cachedGetStockRatings as getStockRatings,
-  cachedNextDividendBySymbols as nextDividendBySymbols,
-  cachedGetStockExtras as getStockExtras,
 } from "@/lib/cached-data";
-import { getPremiumStatus } from "@/lib/premium";
 import { SECTORS, sectorUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { chromeStrings, sectorHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
@@ -103,21 +98,13 @@ export async function SectorView({
     console.error(e);
   }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const premium = await getPremiumStatus();
-  const symbols = rows.map((r) => r.symbol);
-  const needsExtras = view === "growth" || view === "returns";
-  const [ratings, upcomingDividends, industries, extras, displayCurrency] = await Promise.all([
-    getStockRatings(symbols),
-    nextDividendBySymbols(symbols),
+  // Free/gated render — no server auth read; paying users get ratings/extras
+  // revealed client-side via <DividendTable revealPremium>.
+  const [industries, displayCurrency] = await Promise.all([
     industriesInSector(sector),
-    needsExtras ? getStockExtras(symbols) : Promise.resolve(new Map()),
     getDisplayCurrency(),
   ]);
   rows = await applyDisplayCurrency(rows, displayCurrency);
-  // Stock identities are free for everyone; the rating + extras stay gated below.
-  const safeRatings = gatedMap(ratings, premium.isPremium);
-  const safeExtras = gatedMap(extras, premium.isPremium);
-  const safeUpcoming = gatedMap(upcomingDividends, premium.isPremium);
 
   const params2 = new URLSearchParams();
   if (view !== "overview") params2.set("view", view);
@@ -166,18 +153,10 @@ export async function SectorView({
         <ListingToolbar
           active={type}
           rows={rows}
-          isPremium={premium.isPremium}
           csvFilename={`uncoverd-${slug}-${type}.csv`}
         />
         <CountryFilter active={country} />
-        <DividendTable
-          rows={rows}
-          ratings={safeRatings}
-          upcomingDividends={safeUpcoming}
-          extras={safeExtras}
-          isPremium={premium.isPremium}
-          view={view}
-        />
+        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {pageSummary(locale, page, totalPages, total)}
         </p>
