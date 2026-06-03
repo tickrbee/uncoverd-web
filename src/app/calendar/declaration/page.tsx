@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 const RANGES = { week: 7, month: 30, quarter: 90 } as const;
 type RangeKey = keyof typeof RANGES;
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 
 async function enrichWithNames(events: DividendEvent[]) {
   if (events.length === 0) return new Map<string, string>();

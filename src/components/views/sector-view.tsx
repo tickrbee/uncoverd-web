@@ -30,7 +30,7 @@ import { SECTORS, sectorUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { chromeStrings, sectorHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 
 export type SectorSearch = {

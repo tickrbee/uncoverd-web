@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS_STOCKS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 const VALID_VIEWS_ETFS: ColumnView[] = ["etf-overview", "payout", "returns"];
 

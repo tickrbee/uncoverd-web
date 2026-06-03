@@ -22,7 +22,7 @@ import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { highYieldHeader, pageSummary, BLUE_CHIP_MIN_MARKET_CAP } from "@/lib/ui-i18n";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings", "buy-reco", "upside"];
 
 // Localized high-yield route paths (fixed pages, not a [slug] taxonomy).

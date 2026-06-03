@@ -22,7 +22,7 @@ import { GROWERS, GROWER_YEARS, growerUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { growerHeader, pageSummary } from "@/lib/ui-i18n";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 
 export type GrowerSearch = { view?: string; page?: string };

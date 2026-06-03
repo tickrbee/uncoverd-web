@@ -20,7 +20,7 @@ import { getPremiumStatus } from "@/lib/premium";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { monthlyHeader, pageSummary } from "@/lib/ui-i18n";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings", "buy-reco", "upside"];
 
 const MONTHLY_PATH: Record<Locale, string> = {

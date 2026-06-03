@@ -22,7 +22,7 @@ import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { th } from "@/lib/table-i18n";
 import { calendarHeader, CALENDAR_RANGE_LABELS, calendarSummary, calendarEmpty } from "@/lib/ui-i18n";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const RANGE_DAYS = { week: 7, month: 30, year: 365 } as const;
 type RangeKey = keyof typeof RANGE_DAYS;
 
