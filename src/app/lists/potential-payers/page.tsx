@@ -9,14 +9,8 @@ import { RedditShareButton } from "@/components/reddit-share";
 import {
   getPotentialDividendPayers,
   listStocks,
-  getStockRatings,
-  getStockExtras,
-  nextDividendBySymbols,
-  redactRowsForFree,
-  gatedMap,
   type StockRow,
 } from "@/lib/data";
-import { getPremiumStatus } from "@/lib/premium";
 
 export const metadata: Metadata = {
   title: "Stocks that could start paying dividends",
@@ -24,7 +18,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/lists/potential-payers" },
 };
 
-export const dynamic = "force-dynamic";
+// No auth/cookie reads here anymore (premium is revealed client-side), so the
+// page is CDN-cacheable via ISR instead of force-dynamic.
 export const revalidate = 3600;
 
 const PAGE_SIZE = 30;
@@ -63,16 +58,9 @@ export default async function PotentialPayersPage({
     .filter((r) => rank.has(r.symbol))
     .sort((a, b) => (rank.get(a.symbol) ?? 999999) - (rank.get(b.symbol) ?? 999999));
 
-  const premium = await getPremiumStatus();
-  const enrichSymbols = rows.map((r) => r.symbol);
-  let [ratings, upcomingDividends, extras] = await Promise.all([
-    getStockRatings(enrichSymbols),
-    nextDividendBySymbols(enrichSymbols),
-    getStockExtras(enrichSymbols),
-  ]);
-
   // RowMeta carries the rank + financials snapshot used by the future-payers
-  // ColumnView (rank, net income, free cash flow, FCF margin).
+  // ColumnView (rank, net income, free cash flow, FCF margin). These are free.
+  // Ratings/returns columns reveal client-side via <DividendTable revealPremium>.
   const meta = new Map<string, RowMeta>();
   for (const c of pageSlice) {
     meta.set(c.symbol, {
@@ -82,11 +70,6 @@ export default async function PotentialPayersPage({
       fcf_margin: c.fcf_margin ?? undefined,
     });
   }
-
-  rows = redactRowsForFree(rows, premium.isPremium);
-  ratings = gatedMap(ratings, premium.isPremium);
-  upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);
-  extras = gatedMap(extras, premium.isPremium);
 
   return (
     <>
@@ -116,15 +99,7 @@ export default async function PotentialPayersPage({
 
         {rows.length > 0 && (
           <>
-            <DividendTable
-              rows={rows}
-              ratings={ratings}
-              upcomingDividends={upcomingDividends}
-              extras={extras}
-              meta={meta}
-              isPremium={premium.isPremium}
-              view={view}
-            />
+            <DividendTable rows={rows} meta={meta} isPremium={false} revealPremium view={view} />
             <Pager
               page={page}
               totalPages={totalPages}
