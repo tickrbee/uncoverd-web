@@ -1,92 +1,98 @@
 #!/usr/bin/env tsx
 /**
- * Auto-drafts a "top movers" blog post from the day's biggest gainers/losers,
- * with an uncoverd dividend lens, via OpenAI. Targets the keyword cluster
- * "best performing stocks today / top stock losers today / most volatile
- * stocks / trending tickers".
+ * Auto-drafts a "top movers" blog post from the day's biggest gainers/losers in
+ * OUR tracked universe (backend.tickers.change_percentage), with a dividend
+ * lens, via OpenAI. Targets the keyword cluster "best performing stocks today /
+ * top stock losers today / most active stocks".
  *
- * DRAFT-FOR-REVIEW: it writes to content/drafts/<slug>.md, which the blog loader
- * does NOT scan. Nothing publishes until you review/edit and MOVE the file into
- * content/blog/en/ (then translate + commit) — see the printed instructions.
+ * DRAFT-FOR-REVIEW: writes to content/drafts/<slug>.md, which the blog loader
+ * does NOT scan (and which is gitignored). Nothing publishes until you review/
+ * edit and MOVE the file into content/blog/en/ — see the printed instructions.
  *
- * Run:
- *   FMP_API_KEY=... OPENAI_API_KEY=... \
- *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
- *     pnpm movers:draft
- *
- * The Supabase vars are optional — they only add the dividend lens (which
- * movers pay a dividend, their sector). Override the model with OPENAI_MODEL.
+ * Env is auto-loaded from .env.local then .env (same vars the app uses), so:
+ *   pnpm movers:draft
+ * Required: OPENAI_API_KEY + (SUPABASE_URL | NEXT_PUBLIC_SUPABASE_URL) +
+ *           SUPABASE_SERVICE_ROLE_KEY.
+ * Optional overrides: OPENAI_MODEL, MOVERS_COUNTRY (default US),
+ *           MOVERS_MIN_PRICE (5), MOVERS_MIN_MKTCAP (1e9), MOVERS_COUNT (10).
  */
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const FMP = "https://financialmodelingprep.com/stable";
-const FMP_KEY = process.env.FMP_API_KEY;
+// --- env: load .env.local then .env (don't overwrite already-set vars) -------
+function loadEnvFiles(): void {
+  for (const file of [".env.local", ".env"]) {
+    const p = path.join(process.cwd(), file);
+    if (!fs.existsSync(p)) continue;
+    for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][\w.-]*)\s*=\s*(.*)\s*$/);
+      if (!m) continue;
+      let val = m[2].trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (process.env[m[1]] === undefined) process.env[m[1]] = val;
+    }
+  }
+}
+loadEnvFiles();
+
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!FMP_KEY || !OPENAI_KEY) {
-  console.error("Missing FMP_API_KEY and/or OPENAI_API_KEY (both required).");
+const COUNTRY = process.env.MOVERS_COUNTRY ?? "US";
+const MIN_PRICE = Number(process.env.MOVERS_MIN_PRICE ?? 5);
+const MIN_MKTCAP = Number(process.env.MOVERS_MIN_MKTCAP ?? 1_000_000_000);
+const COUNT = Number(process.env.MOVERS_COUNT ?? 10);
+
+if (!OPENAI_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
+  console.error(
+    "Missing env. Need OPENAI_API_KEY + (SUPABASE_URL|NEXT_PUBLIC_SUPABASE_URL) + SUPABASE_SERVICE_ROLE_KEY.\n" +
+      "Add them to .env.local (the script auto-loads it) or pass them inline.",
+  );
   process.exit(1);
 }
 
-type Mover = { symbol: string; name: string; price: number; changePct: number };
-type DivInfo = { name?: string; sector?: string | null; lastDiv?: number | null };
+type Mover = { symbol: string; name: string; sector: string | null; price: number; changePct: number; lastDiv: number | null };
 
-async function fmpMovers(kind: "biggest-gainers" | "biggest-losers"): Promise<Mover[]> {
-  const res = await fetch(`${FMP}/${kind}?apikey=${FMP_KEY}`);
-  if (!res.ok) {
-    console.error(`FMP ${kind} failed: ${res.status}`);
+async function dbMovers(sb: SupabaseClient, dir: "desc" | "asc"): Promise<Mover[]> {
+  const { data, error } = await sb
+    .from("tickers")
+    .select("symbol,name,sector,price,change_percentage,last_div,mkt_cap")
+    .eq("is_actively_trading", true)
+    .eq("is_etf", false)
+    .eq("is_fund", false)
+    .eq("country", COUNTRY)
+    .gte("price", MIN_PRICE)
+    .gte("mkt_cap", MIN_MKTCAP)
+    .not("change_percentage", "is", null)
+    .order("change_percentage", { ascending: dir === "asc" })
+    .limit(40);
+  if (error) {
+    console.error("[dbMovers]", error.message);
     return [];
   }
-  const raw = (await res.json()) as Array<{
-    symbol: string;
-    name?: string;
-    price?: number;
-    changesPercentage?: number | string;
-  }>;
-  return raw
+  return ((data as Array<{ symbol: string; name: string | null; sector: string | null; price: number | null; change_percentage: number | null; last_div: number | null }>) ?? [])
     .map((r) => ({
       symbol: r.symbol,
       name: r.name ?? r.symbol,
+      sector: r.sector,
       price: Number(r.price ?? 0),
-      changePct: Number(String(r.changesPercentage ?? 0).replace("%", "")),
+      changePct: Number(r.change_percentage ?? 0),
+      lastDiv: r.last_div,
     }))
-    // Drop sub-$1 penny noise so the post is about investable names.
-    .filter((m) => m.symbol && m.price >= 1 && Number.isFinite(m.changePct))
-    .slice(0, 10);
+    // Drop obvious data glitches (a "+900%" is almost always a bad quote).
+    .filter((m) => Number.isFinite(m.changePct) && Math.abs(m.changePct) <= 60)
+    .slice(0, COUNT);
 }
 
-// Optional: which movers pay a dividend (our angle), from backend.tickers.
-async function dividendLens(symbols: string[]): Promise<Map<string, DivInfo>> {
-  const out = new Map<string, DivInfo>();
-  if (!SUPABASE_URL || !SUPABASE_KEY || symbols.length === 0) return out;
-  try {
-    const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      db: { schema: "backend" as "public" },
-    });
-    const { data } = await sb
-      .from("tickers")
-      .select("symbol,name,sector,last_div")
-      .in("symbol", symbols);
-    for (const r of (data as Array<{ symbol: string; name: string | null; sector: string | null; last_div: number | null }>) ?? []) {
-      out.set(r.symbol, { name: r.name ?? undefined, sector: r.sector, lastDiv: r.last_div });
-    }
-  } catch (e) {
-    console.warn("[dividendLens] skipped:", (e as Error).message);
-  }
-  return out;
-}
-
-function moverLine(m: Mover, sign: string, div: Map<string, DivInfo>): string {
-  const d = div.get(m.symbol);
-  const pays = d && d.lastDiv != null && d.lastDiv > 0 ? `pays a dividend (~$${d.lastDiv}/sh)` : "no dividend";
-  const sector = d?.sector ? `, ${d.sector}` : "";
+function moverLine(m: Mover, sign: string): string {
+  const pays = m.lastDiv != null && m.lastDiv > 0 ? `pays a dividend (~$${m.lastDiv}/sh)` : "no dividend";
+  const sector = m.sector ? `, ${m.sector}` : "";
   return `- ${m.symbol} (${m.name}${sector}): ${sign}${m.changePct.toFixed(2)}% to $${m.price.toFixed(2)} — ${pays}`;
 }
 
@@ -102,39 +108,34 @@ async function openaiDraftJson(prompt: string): Promise<Record<string, unknown>>
         {
           role: "system",
           content:
-            "You are the editorial engine for uncoverd, a dividend-research site. You write accurate, lively financial-news posts in clear 8th-10th grade English, active voice, short paragraphs. You NEVER fabricate numbers — use only the data provided. You follow on-page SEO best practice and always tie the day's moves back to a dividend-investor's perspective. No author byline. Output STRICT JSON only.",
+            "You are the editorial engine for uncoverd, a dividend-research site. You write accurate, lively financial-news posts in clear 8th-10th grade English, active voice, short paragraphs. You NEVER fabricate numbers — use only the data provided. You follow on-page SEO best practice and always tie the day's moves back to a dividend investor's perspective. No author byline. Output STRICT JSON only.",
         },
         { role: "user", content: prompt },
       ],
     }),
   });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${body.slice(0, 400)}`);
-  }
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = json.choices?.[0]?.message?.content ?? "{}";
-  return JSON.parse(content) as Record<string, unknown>;
+  return JSON.parse(json.choices?.[0]?.message?.content ?? "{}") as Record<string, unknown>;
 }
 
-function buildPrompt(gainers: Mover[], losers: Mover[], div: Map<string, DivInfo>, dateHuman: string): string {
-  return `Write a daily stock-market "top movers" blog post for ${dateHuman}.
+function buildPrompt(gainers: Mover[], losers: Mover[], dateHuman: string): string {
+  return `Write a daily stock-market "top movers" blog post for ${dateHuman}, covering stocks uncoverd tracks (mostly US, $1B+).
 
 DATA — biggest gainers today:
-${gainers.map((m) => moverLine(m, "+", div)).join("\n")}
+${gainers.map((m) => moverLine(m, "+")).join("\n")}
 
 DATA — biggest losers today:
-${losers.map((m) => moverLine(m, "", div)).join("\n")}
+${losers.map((m) => moverLine(m, "")).join("\n")}
 
-Angle: a dividend investor's lens. Explain what moved and (briefly, plausibly) why in general terms, then for the dividend payers note what a big swing means for yield (a falling price lifts yield but can flag risk; a spike compresses it). Be careful not to invent specific catalysts/earnings you don't know — keep cause language general ("rallied on momentum", "sold off sharply") unless it's obvious.
+Angle: a dividend investor's lens. Say what moved, and for the dividend payers note what a big swing means for yield (a falling price lifts yield but can flag risk; a spike compresses it). Do NOT invent specific catalysts/earnings you don't know — keep cause language general ("rallied", "sold off sharply") unless obvious.
 
-SEO + structure requirements:
-- Target keywords: "best performing stocks today", "biggest stock gainers and losers", "top stock movers", "most active stocks". Put the primary phrase in the first 100 words and the H1.
-- One H1 (as the title). Use H2/H3 for sections (e.g., "Today's biggest gainers", "Today's biggest losers", "What it means for dividend investors", FAQ).
-- 800-1200 words, short paragraphs, a markdown table for gainers and one for losers (columns: Symbol, Company, Change, Price, Dividend?).
-- 3-5 internal links using markdown to these uncoverd pages with descriptive anchors: /high-yield, /screener, /calendar/ex-dividend, /lists/potential-payers, /monthly.
-- A FAQ with 4-6 Q&As.
-- Do NOT include an author byline.
+SEO + structure:
+- Target keywords: "best performing stocks today", "biggest stock gainers and losers", "top stock movers". Put the primary phrase in the first 100 words.
+- H2/H3 sections (e.g. "Today's biggest gainers", "Today's biggest losers", "What it means for dividend investors", FAQ). NO H1 in the body (the title is the H1).
+- 800-1200 words, short paragraphs, a markdown table for gainers and one for losers (Symbol, Company, Change, Price, Dividend?).
+- 3-5 internal links with descriptive anchors to: /high-yield, /screener, /calendar/ex-dividend, /lists/potential-payers, /monthly.
+- FAQ with 4-6 Q&As. No author byline.
 
 Return STRICT JSON with EXACTLY these keys:
 {
@@ -143,9 +144,9 @@ Return STRICT JSON with EXACTLY these keys:
   "slug": "short-hyphenated-lowercase-slug-with-date",
   "keywords": ["6-8 keyword phrases"],
   "definition": "1-2 sentence plain definition of 'stock market movers' for the callout box",
-  "keyTakeaways": ["3-4 punchy bullet takeaways grounded in the data above"],
+  "keyTakeaways": ["3-4 punchy takeaways grounded in the data above"],
   "faqs": [{"q":"...","a":"..."}],
-  "body": "the full markdown body (NO frontmatter, NO H1 — the H1 comes from the title; start with the intro paragraph)"
+  "body": "full markdown body, NO frontmatter, NO H1, start with the intro paragraph"
 }`;
 }
 
@@ -154,25 +155,28 @@ function asStringArray(v: unknown): string[] | undefined {
 }
 
 async function main(): Promise<void> {
-  console.log("Fetching today's movers from FMP…");
-  const [gainers, losers] = await Promise.all([fmpMovers("biggest-gainers"), fmpMovers("biggest-losers")]);
+  const sb = createClient(SUPABASE_URL!, SUPABASE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "backend" as "public" },
+  });
+
+  console.log(`Fetching today's movers from our DB (country=${COUNTRY}, price≥$${MIN_PRICE}, mktcap≥$${(MIN_MKTCAP / 1e9).toFixed(1)}B)…`);
+  const [gainers, losers] = await Promise.all([dbMovers(sb, "desc"), dbMovers(sb, "asc")]);
   if (gainers.length === 0 && losers.length === 0) {
-    console.error("No movers returned (market closed or FMP error). Aborting.");
+    console.error("No movers returned — check change_percentage freshness or loosen MOVERS_* filters.");
     process.exit(1);
   }
-  const div = await dividendLens([...gainers, ...losers].map((m) => m.symbol));
+  console.log(`  ${gainers.length} gainers, ${losers.length} losers.`);
 
   const today = new Date();
   const iso = today.toISOString().slice(0, 10);
   const dateHuman = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  console.log(`Drafting article via OpenAI (${OPENAI_MODEL})…`);
-  const draft = await openaiDraftJson(buildPrompt(gainers, losers, div, dateHuman));
+  console.log(`Drafting via OpenAI (${OPENAI_MODEL})…`);
+  const draft = await openaiDraftJson(buildPrompt(gainers, losers, dateHuman));
 
-  const slug =
-    (typeof draft.slug === "string" && draft.slug.trim()) ||
-    `stock-market-movers-${iso}`;
-  const safeSlug = slug.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").toLowerCase().slice(0, 70);
+  const rawSlug = (typeof draft.slug === "string" && draft.slug.trim()) || `stock-market-movers-${iso}`;
+  const safeSlug = rawSlug.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").toLowerCase().slice(0, 70);
 
   const frontmatter: Record<string, unknown> = {
     title: draft.title ?? `Top Stock Movers — ${dateHuman}`,
@@ -187,7 +191,6 @@ async function main(): Promise<void> {
     keyTakeaways: asStringArray(draft.keyTakeaways) ?? [],
     faqs: Array.isArray(draft.faqs) ? draft.faqs : [],
   };
-
   const body = typeof draft.body === "string" ? draft.body : "_(OpenAI returned no body — re-run.)_";
   const fileContent = matter.stringify(`\n${body}\n`, frontmatter);
 
@@ -197,10 +200,10 @@ async function main(): Promise<void> {
   fs.writeFileSync(outPath, fileContent, "utf8");
 
   console.log(`\n✓ Draft written: content/drafts/${safeSlug}.md`);
-  console.log("\nNext steps (this is the review gate — nothing is live yet):");
-  console.log(`  1. Review/edit content/drafts/${safeSlug}.md (check the numbers + swap the cover image).`);
-  console.log(`  2. To publish: move it to content/blog/en/${safeSlug}.md`);
-  console.log("  3. Translate (fr/de/it/es) keeping the same translationKey, then commit + push.");
+  console.log("\nReview gate — nothing is live yet:");
+  console.log(`  1. Review/edit content/drafts/${safeSlug}.md (sanity-check the numbers, swap the cover image).`);
+  console.log(`  2. Publish: move it to content/blog/en/${safeSlug}.md`);
+  console.log("  3. Translate (fr/de/it/es) with the same translationKey, then commit + push.");
 }
 
 main().catch((e) => {
