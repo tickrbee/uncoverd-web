@@ -1,6 +1,6 @@
 ---
 title: "How to Invest in OpenAI, SpaceX & Anthropic Before the IPO"
-description: "You can't buy OpenAI, SpaceX, Anthropic or Databricks directly — but a handful of ETFs hold stakes. We use our own holdings data to show which funds, how much they hold, and the catches (SPVs, premiums, lockups)."
+description: "You can't buy OpenAI, SpaceX, Anthropic or Databricks directly — but a few ETFs hold stakes. See which funds, how much they hold, and the catches (SPVs, fees)."
 date: "2026-06-03"
 updated: "2026-06-03"
 keywords:
@@ -12,6 +12,8 @@ keywords:
   - spacex etf
   - databricks stock
 translationKey: "pre-ipo-openai-spacex-anthropic"
+cover: "https://images.pexels.com/photos/273153/pexels-photo-273153.jpeg"
+coverAlt: "Financial statements and a calculator used to evaluate pre-IPO investments"
 definition: "Pre-IPO investing means buying into a company before it lists publicly. Ordinary investors can't buy OpenAI, SpaceX, Anthropic or Databricks shares directly — but several ETFs now hold stakes (often through SPVs), offering indirect, partial exposure."
 keyTakeaways:
   - "You cannot buy OpenAI, SpaceX, Anthropic or Databricks directly on a brokerage — they're private. Exposure comes through ETFs that hold a stake."

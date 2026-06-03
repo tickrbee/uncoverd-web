@@ -1,6 +1,6 @@
 ---
 title: "How 7 Stocks Took Over the S&P 500 — and Your Savings"
-description: "NVIDIA alone is worth roughly twice the entire CAC 40, and seven tech giants now drive over a third of the S&P 500. Here's what that concentration means for your index funds — and a market correction."
+description: "NVIDIA alone is worth ~2× the entire CAC 40, and seven tech giants now drive a third of the S&P 500 — what that concentration means for your index funds."
 date: "2026-06-03"
 updated: "2026-06-03"
 keywords:
@@ -11,6 +11,8 @@ keywords:
   - passive investing concentration
   - most owned stocks by etfs
 translationKey: "us-tech-concentration"
+cover: "https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg"
+coverAlt: "Stock market prices on an electronic board, illustrating US tech market concentration"
 definition: "Market concentration is the degree to which a few stocks dominate an index. In 2026 seven US tech giants — the 'Magnificent Seven' — make up more than a third of the S&P 500 and sit inside almost every diversified ETF, so an index fund is far less diversified than it looks."
 keyTakeaways:
   - "NVIDIA's $5.4 trillion market value is worth roughly twice the entire CAC 40 — all 40 of France's largest companies put together — and more than the annual GDP of Germany."
