@@ -1,22 +1,21 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { HtmlLang } from "@/components/html-lang";
 import { PageHeader } from "@/components/page-header";
 import { PayoutChangesToolbar } from "@/components/payout-changes-toolbar";
-import {
-  formatDate,
-  formatCurrency,
-  formatPercent,
-  type PayoutChangeKind,
-} from "@/lib/data";
+import { PayoutEventsTable } from "@/components/payout-events-table";
+import { GatedPayoutEvents } from "@/components/gated-payout-events";
+import { type PayoutChangeKind, type PayoutChangeEvent } from "@/lib/data";
 import { cachedPayoutChanges as payoutChanges } from "@/lib/cached-data";
-import { tickerHref } from "@/lib/format";
 import { PAYOUTS } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
-import { th } from "@/lib/table-i18n";
 import { payoutHeader, payoutChrome } from "@/lib/ui-i18n";
+
+// Which kinds are gated behind Premium (mirrors the English page).
+const PAYOUT_PREMIUM: Record<PayoutChangeKind, boolean> = {
+  increasing: true, decreasing: true, initiating: true, suspending: false, special: true,
+};
 
 export async function PayoutChangesView({
   locale,
@@ -31,80 +30,15 @@ export async function PayoutChangesView({
   const label = locale === "en" ? taxo.label.en : taxo.label[locale];
   const header = payoutHeader(locale, kind, label);
   const chrome = payoutChrome(locale);
-
-  const events = await payoutChanges(kind, 200);
+  const isPremiumKind = PAYOUT_PREMIUM[kind];
 
   const showPctChange = kind === "increasing" || kind === "decreasing";
   const showPrevious = showPctChange || kind === "suspending";
 
-  const content = (
-    <>
-      <PayoutChangesToolbar
-        events={events}
-        csvFilename={`uncoverd-${slug}.csv`}
-      />
-      <div className="dv-table-wrap">
-        <div className="dv-table-scroll">
-          <table className="dv-table">
-            <thead>
-              <tr>
-                <th>{th("Name", locale)}</th>
-                <th>{th("Declaration", locale)}</th>
-                <th>{th("Ex-Date", locale)}</th>
-                <th>{th("Payment Date", locale)}</th>
-                <th>{th("Frequency", locale)}</th>
-                <th className="dv-th--num">{th("Dividend", locale)}</th>
-                {showPrevious && <th className="dv-th--num">{th("Previous", locale)}</th>}
-                {showPctChange && <th className="dv-th--num">{th("Change", locale)}</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {events.length === 0 ? (
-                <tr>
-                  <td colSpan={6 + (showPrevious ? 1 : 0) + (showPctChange ? 1 : 0)}>
-                    {chrome.noEvents}
-                  </td>
-                </tr>
-              ) : (
-                events.map((d, i) => (
-                  <tr key={`${d.symbol}-${d.date}-${i}`}>
-                    <td>
-                      <Link href={tickerHref(d.symbol)} className="dv-ticker">
-                        <span className="dv-ticker__name">{d.symbol}</span>
-                        <span className="dv-ticker__meta">{d.name ?? ""}</span>
-                      </Link>
-                    </td>
-                    <td>{formatDate(d.declaration_date)}</td>
-                    <td>{formatDate(d.date)}</td>
-                    <td>{formatDate(d.payment_date)}</td>
-                    <td>{d.frequency ?? "—"}</td>
-                    <td className="dv-td--num">{formatCurrency(d.dividend)}</td>
-                    {showPrevious && (
-                      <td className="dv-td--num">
-                        {d.previousDividend != null ? formatCurrency(d.previousDividend) : "—"}
-                      </td>
-                    )}
-                    {showPctChange && (
-                      <td className="dv-td--num">
-                        {d.pctChange != null ? (
-                          <span className={d.pctChange >= 0 ? "dv-change--pos" : "dv-change--neg"}>
-                            {d.pctChange >= 0 ? "+" : ""}
-                            {formatPercent(d.pctChange)}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </>
-  );
+  // Premium kinds: no server fetch and no auth read — the events stay off the
+  // wire and the client gate reveals them for paying users (so the page is
+  // CDN-cacheable). Free kind (suspending) renders server-side.
+  const events: PayoutChangeEvent[] = isPremiumKind ? [] : await payoutChanges(kind, 200);
 
   return (
     <>
@@ -112,7 +46,26 @@ export async function PayoutChangesView({
       <SiteHeader />
       <main className="dv-page">
         <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} />
-        {content}
+        {isPremiumKind ? (
+          <GatedPayoutEvents
+            kind={kind}
+            label={label}
+            slug={slug}
+            showPrevious={showPrevious}
+            showPctChange={showPctChange}
+          />
+        ) : (
+          <>
+            <PayoutChangesToolbar events={events} csvFilename={`uncoverd-${slug}.csv`} />
+            <PayoutEventsTable
+              events={events}
+              showPrevious={showPrevious}
+              showPctChange={showPctChange}
+              locale={locale}
+              noEventsLabel={chrome.noEvents}
+            />
+          </>
+        )}
       </main>
       <SiteFooter />
     </>

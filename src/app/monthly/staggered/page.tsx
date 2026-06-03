@@ -4,8 +4,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { ListingToolbar } from "@/components/listing-toolbar";
-import { type StockRow } from "@/lib/data";
-import { cachedStaggeredQuarterlyPortfolio as staggeredQuarterlyPortfolio } from "@/lib/cached-data";
+import { redactRowsForFree, type StockRow } from "@/lib/data";
+import { buildStaggeredRows } from "@/lib/picks";
 
 export const metadata: Metadata = {
   title: "Monthly Income from Quarterly Dividends",
@@ -34,12 +34,16 @@ export default async function StaggeredPage({
   const sp = await searchParams;
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
 
-  let rows: StockRow[] = [];
+  // Premium portfolio: render the identity-scrubbed free version with no server
+  // auth read; paying users reveal the real rows client-side via the endpoint.
+  let realRows: StockRow[] = [];
   try {
-    rows = await staggeredQuarterlyPortfolio(24);
+    realRows = await buildStaggeredRows(24);
   } catch (e) {
     console.error(e);
   }
+  const rows = redactRowsForFree(realRows, false);
+  const revealEndpoint = "/api/picks/premium?list=staggered";
 
   return (
     <>
@@ -56,11 +60,18 @@ export default async function StaggeredPage({
           rows={rows}
           csvFilename="uncoverd-monthly-staggered.csv"
           hideSecurityType
+          revealRowsEndpoint={revealEndpoint}
         />
         {rows.length === 0 ? (
           <div className="dv-empty">No staggered candidates available — backend.dividends may be backfilling.</div>
         ) : (
-          <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
+          <DividendTable
+            rows={rows}
+            isPremium={false}
+            revealPremium
+            revealRowsEndpoint={revealEndpoint}
+            view={view}
+          />
         )}
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           Computed live from upcoming ex-dividend dates — split into 3 monthly buckets so the combined portfolio pays

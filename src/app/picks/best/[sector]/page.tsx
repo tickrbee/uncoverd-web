@@ -9,12 +9,12 @@ import { breadcrumbList, faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 import {
-  rankByDimension,
+  redactRowsForFree,
   SECTOR_SLUG_MAP,
   SECTOR_LABEL_MAP,
   type StockRow,
 } from "@/lib/data";
-import { cachedListStocks as listStocks } from "@/lib/cached-data";
+import { buildBestSectorRows } from "@/lib/picks";
 
 export const revalidate = 3600;
 
@@ -59,21 +59,17 @@ export default async function BestSectorPage({
   const label = SECTOR_LABEL_MAP[fmpSector] || fmpSector;
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
 
-  let rows: StockRow[] = [];
+  // Premium best-of-sector list: render the identity-scrubbed free version with
+  // no server auth read (so the page prerenders); paying users reveal the real
+  // rows client-side via the rows endpoint.
+  let realRows: StockRow[] = [];
   try {
-    // Pull a wider candidate pool of dividend-paying stocks in the sector,
-    // then rank by composite rating to surface the *best* — not just biggest.
-    const all = await listStocks({
-      sector: fmpSector,
-      minDividend: 0.1,
-      minMarketCap: 500_000_000,
-      minYieldPct: 1,
-      limit: 500,
-    });
-    rows = (await rankByDimension(all, "composite")).slice(0, 15);
+    realRows = await buildBestSectorRows(sector);
   } catch (e) {
     console.error(e);
   }
+  const rows = redactRowsForFree(realRows, false);
+  const revealEndpoint = `/api/picks/premium?list=best-sector&sector=${encodeURIComponent(sector)}`;
 
   const year = new Date().getFullYear();
   const breadcrumbs = breadcrumbList([
@@ -122,8 +118,15 @@ export default async function BestSectorPage({
           rows={rows}
           csvFilename={`uncoverd-best-${sector}.csv`}
           hideSecurityType
+          revealRowsEndpoint={revealEndpoint}
         />
-        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
+        <DividendTable
+          rows={rows}
+          isPremium={false}
+          revealPremium
+          revealRowsEndpoint={revealEndpoint}
+          view={view}
+        />
 
         <section className="dv-section" style={{ marginTop: "2rem" }}>
           <h2 className="dv-section__title">FAQ — best {label.toLowerCase()} dividend stocks</h2>

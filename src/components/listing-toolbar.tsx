@@ -26,6 +26,7 @@ export function ListingToolbar({
   csvFilename = "uncoverd-list.csv",
   links,
   hideSecurityType = false,
+  revealRowsEndpoint,
 }: {
   active?: SecurityType;
   rows: StockRow[];
@@ -36,6 +37,10 @@ export function ListingToolbar({
   // Hide the Stocks / ETFs / Active ETFs / Funds chips on curated pages
   // (Picks, Growers, Best X) where the security type doesn't apply.
   hideSecurityType?: boolean;
+  // Identity-gated pages (model portfolios / best-of) pass scrubbed `rows`, so
+  // the CSV would export "Premium content". When set, a paying user's download
+  // fetches the REAL rows from this endpoint first.
+  revealRowsEndpoint?: string;
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const pathname = usePathname();
@@ -66,10 +71,20 @@ export function ListingToolbar({
     return links?.[key] ?? defaultHrefFor(key);
   }
 
-  function downloadCsv() {
+  async function downloadCsv() {
     if (!canDownload) {
       window.location.href = "/pricing";
       return;
+    }
+    // Identity-gated pages pass scrubbed rows; fetch the real ones for export.
+    let exportRows = rows;
+    if (revealRowsEndpoint) {
+      try {
+        const d = await fetch(revealRowsEndpoint).then((r) => r.json());
+        if (d?.isPremium && Array.isArray(d.rows)) exportRows = d.rows as StockRow[];
+      } catch {
+        /* fall back to the rows we have */
+      }
     }
     const header = [
       "symbol",
@@ -84,7 +99,7 @@ export function ListingToolbar({
       "annual_dividend",
     ];
     const lines = [header.join(",")];
-    for (const r of rows) {
+    for (const r of exportRows) {
       const cells = [
         r.symbol,
         (r.name ?? "").replace(/,/g, " "),

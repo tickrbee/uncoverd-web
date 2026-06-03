@@ -5,115 +5,17 @@ import { HtmlLang } from "@/components/html-lang";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
 import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar";
-import {
-  rankByDimension,
-  type StockRow,
-  type ScreenerOptions,
-  type RatingDimension,
-} from "@/lib/data";
-import {
-  cachedListStocks as listStocks,
-  cachedListEtfsByCategory as listEtfsByCategory,
-} from "@/lib/cached-data";
-import { getBackendClient } from "@/lib/supabase/admin";
+import { redactRowsForFree, type StockRow } from "@/lib/data";
+import { PICKS, buildPickRows } from "@/lib/picks";
 import { PICKS as PICKS_TAXO, pickUrl } from "@/lib/i18n-taxonomy";
 import { HTML_LANG, type Locale } from "@/lib/i18n";
 import { tHeader } from "@/lib/page-header-i18n";
 import { picksNote } from "@/lib/ui-i18n";
 
+// Re-exported so the EN + localized /picks/[slug] pages can read pick metadata.
+export { PICKS } from "@/lib/picks";
+
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
-
-type Pick = {
-  label: string;
-  description: string;
-  premium: boolean;
-  build: (rows: StockRow[]) => StockRow[];
-  fetchOpts: ScreenerOptions;
-  needsMonthlyFilter?: boolean;
-  rankBy: RatingDimension;
-  finalLimit: number;
-};
-
-export const PICKS: Record<string, Pick> = {
-  "best-dividend-stocks": {
-    label: "Best Dividend Stocks Model Portfolio",
-    description: "A balanced blend of yield and total return — our flagship Model Portfolio. Ranked by composite rating.",
-    premium: true,
-    fetchOpts: { minDividend: 1, minMarketCap: 5_000_000_000, minYieldPct: 1.5, limit: 500, requireUpcomingDividend: true },
-    build: (rows) => rows.filter((r) => (r.dividend_yield ?? 0) >= 2 && (r.dividend_yield ?? 0) <= 5.5).slice(0, 80),
-    rankBy: "composite",
-    finalLimit: 25,
-  },
-  "best-high-yield": {
-    label: "Best High Dividend Stocks",
-    description: "Model portfolio targeting 6–12% dividend yield, ranked by composite rating (so we surface high-quality high-yield names, not yield traps).",
-    premium: true,
-    fetchOpts: { minDividend: 1, minMarketCap: 500_000_000, minYieldPct: 6, sortBy: "yield", limit: 500, requireUpcomingDividend: true },
-    build: (rows) => rows.filter((r) => (r.dividend_yield ?? 0) >= 6 && (r.dividend_yield ?? 0) <= 14).slice(0, 80),
-    rankBy: "composite",
-    finalLimit: 25,
-  },
-  "best-dividend-growth": {
-    label: "Best Dividend Growth Stocks",
-    description: "Companies that consistently raise dividends — ranked by our Growth rating (1-5 scale) which weights revenue growth, EPS growth, and dividend CAGR.",
-    premium: true,
-    fetchOpts: { minDividend: 0.5, minMarketCap: 5_000_000_000, minYieldPct: 0.5, limit: 500, requireUpcomingDividend: true },
-    build: (rows) => rows.slice(0, 100),
-    rankBy: "growth",
-    finalLimit: 25,
-  },
-  "best-dividend-protection": {
-    label: "Best Dividend Protection",
-    description: "Maximum safety — large-cap dividend payers with the highest Health rating (debt coverage, cash position, payout ratio).",
-    premium: true,
-    fetchOpts: { minDividend: 0.5, minMarketCap: 20_000_000_000, minYieldPct: 1.5, limit: 500, requireUpcomingDividend: true },
-    build: (rows) => rows.filter((r) => (r.dividend_yield ?? 0) >= 1.5 && (r.dividend_yield ?? 0) <= 5).slice(0, 100),
-    rankBy: "health",
-    finalLimit: 20,
-  },
-  "best-monthly-dividend": {
-    label: "Best Monthly Dividend Stocks",
-    description: "Top-rated monthly dividend payers for steady income — ranked by composite rating.",
-    premium: true,
-    fetchOpts: { minDividend: 0.1, minMarketCap: 250_000_000, limit: 500, excludeEtfs: false, requireUpcomingDividend: true },
-    needsMonthlyFilter: true,
-    build: (rows) => rows.slice(0, 60),
-    rankBy: "composite",
-    finalLimit: 25,
-  },
-  "dividend-capture": {
-    label: "Best Dividend Capture Stocks",
-    description: "Stable high-yield dividend payers with strong Momentum scores — quick to recover from ex-dividend drops, making them ideal capture candidates.",
-    premium: true,
-    fetchOpts: { minDividend: 1, minMarketCap: 1_000_000_000, minYieldPct: 3, limit: 500, requireUpcomingDividend: true },
-    build: (rows) => rows.filter((r) => (r.dividend_yield ?? 0) >= 3 && (r.dividend_yield ?? 0) <= 9).slice(0, 100),
-    rankBy: "momentum",
-    finalLimit: 25,
-  },
-};
-
-const NAME_BOND_PATTERN =
-  /(%|\bNote(s)?\b|\bSubord|\bSenior\b|\bSeries\s+[A-Z]\b|\bPref\b|\bPreferred\b|\bFinance\s+(Co|Corp|LLC)\b|\bCapital\s+Trust\b|\bDebenture)/i;
-
-function isCommonStock(row: { symbol: string; name: string | null }): boolean {
-  if (!row.name) return true;
-  if (NAME_BOND_PATTERN.test(row.name)) return false;
-  if (/^[A-Z]+-[A-Z]{1,2}$/.test(row.symbol)) return false;
-  return true;
-}
-
-async function monthlySymbols(): Promise<Set<string>> {
-  const sb = getBackendClient();
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 18);
-  const { data } = await sb
-    .from("dividends")
-    .select("symbol")
-    .ilike("frequency", "Monthly")
-    .gte("date", cutoff.toISOString().slice(0, 10))
-    .limit(2000);
-  return new Set(((data as { symbol: string }[]) ?? []).map((r) => r.symbol));
-}
 
 // Shared, locale-aware model-portfolio page. EN /picks/[slug] + localized
 // /<locale>/<picksPath>/[slug] both render this. `slug` is the English key.
@@ -139,29 +41,18 @@ export async function PicksView({
   const type: SecurityType =
     sp.type === "etfs" || sp.type === "active-etfs" || sp.type === "funds" ? "etfs" : "stocks";
 
-  let rows: StockRow[] = [];
+  // Model Portfolios are Premium. Render the identity-scrubbed free version with
+  // NO server auth read (so the page stays CDN-cacheable + fast); paying users
+  // reveal the real rows + ratings client-side via the rows endpoint.
+  let realRows: StockRow[] = [];
   try {
-    if (type === "etfs") {
-      rows = await listEtfsByCategory({ categoryContains: "Dividend", minMarketCap: 50_000_000, limit: 100 });
-    } else {
-      let all = await listStocks(pick.fetchOpts);
-      if (pick.needsMonthlyFilter) {
-        const monthly = await monthlySymbols();
-        all = all.filter((r) => monthly.has(r.symbol));
-      }
-      all = all.filter(isCommonStock);
-      rows = pick.build(all);
-      rows = await rankByDimension(rows, pick.rankBy);
-      rows = rows.slice(0, pick.finalLimit);
-    }
+    realRows = await buildPickRows(slug, type);
   } catch (e) {
     console.error(e);
   }
+  const rows = redactRowsForFree(realRows, false);
+  const revealEndpoint = `/api/picks/premium?list=pick&slug=${encodeURIComponent(slug)}&type=${type}`;
 
-  // Free/gated render — no server auth read. Identities + free columns (yield,
-  // price) show for everyone; ratings/returns reveal client-side for paying
-  // users via <DividendTable revealPremium>, and the CSV export stays gated in
-  // the toolbar (client-side premium detection).
   return (
     <>
       {locale !== "en" && <HtmlLang lang={HTML_LANG[locale]} />}
@@ -173,8 +64,15 @@ export async function PicksView({
           active={type}
           rows={rows}
           csvFilename={`uncoverd-${slug}-${type}.csv`}
+          revealRowsEndpoint={revealEndpoint}
         />
-        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
+        <DividendTable
+          rows={rows}
+          isPremium={false}
+          revealPremium
+          revealRowsEndpoint={revealEndpoint}
+          view={view}
+        />
         <p style={{ marginTop: "0.75rem", color: "var(--text-muted)", fontSize: "0.85rem" }}>
           {note.base}
           {pick.premium && note.premiumSuffix}

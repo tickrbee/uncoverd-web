@@ -5,8 +5,8 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageHeader } from "@/components/page-header";
 import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividend-table";
-import { rankByDimension, type StockRow } from "@/lib/data";
-import { cachedListStocks as listStocks } from "@/lib/cached-data";
+import { redactRowsForFree, type StockRow } from "@/lib/data";
+import { buildBestYearRows } from "@/lib/picks";
 import { breadcrumbList, faqJsonLd, jsonLdScript } from "@/lib/structured-data";
 
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
@@ -48,23 +48,15 @@ export default async function BestDividendStocksYearPage({
   const view: ColumnView =
     sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
 
-  let rows: StockRow[] = [];
+  // Premium SEO list: render the identity-scrubbed free version (no server auth
+  // read → page can prerender); paying users reveal the real rows client-side.
+  let realRows: StockRow[] = [];
   try {
-    const all = await listStocks({
-      minDividend: 1,
-      minMarketCap: 5_000_000_000,
-      minYieldPct: 1.5,
-      requireUpcomingDividend: true,
-      limit: 500,
-    });
-    const filtered = all.filter(
-      (r) => (r.dividend_yield ?? 0) >= 2 && (r.dividend_yield ?? 0) <= 6,
-    );
-    rows = await rankByDimension(filtered, "composite");
-    rows = rows.slice(0, 30);
+    realRows = await buildBestYearRows();
   } catch (e) {
     console.error(e);
   }
+  const rows = redactRowsForFree(realRows, false);
 
   const breadcrumbs = breadcrumbList([
     { name: "Home", url: "/" },
@@ -110,7 +102,13 @@ export default async function BestDividendStocksYearPage({
 
         <ColumnTabs active={view} baseHref={`/best-dividend-stocks/${y}`} />
 
-        <DividendTable rows={rows} isPremium={false} revealPremium view={view} />
+        <DividendTable
+          rows={rows}
+          isPremium={false}
+          revealPremium
+          revealRowsEndpoint="/api/picks/premium?list=best-year"
+          view={view}
+        />
 
         <section className="dv-section" style={{ marginTop: "2rem" }}>
           <h2 className="dv-section__title">FAQ</h2>
