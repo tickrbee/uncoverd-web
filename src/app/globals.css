@@ -4122,3 +4122,15 @@ a.dv-fin-seeall {
 .listing-switcher__sym { font-weight: 700; color: #fff; }
 .listing-switcher__exch { color: rgba(209, 213, 219, 0.85); }
 .listing-switcher__cur { color: rgba(161, 161, 170, 0.95); text-align: right; }
+
+/* Estimated vs Declared forward-dividend flag (listing tables) */
+.dv-est {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dv-est--yes { background: rgba(251, 191, 36, 0.15); color: #fbbf24; } /* estimated = amber */
+.dv-est--no { background: rgba(52, 211, 153, 0.15); color: #34d399; }  /* declared = green */

@@ -75,7 +75,9 @@ export default async function ScreenerPage({
     minDividend: 0.01,
     currency,
     country,
-    requireUpcomingDividend: true,
+    // No requireUpcomingDividend: show every payer, not only those whose next
+    // ex-div date is already declared (that dropped most of them). The new
+    // "Estimated?" column flags which forward dividends are projected vs declared.
   };
 
   let rows: StockRow[] = [];

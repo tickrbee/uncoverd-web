@@ -45,6 +45,10 @@ export type StockRow = {
   // backend.tickers.avg_recovery_days. Powers the Payout view's
   // Days-to-Recover column.
   avg_recovery_days?: number | null;
+  // Declared next ex-dividend date (backend.tickers.next_ex_dividend_date).
+  // Present = the company has announced its next payout; null/past = the forward
+  // dividend shown is our estimate from history. Drives the "Estimated?" column.
+  next_ex_dividend_date?: string | null;
 };
 
 export type StockRating = {

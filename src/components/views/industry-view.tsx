@@ -69,7 +69,10 @@ export async function IndustryView({
     sector: entry.sector,
     minMarketCap,
     minDividend: 0.01,
-    requireUpcomingDividend: true,
+    // NOT requireUpcomingDividend: that only keeps stocks whose NEXT ex-div date
+    // is already declared (~1-3 months out), which dropped 56-78% of real payers
+    // (e.g. a quarterly bank that hasn't declared its next ex-date yet). We want
+    // the full set of dividend payers in the industry.
     currency,
     country,
   };

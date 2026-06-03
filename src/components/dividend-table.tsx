@@ -135,6 +135,24 @@ function priceCell(row: StockRow): React.ReactNode {
   );
 }
 
+// A forward dividend is "Declared" when the company has announced its next
+// ex-dividend date (in the future); otherwise the forward figure is our
+// projection from dividend history, shown as "Estimated".
+function dividendIsEstimated(row: StockRow): boolean {
+  const d = row.next_ex_dividend_date;
+  return !d || d < new Date().toISOString().slice(0, 10);
+}
+
+function EstimatedFlag({ row }: { row: StockRow }): React.ReactNode {
+  if (row.annual_dividend == null) return <span className="dv-muted">—</span>;
+  const est = dividendIsEstimated(row);
+  return (
+    <span className={`dv-est ${est ? "dv-est--yes" : "dv-est--no"}`}>
+      {est ? "Estimated" : "Declared"}
+    </span>
+  );
+}
+
 function nameCell(row: StockRow): React.ReactNode {
   // Identity is locked per-LIST, not per-user: premium-only lists (Model
   // Portfolios, payout-changes) scrub the row server-side via redactRowsForFree
@@ -197,6 +215,13 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       sortKey: "rating",
       cell: (_r, rating, isPremium) => <RatingBadge rating={rating} isPremium={!!isPremium} />,
     },
+    {
+      header: "Fwd Dividend",
+      className: "dv-th--num",
+      sortKey: "annual_dividend",
+      cell: (r) => formatCurrency(r.annual_dividend, { currency: r.currency }),
+    },
+    { header: "Estimated?", cell: (r) => <EstimatedFlag row={r} /> },
     { header: "Sector", sortKey: "sector", cell: (r) => r.sector ?? "—" },
   ],
   // PAYOUT — focused on income metrics: Price | Yield | Amount | Frequency | Ex-Div | Payment | Rating

@@ -119,6 +119,7 @@ function toStockRow(t: TickerRow): StockRow {
     nav: t.nav,
     etf_company: t.etf_company,
     avg_recovery_days: t.avg_recovery_days,
+    next_ex_dividend_date: t.next_ex_dividend_date,
   };
 }
 
