@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 const TOP_N = 500;
 const VALID_VIEWS: ColumnView[] = ["etf-coverage", "overview", "payout", "growth", "returns", "ratings"];
 

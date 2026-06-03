@@ -12,7 +12,7 @@ import { metaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = [
   "overview",
   "payout",

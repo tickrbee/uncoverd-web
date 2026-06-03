@@ -24,7 +24,7 @@ import { pickTitle, metaDescription } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 // No artificial cap: getEtfHoldersOf is indexed and we paginate at the
 // rendering layer. Stocks like AAPL show up in several hundred ETFs; SPY,
 // VOO etc can reach into the thousands.
