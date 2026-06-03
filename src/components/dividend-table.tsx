@@ -792,36 +792,36 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       header: "Value",
       className: "dv-th--num",
       sortKey: "value_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.value_score != null ? <ScoreCell score={rating.value_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.value_score != null ? <ScoreCell score={rating.value_score} isPremium /> : "—")),
     },
     {
       header: "Growth",
       className: "dv-th--num",
       sortKey: "growth_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.growth_score != null ? <ScoreCell score={rating.growth_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.growth_score != null ? <ScoreCell score={rating.growth_score} isPremium /> : "—")),
     },
     {
       header: "Profit",
       className: "dv-th--num",
       sortKey: "profit_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.profit_score != null ? <ScoreCell score={rating.profit_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.profit_score != null ? <ScoreCell score={rating.profit_score} isPremium /> : "—")),
     },
     {
       header: "Momentum",
       className: "dv-th--num",
       sortKey: "momentum_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.momentum_score != null ? <ScoreCell score={rating.momentum_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.momentum_score != null ? <ScoreCell score={rating.momentum_score} isPremium /> : "—")),
     },
     {
       header: "Health",
       className: "dv-th--num",
       sortKey: "health_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.health_score != null ? <ScoreCell score={rating.health_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.health_score != null ? <ScoreCell score={rating.health_score} isPremium /> : "—")),
     },
   ],
 };
