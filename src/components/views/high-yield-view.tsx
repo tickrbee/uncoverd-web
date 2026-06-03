@@ -9,7 +9,6 @@ import { Pager } from "@/components/pager";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  redactRowsForFree,
   gatedMap,
   type StockRow,
 } from "@/lib/data";
@@ -75,7 +74,7 @@ export async function HighYieldView({ locale, sp }: { locale: Locale; sp: HighYi
     getDisplayCurrency(),
   ]);
   const isPrem = premium.isPremium;
-  const safeRows = redactRowsForFree(rows, isPrem);
+  const safeRows = rows; // Stock identities are free for everyone; the rating + extras stay gated below.
   const displayRows = await applyDisplayCurrency(safeRows, displayCurrency);
   const safeRatings = gatedMap(ratings, isPrem);
   const safeExtras = gatedMap(extras, isPrem);

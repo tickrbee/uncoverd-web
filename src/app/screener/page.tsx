@@ -18,7 +18,6 @@ import {
   countEtfsByCategory,
   applyDisplayCurrency,
   getDisplayCurrency,
-  redactRowsForFree,
   gatedMap,
   SECTOR_LABEL_MAP,
   SECTOR_SLUG_MAP,
@@ -124,9 +123,9 @@ export default async function ScreenerPage({
   ]);
   rows = await applyDisplayCurrency(rows, displayCurrency);
 
-  // Redact identifiers + premium fields server-side for free users so
-  // browser inspectors can't reveal the underlying ticker/name/ratings.
-  rows = redactRowsForFree(rows, premium.isPremium);
+  // The screener (basic filters + results) is a free feature — stock identities
+  // are visible to everyone. Only the rating + premium extras stay gated, and
+  // advanced filters / CSV are gated in the toolbar.
   ratings = gatedMap(ratings, premium.isPremium);
   extras = gatedMap(extras, premium.isPremium);
   upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);

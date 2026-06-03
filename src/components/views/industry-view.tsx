@@ -10,7 +10,6 @@ import { CountryFilter } from "@/components/country-filter";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  redactRowsForFree,
   gatedMap,
   INDUSTRY_SLUG_MAP,
   type StockRow,
@@ -107,7 +106,7 @@ export async function IndustryView({
     getDisplayCurrency(),
   ]);
   rows = await applyDisplayCurrency(rows, displayCurrency);
-  rows = redactRowsForFree(rows, premium.isPremium);
+  // Stock identities are free for everyone; the rating + extras stay gated below.
   ratings = gatedMap(ratings, premium.isPremium);
   extras = gatedMap(extras, premium.isPremium);
   upcomingDividends = gatedMap(upcomingDividends, premium.isPremium);

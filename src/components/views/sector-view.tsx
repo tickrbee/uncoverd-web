@@ -11,7 +11,6 @@ import { CountryFilter } from "@/components/country-filter";
 import {
   applyDisplayCurrency,
   getDisplayCurrency,
-  redactRowsForFree,
   gatedMap,
   SECTOR_SLUG_MAP,
   SECTOR_LABEL_MAP,
@@ -115,7 +114,7 @@ export async function SectorView({
     getDisplayCurrency(),
   ]);
   rows = await applyDisplayCurrency(rows, displayCurrency);
-  rows = redactRowsForFree(rows, premium.isPremium);
+  // Stock identities are free for everyone; the rating + extras stay gated below.
   const safeRatings = gatedMap(ratings, premium.isPremium);
   const safeExtras = gatedMap(extras, premium.isPremium);
   const safeUpcoming = gatedMap(upcomingDividends, premium.isPremium);

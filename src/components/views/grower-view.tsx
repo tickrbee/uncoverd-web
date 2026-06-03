@@ -7,7 +7,6 @@ import { DividendTable, ColumnTabs, type ColumnView } from "@/components/dividen
 import { ListingToolbar } from "@/components/listing-toolbar";
 import { Pager } from "@/components/pager";
 import {
-  redactRowsForFree,
   gatedMap,
   type GrowerSlug,
   type StockRow,
@@ -70,7 +69,7 @@ export async function GrowerView({
   ]);
 
   const isPrem = premium.isPremium;
-  const safeRows = redactRowsForFree(rows, isPrem);
+  const safeRows = rows; // Stock identities are free for everyone; the rating + extras stay gated below.
   const safeRatings = gatedMap(ratings, isPrem);
   const safeExtras = gatedMap(extras, isPrem);
   const safeUpcoming = gatedMap(upcomingDividends, isPrem);

@@ -7,7 +7,6 @@ import { ListingToolbar, type SecurityType } from "@/components/listing-toolbar"
 import { Pager } from "@/components/pager";
 import { getBackendClient } from "@/lib/supabase/admin";
 import {
-  redactRowsForFree,
   gatedMap,
   type StockRow,
 } from "@/lib/data";
@@ -87,7 +86,7 @@ export async function MonthlyView({ locale, sp }: { locale: Locale; sp: MonthlyS
   ]);
 
   const isPrem = premium.isPremium;
-  const safeRows = redactRowsForFree(rows, isPrem);
+  const safeRows = rows; // Stock identities are free for everyone; the rating + extras stay gated below.
   const safeRatings = gatedMap(ratings, isPrem);
   const safeExtras = gatedMap(extras, isPrem);
   const safeUpcoming = gatedMap(upcomingDividends, isPrem);
