@@ -119,6 +119,19 @@ function gatedNumber(node: React.ReactNode, isPremium: boolean | undefined): Rea
   );
 }
 
+// Premium-only metric cell. Free users see a blurred placeholder so the table
+// reads as "full but locked" instead of a sea of empty "—" (the underlying data
+// is never sent to them — the placeholder is a fixed dummy). Premium users get
+// the real value via render().
+function premiumMetric(isPremium: boolean | undefined, render: () => React.ReactNode): React.ReactNode {
+  if (isPremium) return render();
+  return (
+    <PremiumLock isPremium={false} inline>
+      <span>00.00%</span>
+    </PremiumLock>
+  );
+}
+
 function priceCell(row: StockRow): React.ReactNode {
   const changeColor =
     row.change_percent == null ? "" : row.change_percent >= 0 ? "dv-change--pos" : "dv-change--neg";
@@ -296,45 +309,45 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       header: "Consec Increases",
       className: "dv-th--num",
       sortKey: "consecutive_increases",
-      cell: (_r, _rating, _ip, _div, ex) => (ex?.consecutiveIncreases != null ? `${ex.consecutiveIncreases} yrs` : "—"),
+      cell: (_r, _rating, ip, _div, ex) => premiumMetric(ip, () => (ex?.consecutiveIncreases != null ? `${ex.consecutiveIncreases} yrs` : "—")),
     },
     {
       header: "1Y Div CAGR",
       className: "dv-th--num",
       sortKey: "div_cagr_1y",
-      cell: (_r, _rating, _ip, _div, ex) => (ex?.divCagr1y != null ? formatPercent(Number(ex.divCagr1y)) : "—"),
+      cell: (_r, _rating, ip, _div, ex) => premiumMetric(ip, () => (ex?.divCagr1y != null ? formatPercent(Number(ex.divCagr1y)) : "—")),
     },
     {
       header: "5Y Div CAGR",
       className: "dv-th--num",
       sortKey: "div_cagr_5y",
-      cell: (_r, _rating, _ip, _div, ex) => (ex?.divCagr5y != null ? formatPercent(Number(ex.divCagr5y)) : "—"),
+      cell: (_r, _rating, ip, _div, ex) => premiumMetric(ip, () => (ex?.divCagr5y != null ? formatPercent(Number(ex.divCagr5y)) : "—")),
     },
     {
       header: "EPS Growth",
       className: "dv-th--num",
       sortKey: "growth_score",
-      cell: (_r, rating, isPremium) =>
-        rating?.growth_score != null ? <ScoreCell score={rating.growth_score} isPremium={!!isPremium} /> : "—",
+      cell: (_r, rating, ip) =>
+        premiumMetric(ip, () => (rating?.growth_score != null ? <ScoreCell score={rating.growth_score} isPremium /> : "—")),
     },
     {
       header: "P/E",
       className: "dv-th--num",
       sortKey: "pe_ratio",
-      cell: (_r, _rating, _ip, _div, ex) => (ex?.peRatio != null ? ex.peRatio.toFixed(2) : "—"),
+      cell: (_r, _rating, ip, _div, ex) => premiumMetric(ip, () => (ex?.peRatio != null ? ex.peRatio.toFixed(2) : "—")),
     },
     {
       header: "Net Debt/EBITDA",
       className: "dv-th--num",
       sortKey: "net_debt_to_ebitda",
-      cell: (_r, _rating, _ip, _div, ex) => (ex?.netDebtToEbitda != null ? ex.netDebtToEbitda.toFixed(2) : "—"),
+      cell: (_r, _rating, ip, _div, ex) => premiumMetric(ip, () => (ex?.netDebtToEbitda != null ? ex.netDebtToEbitda.toFixed(2) : "—")),
     },
     {
       header: "Payout Ratio",
       className: "dv-th--num",
       sortKey: "payout_ratio",
-      cell: (_r, _rating, _ip, _div, ex) =>
-        ex?.payoutRatio != null ? formatPercent(ex.payoutRatio * 100) : "—",
+      cell: (_r, _rating, ip, _div, ex) =>
+        premiumMetric(ip, () => (ex?.payoutRatio != null ? formatPercent(ex.payoutRatio * 100) : "—")),
     },
   ],
   // RETURNS (matches dividend.com):
@@ -353,16 +366,13 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       className: "dv-th--num",
       sortKey: "return_ytd",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.returnYtd == null ? (
-          "—"
-        ) : (
-          gatedNumber(
+        premiumMetric(ip, () =>
+          ex?.returnYtd == null ? "—" : (
             <span className={ex.returnYtd >= 0 ? "dv-change--pos" : "dv-change--neg"}>
               {ex.returnYtd >= 0 ? "+" : ""}
               {ex.returnYtd.toFixed(2)}%
-            </span>,
-            ip,
-          )
+            </span>
+          ),
         ),
     },
     {
@@ -370,16 +380,13 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       className: "dv-th--num",
       sortKey: "return_1y",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.return1y == null ? (
-          "—"
-        ) : (
-          gatedNumber(
+        premiumMetric(ip, () =>
+          ex?.return1y == null ? "—" : (
             <span className={ex.return1y >= 0 ? "dv-change--pos" : "dv-change--neg"}>
               {ex.return1y >= 0 ? "+" : ""}
               {ex.return1y.toFixed(2)}%
-            </span>,
-            ip,
-          )
+            </span>
+          ),
         ),
     },
     {
@@ -387,36 +394,33 @@ const COLUMN_VIEWS: Record<ColumnView, Column[]> = {
       className: "dv-th--num",
       sortKey: "return_3y",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.return3y == null ? "—" : gatedNumber(formatPercent(ex.return3y), ip),
+        premiumMetric(ip, () => (ex?.return3y == null ? "—" : formatPercent(ex.return3y))),
     },
     {
       header: "5Y CAGR",
       className: "dv-th--num",
       sortKey: "return_5y",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.return5y == null ? "—" : gatedNumber(formatPercent(ex.return5y), ip),
+        premiumMetric(ip, () => (ex?.return5y == null ? "—" : formatPercent(ex.return5y))),
     },
     {
       header: "10Y CAGR",
       className: "dv-th--num",
       sortKey: "return_10y",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.return10y == null ? "—" : gatedNumber(formatPercent(ex.return10y), ip),
+        premiumMetric(ip, () => (ex?.return10y == null ? "—" : formatPercent(ex.return10y))),
     },
     {
       header: "% Off 52w High",
       className: "dv-th--num",
       sortKey: "pct_off_52w_high",
       cell: (_r, _rating, ip, _div, ex) =>
-        ex?.pctOff52wHigh == null ? (
-          "—"
-        ) : (
-          gatedNumber(
+        premiumMetric(ip, () =>
+          ex?.pctOff52wHigh == null ? "—" : (
             <span className={ex.pctOff52wHigh >= 0 ? "dv-change--pos" : "dv-change--neg"}>
               {ex.pctOff52wHigh.toFixed(2)}%
-            </span>,
-            ip,
-          )
+            </span>
+          ),
         ),
     },
   ],
