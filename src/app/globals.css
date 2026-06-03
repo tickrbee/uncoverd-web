@@ -3081,6 +3081,16 @@ a {
 .dv-blog-prose {
   max-width: 760px;
 }
+/* Make in-text links obviously clickable (light blue + underline) so internal
+   links like the ETF tools stand out from body copy. */
+.dv-blog-prose a {
+  color: #5eb0ef;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dv-blog-prose a:hover {
+  color: #93c8f5;
+}
 .dv-blog-prose h2 {
   margin-top: 2rem;
 }

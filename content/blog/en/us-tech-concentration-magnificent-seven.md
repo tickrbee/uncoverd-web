@@ -90,6 +90,22 @@ Here's the part that makes it personal. Because the Magnificent Seven are ~35% o
 
 Now layer on *who owns it*. The overwhelming majority of American retirement savings — 401(k)s, IRAs, pensions — sits in S&P 500 and total-market index funds. That was sound advice built on the premise of broad diversification. But when a third of "the market" is seven correlated stocks, a tech-led correction transmits **directly into household net worth** on a scale that surprises people who thought they were diversified. The [U.S. Federal Reserve's Financial Stability Report](https://www.federalreserve.gov/publications/financial-stability-report.htm) has repeatedly flagged elevated valuations and concentration as a vulnerability for exactly this reason.
 
+## How correlated are they, really?
+
+The risk above only bites if the seven tend to move *together*. They do. Here are the **monthly-return correlations** between the Magnificent Seven over roughly the last four years, computed from our own price data (1.00 = identical movement, 0 = unrelated):
+
+| | AAPL | MSFT | NVDA | AMZN | GOOGL | META | TSLA |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **AAPL** | 1.00 | 0.42 | 0.44 | 0.46 | 0.47 | 0.06 | 0.52 |
+| **MSFT** | 0.42 | 1.00 | 0.69 | 0.62 | 0.38 | 0.55 | 0.29 |
+| **NVDA** | 0.44 | 0.69 | 1.00 | 0.59 | 0.41 | 0.54 | 0.35 |
+| **AMZN** | 0.46 | 0.62 | 0.59 | 1.00 | 0.54 | 0.44 | 0.54 |
+| **GOOGL** | 0.47 | 0.38 | 0.41 | 0.54 | 1.00 | 0.24 | 0.40 |
+| **META** | 0.06 | 0.55 | 0.54 | 0.44 | 0.24 | 1.00 | 0.21 |
+| **TSLA** | 0.52 | 0.29 | 0.35 | 0.54 | 0.40 | 0.21 | 1.00 |
+
+Most pairs cluster between **0.4 and 0.7** — Microsoft and NVIDIA move together about 70% of the time, Amazon and Microsoft 62% — with an average pairwise correlation around **0.45**. They broadly rise and fall as a bloc, driven by the same forces: the AI capex cycle, interest rates and risk sentiment. Tesla and (over this window) Meta have been the most idiosyncratic, but the cluster of high-0.5s and 0.6s in the middle is the point: when the dominant theme turns, these names don't cushion one another — they amplify the move. You can run the same correlation analysis on *your* holdings with the [Portfolio Healthcheck](/tools/portfolio-healthcheck).
+
 ## How to check — and balance — your real exposure
 
 Concentration isn't automatically dangerous. *Unknowing* concentration is. A few practical steps using tools on uncoverd:
