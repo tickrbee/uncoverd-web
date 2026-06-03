@@ -118,23 +118,6 @@ export default function RootLayout({
             __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`,
           }}
         />
-        {/* Vercel Web Analytics: load the collector explicitly here, the same
-            way Plausible is loaded. The <Analytics/> component (in <body>) tries
-            to inject this script itself via document.head.appendChild, but under
-            Next 16 / React 19 head management that injected node gets dropped, so
-            the script never ran and the dashboard stayed empty. Rendering it as a
-            real <head> <script> (which React owns and keeps) fixes that.
-            <Analytics/> still handles SPA route normalization; its inject() dedups
-            against this tag (so no duplicate), and data-disable-auto-track stops
-            this script from also counting raw paths — pageviews come through the
-            component's normalized queue instead. */}
-        <script
-          defer
-          src="/_vercel/insights/script.js"
-          data-sdkn="@vercel/analytics/next"
-          data-sdkv="2.0.1"
-          data-disable-auto-track="1"
-        />
       </head>
       <body className={`${bodyFont.variable} ${headingFont.variable}`}>
         <div className="global-background-effect">
@@ -144,9 +127,14 @@ export default function RootLayout({
         <SessionRestorer />
         {children}
         <CookieBanner />
-        {/* `debug={false}` mutes the [Vercel Web Analytics] console logs in dev.
-            The production beacon still fires normally on Vercel. */}
-        <Analytics debug={false} />
+        {/* Official Vercel Web Analytics. v2 uses "Resilient Intake": Vercel
+            injects the real script src + view/event endpoints at build time
+            (often under a random /<unique-path>/ to dodge ad-blockers), and the
+            component reads that config — which is why hardcoding the legacy
+            /_vercel/insights/* path is the wrong move. `mode="production"` forces
+            production intake instead of the debug script, in case NODE_ENV-based
+            auto-detection misfires (a documented cause of "200 but no data"). */}
+        <Analytics mode="production" debug={false} />
         <SpeedInsights debug={false} />
       </body>
     </html>
