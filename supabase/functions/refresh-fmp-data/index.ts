@@ -370,6 +370,10 @@ async function refreshHistoricalPrices(shard: number, shards: number) {
       .from("tickers")
       .select("symbol")
       .eq("is_actively_trading", true)
+      // Highest-volume (most-viewed) symbols first, so within the 150s timeout
+      // the tickers users actually look at always get refreshed; the obscure
+      // long tail can lag. Secondary sort on symbol keeps paging stable.
+      .order("volume", { ascending: false, nullsFirst: false })
       .order("symbol", { ascending: true })
       .range(offset, offset + 999);
     if (error || !data) break;
