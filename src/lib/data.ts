@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getAdminClient, getBackendClient } from "@/lib/supabase/admin";
 import type { StockRow, StockRating, DividendEvent, PayoutChangeEvent, StockExtras } from "@/lib/types";
 
@@ -2557,24 +2558,37 @@ export async function getDisplayCurrency(): Promise<string> {
   return v || "native";
 }
 
+// The 5,000-row exchange_rates pull was running on EVERY render whenever a
+// display currency (non-native) was selected — that was the dominant slowdown
+// users saw when navigating/switching tabs with currency on (native skips this
+// entirely). Cache the result (FX updates at most a few times a day via the
+// update-forex-rates cron). Maps aren't JSON-serializable for unstable_cache,
+// so the cached layer returns entries and we rebuild the Map.
+const fxRatesEntriesCached = unstable_cache(
+  async (): Promise<[string, number][]> => {
+    const sb = getAdminClient("public");
+    const { data, error } = await sb
+      .from("exchange_rates")
+      .select("ticker,close,date")
+      .ilike("ticker", "%USD=X")
+      .order("date", { ascending: false })
+      .limit(5000);
+    if (error || !data) return [["USD", 1]];
+    const map = new Map<string, number>([["USD", 1]]);
+    for (const r of data as { ticker: string; close: number }[]) {
+      const m = r.ticker.match(/^([A-Z]{3})USD=X$/);
+      if (!m) continue;
+      const ccy = m[1];
+      if (!map.has(ccy)) map.set(ccy, Number(r.close));
+    }
+    return Array.from(map.entries());
+  },
+  ["fx-rates-to-usd"],
+  { revalidate: 3600 },
+);
+
 export async function fxRatesToUSD(): Promise<Map<string, number>> {
-  const sb = getAdminClient("public");
-  // Pull recent rows (one per pair) of XXXUSD=X. We sort desc by date and dedupe.
-  const { data, error } = await sb
-    .from("exchange_rates")
-    .select("ticker,close,date")
-    .ilike("ticker", "%USD=X")
-    .order("date", { ascending: false })
-    .limit(5000);
-  if (error || !data) return new Map([["USD", 1]]);
-  const map = new Map<string, number>([["USD", 1]]);
-  for (const r of data as { ticker: string; close: number }[]) {
-    const m = r.ticker.match(/^([A-Z]{3})USD=X$/);
-    if (!m) continue;
-    const ccy = m[1];
-    if (!map.has(ccy)) map.set(ccy, Number(r.close));
-  }
-  return map;
+  return new Map(await fxRatesEntriesCached());
 }
 
 // Convert a value in `fromCurrency` to `targetCurrency`.
