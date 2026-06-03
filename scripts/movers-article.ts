@@ -13,8 +13,10 @@
  * Required: OpenAI key + Supabase URL + SERVICE-ROLE key (reads `backend`).
  * Knobs (env): OPENAI_MODEL (gpt-5.2), MOVERS_COUNT (3),
  *   MOVERS_DIRECTION (gainers|losers|both, default gainers),
+ *   MOVERS_REGION (us|europe|global, default us), MOVERS_EXCHANGES (csv override),
+ *   MOVERS_COUNTRY (e.g. FR for a Paris-only piece; US region implies US),
  *   MOVERS_MIN_PRICE (3), MOVERS_MIN_MKTCAP (5e8), MOVERS_MIN_VOLUME (2e5),
- *   MOVERS_COUNTRY (US), MOVERS_SEPARATE (set → one draft file per stock).
+ *   MOVERS_SEPARATE (set → one draft file per stock).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -54,8 +56,22 @@ const DIRECTION = (process.env.MOVERS_DIRECTION ?? "gainers").toLowerCase(); // 
 const MIN_PRICE = Number(process.env.MOVERS_MIN_PRICE ?? 3);
 const MIN_MKTCAP = Number(process.env.MOVERS_MIN_MKTCAP ?? 500_000_000);
 const MIN_VOLUME = Number(process.env.MOVERS_MIN_VOLUME ?? 200_000);
-const COUNTRY = process.env.MOVERS_COUNTRY ?? "US";
 const SEPARATE = !!process.env.MOVERS_SEPARATE;
+
+// Region → liquid primary exchanges. Europe relies on the exchange allowlist +
+// the volume floor (which drops illiquid cross-listings) rather than country.
+const US_EXCHANGES = ["NASDAQ", "NYSE", "AMEX"];
+const EU_EXCHANGES = ["LSE", "XETRA", "PAR", "AMS", "MIL", "BME", "SIX", "STO", "OSL", "CPH", "HEL", "BRU", "VIE"];
+const REGION = (process.env.MOVERS_REGION ?? "us").toLowerCase(); // us|europe|global
+const EXCHANGES = process.env.MOVERS_EXCHANGES
+  ? process.env.MOVERS_EXCHANGES.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+  : REGION === "europe" ? EU_EXCHANGES
+  : REGION === "global" ? [...US_EXCHANGES, ...EU_EXCHANGES]
+  : US_EXCHANGES;
+// Optional extra filter to a single country (e.g. FR for a Paris-only piece).
+// US region implies country=US (keeps foreign ADRs on US exchanges out).
+const COUNTRY = process.env.MOVERS_COUNTRY ?? (REGION === "us" ? "US" : undefined);
+const REGION_LABEL = REGION === "europe" ? "European" : REGION === "global" ? "US + European" : "US";
 
 if (!OPENAI_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
   const missing = [!OPENAI_KEY && "an OpenAI key", !SUPABASE_URL && "a Supabase URL", !SUPABASE_KEY && "a Supabase SERVICE-ROLE key"].filter(Boolean).join(", ");
@@ -70,7 +86,13 @@ if (!OPENAI_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
 interface NewsItem { title: string; publisher: string | null; date: string; text: string | null }
 interface Mover {
   symbol: string; name: string; exchange: string | null; sector: string | null;
-  price: number; changePct: number; lastDiv: number | null; news: NewsItem[];
+  price: number; changePct: number; lastDiv: number | null; currency: string | null; news: NewsItem[];
+}
+
+function money(price: number, cur: string | null): string {
+  const sym: Record<string, string> = { USD: "$", EUR: "€", GBP: "£" };
+  const s = sym[(cur ?? "USD").toUpperCase()];
+  return s ? `${s}${price.toFixed(2)}` : `${price.toFixed(2)} ${cur ?? ""}`.trim();
 }
 
 function isoDaysAgo(n: number): string {
@@ -82,17 +104,16 @@ function isoDaysAgo(n: number): string {
 // Credible, liquid US names only — excludes OTC/foreign ADRs, preferreds and
 // thin penny quotes that produced garbage "movers" before.
 async function fetchCandidates(sb: SupabaseClient, ascending: boolean): Promise<Omit<Mover, "news">[]> {
-  const { data, error } = await sb
+  let q = sb
     .from("tickers")
-    .select("symbol,name,exchange_short,sector,price,change_percentage,volume,mkt_cap,last_div")
+    .select("symbol,name,exchange_short,sector,price,change_percentage,volume,mkt_cap,last_div,currency")
     .eq("is_actively_trading", true).eq("is_etf", false).eq("is_fund", false)
-    .eq("country", COUNTRY)
-    .in("exchange_short", ["NASDAQ", "NYSE", "AMEX"])
+    .in("exchange_short", EXCHANGES)
     .gte("price", MIN_PRICE).gte("mkt_cap", MIN_MKTCAP).gte("volume", MIN_VOLUME)
     .not("change_percentage", "is", null)
-    .not("name", "ilike", "%pfd%").not("name", "ilike", "%preferred%").not("symbol", "like", "%-%")
-    .order("change_percentage", { ascending })
-    .limit(20);
+    .not("name", "ilike", "%pfd%").not("name", "ilike", "%preferred%").not("symbol", "like", "%-%");
+  if (COUNTRY) q = q.eq("country", COUNTRY);
+  const { data, error } = await q.order("change_percentage", { ascending }).limit(25);
   if (error) {
     console.error("[fetchCandidates]", error.message);
     return [];
@@ -106,6 +127,7 @@ async function fetchCandidates(sb: SupabaseClient, ascending: boolean): Promise<
       price: Number(r.price ?? 0),
       changePct: Number(r.change_percentage ?? 0),
       lastDiv: r.last_div == null ? null : Number(r.last_div),
+      currency: (r.currency as string) ?? null,
     }))
     .filter((m) => Number.isFinite(m.changePct) && Math.abs(m.changePct) <= 50);
 }
@@ -128,8 +150,8 @@ async function fetchNews(sb: SupabaseClient, symbol: string): Promise<NewsItem[]
 
 function moverContext(m: Mover): string {
   const dir = m.changePct >= 0 ? "+" : "";
-  const div = m.lastDiv != null && m.lastDiv > 0 ? `pays a dividend (~$${m.lastDiv}/sh)` : "pays no dividend";
-  const head = `${m.symbol} — ${m.name} (${m.exchange ?? "US"}${m.sector ? `, ${m.sector}` : ""}): ${dir}${m.changePct.toFixed(2)}% to $${m.price.toFixed(2)}; ${div}.`;
+  const div = m.lastDiv != null && m.lastDiv > 0 ? `pays a dividend (~${money(m.lastDiv, m.currency)}/sh)` : "pays no dividend";
+  const head = `${m.symbol} — ${m.name} (${m.exchange ?? "US"}${m.sector ? `, ${m.sector}` : ""}): ${dir}${m.changePct.toFixed(2)}% to ${money(m.price, m.currency)}; ${div}.`;
   const news = m.news.length
     ? m.news.map((n, i) => `  [${i + 1}] ${n.date} ${n.publisher ? `(${n.publisher})` : ""}: ${n.title}${n.text ? ` — ${n.text}` : ""}`).join("\n")
     : "  (no recent company news found — treat the catalyst as unconfirmed.)";
@@ -156,8 +178,10 @@ Return STRICT JSON with EXACTLY: {
   "body": "full markdown body, NO frontmatter, NO H1, start with a 2-3 sentence lede"
 }`;
 
+const REGION_HINT = `These are ${REGION_LABEL} stocks. Tailor the title, keywords and framing to that market (use the right currency symbols shown, and reference relevant indices — e.g. CAC 40, DAX, FTSE 100, IBEX, FTSE MIB for Europe; S&P 500 / Nasdaq for the US — only where accurate).`;
+
 function combinedPrompt(movers: Mover[], dateHuman: string): string {
-  return `Write a "top movers" markets explainer for ${dateHuman} covering the ${movers.length} biggest movers below. For EACH stock, write a meaty section (≈150-250 words) that leads with the move, then explains the WHY using its news snippets (cite the concrete details — figures, companies, filings, analyst actions), then a one-line dividend-investor takeaway. Lead the post with a 2-3 sentence overview. You may add a short "other movers to watch" line at the end if useful.
+  return `Write a "top movers" markets explainer for ${dateHuman} covering the ${movers.length} biggest ${REGION_LABEL} stock movers below. ${REGION_HINT} For EACH stock, write a meaty section (≈150-250 words) that leads with the move, then explains the WHY using its news snippets (cite the concrete details — figures, companies, filings, analyst actions), then a one-line dividend-investor takeaway. Lead the post with a 2-3 sentence overview. You may add a short "other movers to watch" line at the end if useful.
 
 MOVERS:
 ${movers.map(moverContext).join("\n\n")}
@@ -165,7 +189,7 @@ ${SEO_AND_JSON}`;
 }
 
 function singlePrompt(m: Mover, dateHuman: string): string {
-  return `Write a single-stock markets explainer for ${dateHuman} about ${m.name} (${m.exchange ?? "US"}:${m.symbol}). Lead with the move, then explain the WHY using the news snippets (cite concrete details — figures, companies, filings, analyst actions), give context, and close with a dividend-investor takeaway. ≈500-800 words.
+  return `Write a single-stock markets explainer for ${dateHuman} about ${m.name} (${m.exchange ?? "US"}:${m.symbol}). ${REGION_HINT} Lead with the move, then explain the WHY using the news snippets (cite concrete details — figures, companies, filings, analyst actions), give context, and close with a dividend-investor takeaway. ≈500-800 words.
 
 STOCK:
 ${moverContext(m)}
@@ -232,7 +256,7 @@ async function main(): Promise<void> {
     db: { schema: "backend" as "public" },
   });
 
-  console.log(`Selecting credible movers (${COUNTRY}, ${DIRECTION}, price≥$${MIN_PRICE}, mktcap≥$${(MIN_MKTCAP / 1e9).toFixed(2)}B, vol≥${MIN_VOLUME})…`);
+  console.log(`Selecting credible movers (region=${REGION}${COUNTRY ? `/${COUNTRY}` : ""}, ${DIRECTION}, exch=${EXCHANGES.join("/")}, price≥${MIN_PRICE}, mktcap≥$${(MIN_MKTCAP / 1e9).toFixed(2)}B, vol≥${MIN_VOLUME})…`);
   const pools: Omit<Mover, "news">[] = [];
   if (DIRECTION === "gainers" || DIRECTION === "both") pools.push(...(await fetchCandidates(sb, false)));
   if (DIRECTION === "losers" || DIRECTION === "both") pools.push(...(await fetchCandidates(sb, true)));
