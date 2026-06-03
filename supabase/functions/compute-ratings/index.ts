@@ -19,7 +19,7 @@ const corsHeaders = {
 /*  Methodology                                                       */
 /* ------------------------------------------------------------------ */
 
-// z → 1-5 dot-scale mapping (peer-relative quintile-ish)
+// z (sd≈1) → 1-5 dot-scale mapping (peer-relative quintile-ish)
 function zToScore(z: number | null | undefined): number {
   if (z === null || z === undefined || Number.isNaN(z)) return 3;
   if (z >= 1.5)  return 5;
@@ -41,6 +41,16 @@ function weightedZ(parts: Array<{ z: number | null | undefined; w: number; inv?:
     weightSum += p.w;
   }
   return weightSum > 0 ? sum / weightSum : null;
+}
+
+const isNum = (v: number | null | undefined): v is number => typeof v === "number" && !Number.isNaN(v);
+
+// Mean + population sd of a numeric array (callers pre-filter nulls).
+function meanSd(vals: number[]): { mean: number; sd: number } {
+  if (vals.length === 0) return { mean: 0, sd: 0 };
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const variance = vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length;
+  return { mean, sd: Math.sqrt(variance) };
 }
 
 interface ZRow {
@@ -72,7 +82,9 @@ interface ZRow {
   solvency_ratio_zscore?: number | null;
 }
 
-// Composite letter grade — matches the StockCard mock from the design phase
+// Composite letter grade — matches the StockCard mock from the design phase.
+// Re-spread sub-scores (see runPipeline) push composite_total back across the
+// full 5-25 range, so these bands now differentiate instead of piling on B.
 function gradeFor(total: number): { grade: string; color: string } {
   if (total >= 22) return { grade: "A",  color: "#34D399" };
   if (total >= 19) return { grade: "A-", color: "#34D399" };
@@ -85,8 +97,44 @@ function gradeFor(total: number): { grade: string; color: string } {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Per-symbol rating computation                                     */
+/*  Raw per-dimension z-scores                                        */
 /* ------------------------------------------------------------------ */
+
+interface DimZ {
+  valueZ: number | null;
+  profitZ: number | null;
+  healthZ: number | null;
+  growthZ: number | null;
+  momentumZ: number | null;
+}
+
+function rawDimZ(z: ZRow, growthZ: number | null, momentumZ: number | null): DimZ {
+  // VALUE — yields are higher-is-better (no invert); ratios are lower-is-better (invert)
+  const valueZ = weightedZ([
+    { z: z.earnings_yield_zscore,        w: 0.30 },
+    { z: z.free_cash_flow_yield_zscore,  w: 0.25 },
+    { z: z.ev_to_ebitda_zscore,          w: 0.20, inv: true },
+    { z: z.price_to_book_ratio_zscore,   w: 0.15, inv: true },
+    { z: z.price_to_sales_ratio_zscore,  w: 0.10, inv: true },
+  ]);
+  // PROFIT — all higher-is-better
+  const profitZ = weightedZ([
+    { z: z.return_on_invested_capital_zscore, w: 0.35 },
+    { z: z.net_profit_margin_zscore,          w: 0.25 },
+    { z: z.return_on_equity_zscore,           w: 0.20 },
+    { z: z.gross_profit_margin_zscore,        w: 0.10 },
+    { z: z.income_quality_zscore,             w: 0.10 },
+  ]);
+  // HEALTH — coverage/liquidity higher-is-better; debt lower-is-better (invert)
+  const healthZ = weightedZ([
+    { z: z.interest_coverage_ratio_zscore, w: 0.30 },
+    { z: z.net_debt_to_ebitda_zscore,      w: 0.25, inv: true },
+    { z: z.debt_to_equity_ratio_zscore,    w: 0.20, inv: true },
+    { z: z.current_ratio_zscore,           w: 0.15 },
+    { z: z.solvency_ratio_zscore,          w: 0.10 },
+  ]);
+  return { valueZ, profitZ, healthZ, growthZ, momentumZ };
+}
 
 interface Rating {
   symbol: string;
@@ -109,62 +157,6 @@ interface Rating {
   cohort_size: number | null;
 }
 
-function computeRatingForSymbol(
-  z: ZRow,
-  growthZ: number | null,
-  momentumZ: number | null,
-  computedDate: string,
-): Rating {
-  // VALUE — yields are higher-is-better (no invert); ratios are lower-is-better (invert)
-  const valueZ = weightedZ([
-    { z: z.earnings_yield_zscore,        w: 0.30 },
-    { z: z.free_cash_flow_yield_zscore,  w: 0.25 },
-    { z: z.ev_to_ebitda_zscore,          w: 0.20, inv: true },
-    { z: z.price_to_book_ratio_zscore,   w: 0.15, inv: true },
-    { z: z.price_to_sales_ratio_zscore,  w: 0.10, inv: true },
-  ]);
-
-  // PROFIT — all higher-is-better
-  const profitZ = weightedZ([
-    { z: z.return_on_invested_capital_zscore, w: 0.35 },
-    { z: z.net_profit_margin_zscore,          w: 0.25 },
-    { z: z.return_on_equity_zscore,           w: 0.20 },
-    { z: z.gross_profit_margin_zscore,        w: 0.10 },
-    { z: z.income_quality_zscore,             w: 0.10 },
-  ]);
-
-  // HEALTH — coverage/liquidity higher-is-better; debt lower-is-better (invert)
-  const healthZ = weightedZ([
-    { z: z.interest_coverage_ratio_zscore, w: 0.30 },
-    { z: z.net_debt_to_ebitda_zscore,      w: 0.25, inv: true },
-    { z: z.debt_to_equity_ratio_zscore,    w: 0.20, inv: true },
-    { z: z.current_ratio_zscore,           w: 0.15 },
-    { z: z.solvency_ratio_zscore,          w: 0.10 },
-  ]);
-
-  const value_score    = zToScore(valueZ);
-  const profit_score   = zToScore(profitZ);
-  const health_score   = zToScore(healthZ);
-  const growth_score   = zToScore(growthZ);
-  const momentum_score = zToScore(momentumZ);
-
-  const composite_total = value_score + growth_score + profit_score + momentum_score + health_score;
-  const { grade, color } = gradeFor(composite_total);
-
-  return {
-    symbol: z.symbol,
-    computed_date: computedDate,
-    value_score, growth_score, profit_score, momentum_score, health_score,
-    composite_total,
-    composite_grade: grade,
-    composite_color: color,
-    value_z: valueZ, growth_z: growthZ, profit_z: profitZ, momentum_z: momentumZ, health_z: healthZ,
-    cohort_industry: z.industry,
-    cohort_cap_category: z.market_cap_category,
-    cohort_size: z.peer_group_count,
-  };
-}
-
 /* ------------------------------------------------------------------ */
 /*  Pipeline                                                          */
 /* ------------------------------------------------------------------ */
@@ -179,11 +171,11 @@ const Z_COLUMNS = [
   "debt_to_equity_ratio_zscore", "current_ratio_zscore", "solvency_ratio_zscore",
 ].join(",");
 
-// Skip rating micro-caps — z-scoring is meaningless for $5M penny stocks and
-// the long tail balloons compute time without user value. $100M is a reasonable
-// floor (covers all US small-caps + every international name with real liquidity).
-// Override per-call via ?minMarketCap=N.
+// Skip rating micro-caps — z-scoring is meaningless for $5M penny stocks.
 const DEFAULT_MIN_MARKET_CAP = 100_000_000;
+// Below this many symbols we can't re-standardise reliably (e.g. ?symbols= runs),
+// so we fall back to the raw weighted-z without the universe re-spread.
+const RECALIBRATE_MIN = 1000;
 
 interface RunOptions { symbols?: string[]; limit?: number; minMarketCap?: number }
 
@@ -193,18 +185,14 @@ async function runPipeline(supabaseUrl: string, supabaseKey: string, opts: RunOp
   const computedDate = new Date().toISOString().split("T")[0];
   const minCap = opts.minMarketCap ?? DEFAULT_MIN_MARKET_CAP;
 
-  // Pull the latest annual z-score row per (symbol × market_cap_category).
-  // The unique key on industry_zscores_annual is (symbol, date, period, market_cap_category),
-  // so we pick the most recent date per symbol via DISTINCT ON.
-  // PostgREST doesn't support DISTINCT ON natively, so we pull all rows and dedupe in code.
+  // Latest annual z-score row per symbol.
   let q = sb.from("industry_zscores_annual")
     .select(Z_COLUMNS)
     .gte("market_cap", minCap)
     .order("date", { ascending: false });
-
   if (opts.symbols?.length) q = q.in("symbol", opts.symbols);
   if (opts.limit)           q = q.limit(opts.limit);
-  else                      q = q.limit(60000); // safety cap; current universe ~44k symbols
+  else                      q = q.limit(60000);
 
   const { data: zRows, error: zErr } = await q;
   if (zErr) throw new Error(`industry_zscores_annual: ${zErr.message}`);
@@ -212,29 +200,77 @@ async function runPipeline(supabaseUrl: string, supabaseKey: string, opts: RunOp
     return { processed: 0, written: 0, message: "no z-score rows found" };
   }
 
-  // Keep only the latest (date, market_cap_category) row per symbol — list is already sorted desc.
   const latestBySymbol = new Map<string, ZRow>();
   for (const row of zRows) {
     if (!latestBySymbol.has(row.symbol)) latestBySymbol.set(row.symbol, row);
   }
-
-  // Pull existing growth + momentum z-scores for today (3b + 3c will populate these).
-  // For 3a, both are null → compute defaults to median (score 3) per dimension.
   const symbols = Array.from(latestBySymbol.keys());
+
+  // Growth + momentum z-scores. IMPORTANT: these side tables refresh on their
+  // own cadence (not necessarily today), so we key off each table's LATEST
+  // available date rather than `computedDate`. The old code matched
+  // computed_date = today, found nothing on most days, and silently scored
+  // growth + momentum = 3 (null) for the entire universe.
   const [growthMap, momentumMap] = await Promise.all([
-    fetchSideTableMap(sb, "growth_zscores_daily", "composite_growth_zscore", computedDate, symbols),
-    fetchSideTableMap(sb, "momentum_zscores_daily", "composite_momentum_zscore", computedDate, symbols),
+    fetchSideTableMapLatest(sb, "growth_zscores_daily", "composite_growth_zscore", symbols),
+    fetchSideTableMapLatest(sb, "momentum_zscores_daily", "composite_momentum_zscore", symbols),
   ]);
 
-  // Compute ratings
-  const ratings: Rating[] = [];
+  // Pass 1: raw dimension z per symbol.
+  const raw = new Map<string, DimZ>();
   for (const [symbol, zRow] of latestBySymbol.entries()) {
-    const growthZ   = growthMap.get(symbol)   ?? null;
-    const momentumZ = momentumMap.get(symbol) ?? null;
-    ratings.push(computeRatingForSymbol(zRow, growthZ, momentumZ, computedDate));
+    raw.set(symbol, rawDimZ(zRow, growthMap.get(symbol) ?? null, momentumMap.get(symbol) ?? null));
   }
 
-  // Upsert in batches (PostgREST upsert sweet spot is ~500 rows per call)
+  // Re-standardise each dimension across the universe. Averaging 5 z-scores
+  // shrinks the spread (sd ≈ 0.3), so a fixed ±0.5 bucket dumped ~85% of stocks
+  // on score 3. Re-centring each dimension to sd≈1 restores a real 1-5 spread
+  // (peer-relative). Skipped for small/symbol runs where stats are unreliable.
+  const recalibrate = raw.size >= RECALIBRATE_MIN;
+  const all = [...raw.values()];
+  const stats = {
+    value:    meanSd(all.map((r) => r.valueZ).filter(isNum)),
+    profit:   meanSd(all.map((r) => r.profitZ).filter(isNum)),
+    health:   meanSd(all.map((r) => r.healthZ).filter(isNum)),
+    growth:   meanSd(all.map((r) => r.growthZ).filter(isNum)),
+    momentum: meanSd(all.map((r) => r.momentumZ).filter(isNum)),
+  };
+  const norm = (v: number | null, s: { mean: number; sd: number }): number | null =>
+    !recalibrate || v === null || Number.isNaN(v) || s.sd <= 0 ? v : (v - s.mean) / s.sd;
+
+  // Pass 2: score.
+  const ratings: Rating[] = [];
+  for (const [symbol, zRow] of latestBySymbol.entries()) {
+    const r = raw.get(symbol)!;
+    const vz = norm(r.valueZ, stats.value);
+    const pz = norm(r.profitZ, stats.profit);
+    const hz = norm(r.healthZ, stats.health);
+    const gz = norm(r.growthZ, stats.growth);
+    const mz = norm(r.momentumZ, stats.momentum);
+
+    const value_score    = zToScore(vz);
+    const profit_score   = zToScore(pz);
+    const health_score   = zToScore(hz);
+    const growth_score   = zToScore(gz);
+    const momentum_score = zToScore(mz);
+    const composite_total = value_score + growth_score + profit_score + momentum_score + health_score;
+    const { grade, color } = gradeFor(composite_total);
+
+    ratings.push({
+      symbol,
+      computed_date: computedDate,
+      value_score, growth_score, profit_score, momentum_score, health_score,
+      composite_total,
+      composite_grade: grade,
+      composite_color: color,
+      value_z: vz, growth_z: gz, profit_z: pz, momentum_z: mz, health_z: hz,
+      cohort_industry: zRow.industry,
+      cohort_cap_category: zRow.market_cap_category,
+      cohort_size: zRow.peer_group_count,
+    });
+  }
+
+  // Upsert in batches.
   const BATCH = 500;
   let written = 0;
   for (let i = 0; i < ratings.length; i += BATCH) {
@@ -245,20 +281,36 @@ async function runPipeline(supabaseUrl: string, supabaseKey: string, opts: RunOp
     written += chunk.length;
   }
 
-  return { processed: latestBySymbol.size, written, computed_date: computedDate };
+  return {
+    processed: latestBySymbol.size,
+    written,
+    computed_date: computedDate,
+    recalibrated: recalibrate,
+    growth_coverage: growthMap.size,
+    momentum_coverage: momentumMap.size,
+  };
 }
 
-async function fetchSideTableMap(
-  sb: any, table: string, column: string, computedDate: string, symbols: string[],
+// Fetch the LATEST available row per symbol from a daily side table (growth /
+// momentum). We resolve the table's max computed_date first, then read that
+// date's rows for our symbols — robust to the side tables lagging "today".
+async function fetchSideTableMapLatest(
+  sb: any, table: string, column: string, symbols: string[],
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>();
-  // Chunk the .in() filter — PostgREST URL has a length limit
+  const { data: maxRows, error: maxErr } = await sb.from(table)
+    .select("computed_date").order("computed_date", { ascending: false }).limit(1);
+  if (maxErr || !maxRows?.length) {
+    console.log(`${table}: could not resolve latest computed_date (non-fatal):`, maxErr?.message);
+    return map;
+  }
+  const latest = maxRows[0].computed_date;
   const CHUNK = 200;
   for (let i = 0; i < symbols.length; i += CHUNK) {
     const slice = symbols.slice(i, i + CHUNK);
     const { data, error } = await sb.from(table)
       .select(`symbol,${column}`)
-      .eq("computed_date", computedDate)
+      .eq("computed_date", latest)
       .in("symbol", slice);
     if (error) {
       console.log(`${table} read failed (non-fatal):`, error.message);
@@ -299,7 +351,7 @@ Deno.serve(async (req: Request) => {
     const result = await runPipeline(supabaseUrl, supabaseKey, opts);
     const elapsed = Date.now() - start;
 
-    console.log(`compute-ratings: processed=${result.processed} written=${result.written} ms=${elapsed}`);
+    console.log(`compute-ratings: ${JSON.stringify(result)} ms=${elapsed}`);
     return new Response(
       JSON.stringify({ ok: true, ...result, elapsed_ms: elapsed }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
