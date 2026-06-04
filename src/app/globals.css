@@ -3780,8 +3780,22 @@ a.dv-fin-seeall {
 .dv-table--statement th:first-child {
   position: sticky;
   left: 0;
-  background: var(--bg-surface);
   z-index: 2;
+  /* Solid + opaque. Was `var(--bg-surface)` — an UNDEFINED variable — so the
+     background resolved to transparent and the horizontally-scrolled value
+     cells bled through and overlapped the line-item labels. A divider on the
+     right edge separates the frozen column from the scrolling cells. */
+  background: #0a0a0a;
+  box-shadow: 1px 0 0 var(--border-subtle);
+}
+/* The total-row and hover rules set `td` backgrounds at higher specificity,
+   which would re-expose the scrolled cells through the frozen column — keep the
+   first cell opaque in those states too. */
+.dv-table--statement tr.dv-row--total td:first-child {
+  background: #0e0e0e;
+}
+.dv-table--statement tr:hover td:first-child {
+  background: #11201a;
 }
 
 .dv-table--statement tr.dv-row--total td {
