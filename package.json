@@ -11,7 +11,8 @@
     "x:compose": "tsx scripts/x-cli.ts compose",
     "x:post": "tsx scripts/x-cli.ts post",
     "reddit:monitor": "tsx scripts/reddit-monitor.ts",
-    "movers:draft": "tsx scripts/movers-article.ts"
+    "movers:draft": "tsx scripts/movers-article.ts",
+    "indexnow": "tsx scripts/indexnow.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.54.0",
