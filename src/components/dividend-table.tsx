@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WatchButton } from "@/components/watch-button";
+import { usePremiumStatus } from "@/components/use-premium-status";
 import { PremiumLock } from "@/components/premium-lock";
 import { th } from "@/lib/table-i18n";
 import { tabLabel } from "@/lib/ui-i18n";
@@ -913,6 +914,14 @@ export function DividendTable({
   const upcomingDividends = revealed?.upcoming ?? upcomingProp;
   const isPremium = revealed != null ? true : isPremiumProp;
 
+  // A returning paying user is known-premium before paint (localStorage hint),
+  // but the row/rating data is still being fetched. Mark that window so the
+  // gated cells render as a quiet loading dim instead of the "locked" blur +
+  // unlock hint — otherwise premium users see a false paywall flash that then
+  // pops to data. Free users (knownPremium=false) keep the upsell blur.
+  const { isPremium: knownPremium } = usePremiumStatus();
+  const premiumLoading = revealPremium && knownPremium && revealed === null;
+
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -1043,7 +1052,7 @@ export function DividendTable({
   }
 
   return (
-    <div className="dv-table-wrap">
+    <div className={`dv-table-wrap${premiumLoading ? " dv-premium-loading" : ""}`}>
       <div className="dv-table-scroll">
         <table className="dv-table">
           <thead>

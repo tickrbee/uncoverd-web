@@ -541,13 +541,24 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
               const target = e.target as HTMLElement;
               if (target.closest("a")) setMobileOpen(false);
             }}>
-              {/* Top-level direct links — match the desktop nav's standalone
-                  items (Screener, Compare, Alternatives, News, Watchlist,
-                  App). Anything that's a single link on desktop should be
-                  a single link here too, not buried in a collapsed group. */}
+              {/* Account / CTA up top — sign-in/up (or Account) shouldn't be
+                  buried at the very bottom of the drawer. */}
+              <div className="dv-mobile-account">
+                {user ? (
+                  <Link href="/account" className="dv-mobile-cta">{t.account}</Link>
+                ) : (
+                  <div className="dv-mobile-auth">
+                    <Link href="/login" className="dv-mobile-cta dv-mobile-cta--ghost">{t.signIn}</Link>
+                    <Link href="/signup" className="dv-mobile-cta">{t.signUp}</Link>
+                  </div>
+                )}
+                <Link href="/pricing" className="dv-mobile-account__pricing">{t.pricing}</Link>
+              </div>
+              {/* Primary quick links — the most-used standalone destinations. */}
               <div className="dv-mobile-solo">
                 <Link href="/screener">{t.screener}</Link>
                 <Link href="/screener?type=etfs">{`ETF ${t.screener}`}</Link>
+                <Link href="/high-yield">{t.highYield}</Link>
                 <Link href="/news">{t.news}</Link>
                 <Link href="/blog">{t.blog}</Link>
                 <Link href="/watchlist">{t.watchlist}</Link>
@@ -564,12 +575,6 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
               <MobileGroup title={t.explore}>
                 <Link href="/methodology">{t.methodology}</Link>
                 <Link href="/about">{t.about}</Link>
-              </MobileGroup>
-              <MobileGroup title={t.languages}>
-                <Link href="/fr" hrefLang="fr-FR" lang="fr">🇫🇷 Français</Link>
-                <Link href="/de" hrefLang="de-DE" lang="de">🇩🇪 Deutsch</Link>
-                <Link href="/it" hrefLang="it-IT" lang="it">🇮🇹 Italiano</Link>
-                <Link href="/es" hrefLang="es-ES" lang="es">🇪🇸 Español</Link>
               </MobileGroup>
               <MobileGroup title={t.industries}>
                 {INDUSTRIES.map((i) => (
@@ -626,19 +631,18 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
                   <Link key={g.key} href={`/growers/${g.key}`}>{`${g.label[locale]} (${GROWER_YEARS[g.key]})`}</Link>
                 ))}
               </MobileGroup>
-              <MobileGroup title={t.account}>
-                <Link href="/watchlist">{t.watchlist}</Link>
-                <Link href="/download">{t.app}</Link>
-                <Link href="/pricing">{t.pricing}</Link>
-                {user ? (
-                  <Link href="/account">{t.account}</Link>
-                ) : (
-                  <>
-                    <Link href="/login">{t.signIn}</Link>
-                    <Link href="/signup">{t.signUp}</Link>
-                  </>
-                )}
-              </MobileGroup>
+              {/* Language switcher — compact flag chips at the foot of the
+                  drawer, not an accordion buried among the content sections. */}
+              <div className="dv-mobile-langs">
+                <span className="dv-mobile-langs__label">{t.languages}</span>
+                <div className="dv-mobile-langs__row">
+                  <Link href="/" hrefLang="en-US" lang="en" className="dv-mobile-lang">🇬🇧 EN</Link>
+                  <Link href="/fr" hrefLang="fr-FR" lang="fr" className="dv-mobile-lang">🇫🇷 FR</Link>
+                  <Link href="/de" hrefLang="de-DE" lang="de" className="dv-mobile-lang">🇩🇪 DE</Link>
+                  <Link href="/it" hrefLang="it-IT" lang="it" className="dv-mobile-lang">🇮🇹 IT</Link>
+                  <Link href="/es" hrefLang="es-ES" lang="es" className="dv-mobile-lang">🇪🇸 ES</Link>
+                </div>
+              </div>
             </nav>
           </aside>
         </>
