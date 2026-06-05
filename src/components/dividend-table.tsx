@@ -1202,7 +1202,7 @@ function RatingBadge({ rating, isPremium }: { rating?: StockRating; isPremium: b
   if (!isPremium) {
     return (
       <PremiumLock isPremium={false} inline>
-        <span style={{ color: "var(--positive)", fontWeight: 700 }}>B+</span>
+        <span style={{ color: "var(--positive)", fontWeight: 700 }}>•••</span>
       </PremiumLock>
     );
   }
@@ -1222,7 +1222,7 @@ function ScoreCell({ score, isPremium }: { score: number; isPremium: boolean }) 
     // Decoy, never the real per-pillar score (see RatingBadge note).
     return (
       <PremiumLock isPremium={false} inline>
-        <span style={{ color: "var(--positive)" }}>4/5</span>
+        <span style={{ color: "var(--positive)" }}>•••</span>
       </PremiumLock>
     );
   }
