@@ -2492,10 +2492,12 @@ export async function searchHoldableAssets(query: string, limit = 12): Promise<H
   const etfOnly = new Map<string, { name: string | null; count: number }>();
   for (const r of (holdingRes.data as { asset: string; name: string | null }[]) ?? []) {
     const a = (r.asset ?? "").trim();
-    // Skip junk holding identifiers — blank/whitespace-only or without any
-    // alphanumeric char (e.g. the literal asset " ") produce broken
-    // /etfs/holders/{asset} links that 404.
-    if (!a || !/[a-z0-9]/i.test(a) || seen.has(a.toUpperCase())) continue;
+    // Skip holding identifiers that can't make a working /etfs/holders/{asset}
+    // link: blank/whitespace-only, no alphanumeric char (e.g. the literal " "),
+    // or containing a space (Next won't route "SPACEX SPV"/"711339Z US" — the
+    // path 404s before the page runs even though the data exists). Clean IDs
+    // like "SPACEXSPV" still resolve.
+    if (!a || !/[a-z0-9]/i.test(a) || /\s/.test(a) || seen.has(a.toUpperCase())) continue;
     const key = a.toUpperCase();
     const cur = etfOnly.get(key) ?? { name: r.name, count: 0 };
     cur.count += 1;

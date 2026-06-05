@@ -9,7 +9,7 @@ import { T } from "@/components/t";
 export const metadata: Metadata = {
   title: "Pricing — uncoverd Premium",
   description:
-    "uncoverd Premium is $100/year (about $8.33/mo): dividend ratings on every stock, model portfolios, best-dividend lists, dividend-capture picks, a payout estimator, watchlist alerts, CSV export and ad-free research. Cancel anytime.",
+    "uncoverd Premium is €100/year (about €8.33/mo): dividend ratings on every stock, model portfolios, best-dividend lists, dividend-capture picks, a payout estimator, watchlist alerts, CSV export and ad-free research. Cancel anytime.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -58,11 +58,11 @@ const HIGHLIGHTS: { title: string; body: string }[] = [
 ];
 
 const FAQ: { q: string; a: string }[] = [
-  { q: "How much is Premium?", a: "$100 per year — about $8.33 a month — for everything listed above. One plan, no hidden tiers." },
+  { q: "How much is Premium?", a: "€100 per year — about €8.33 a month — for everything listed above. One plan, no hidden tiers." },
   { q: "Can I cancel anytime?", a: "Yes. Manage or cancel in one click from your account, and you keep full access until the end of the billing period." },
   { q: "What stays free?", a: "The screener with basic filters, the ex-dividend calendar, the dividend news feed, and every stock's profile and dividend history are free forever — no account required." },
   { q: "How do payments work?", a: "Checkout and billing are handled securely by Stripe. We never see or store your card details, and you'll get a receipt for every charge." },
-  { q: "How is this different from other dividend sites?", a: "You get ratings, curated best-of lists, model portfolios, an ex-dividend calendar, alerts, income tools and a screener — the core of a premium dividend-research suite — for a flat $100/year, typically well below comparable services." },
+  { q: "How is this different from other dividend sites?", a: "You get ratings, curated best-of lists, model portfolios, an ex-dividend calendar, alerts, income tools and a screener — the core of a premium dividend-research suite — for a flat €100/year, typically well below comparable services." },
 ];
 
 function Mark({ v }: { v: boolean | string }) {
@@ -91,8 +91,8 @@ export default function PricingPage() {
             </T>
           </p>
           <p style={{ marginTop: "0.85rem", fontSize: "1.05rem" }}>
-            <strong>Premium — $100 / year</strong>{" "}
-            <span style={{ color: "rgba(255,255,255,0.75)" }}>(<T>about $8.33 / month</T>)</span>
+            <strong>Premium — €100 / year</strong>{" "}
+            <span style={{ color: "rgba(255,255,255,0.75)" }}>(<T>about €8.33 / month</T>)</span>
           </p>
           <p style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)" }}>
             <T>Cancel anytime · Secure checkout via Stripe · Instant access</T>

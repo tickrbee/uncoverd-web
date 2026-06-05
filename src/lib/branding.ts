@@ -24,7 +24,7 @@ export const plans: Plan[] = [
   {
     tier: "gold",
     name: "Pro",
-    monthlyPrice: "$199 / year",
+    monthlyPrice: "€199 / year",
     description: "For active investors who want the full uncoverd suite plus the AI mobile app.",
     features: [
       "Everything in Premium",
@@ -38,7 +38,7 @@ export const plans: Plan[] = [
   {
     tier: "plus",
     name: "Premium",
-    monthlyPrice: "$100 / year",
+    monthlyPrice: "€100 / year",
     description: "Full access to dividend research, model portfolios, screener, watchlist, and ad-free browsing.",
     features: [
       "All Model Portfolios (High Yield, Growth, Protection)",
@@ -56,7 +56,7 @@ export const plans: Plan[] = [
   {
     tier: "free",
     name: "Free",
-    monthlyPrice: "$0",
+    monthlyPrice: "€0",
     description: "Get started with the basics.",
     features: [
       "Stock screener with basic filters",
