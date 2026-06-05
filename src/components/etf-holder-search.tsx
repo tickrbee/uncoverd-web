@@ -43,7 +43,9 @@ export function EtfHolderSearch() {
         const data = (await res.json()) as { results: Suggestion[] };
         // Hide ETF rows since "which ETFs hold an ETF" isn't usually what
         // users want here. Asset-source rows (private companies) are kept.
-        const stockOnly = (data.results ?? []).filter((s) => !s.is_etf && !s.is_fund);
+        const stockOnly = (data.results ?? []).filter(
+          (s) => !s.is_etf && !s.is_fund && s.symbol && s.symbol.trim(),
+        );
         setSuggestions(stockOnly);
         setActiveIdx(-1);
       } catch {
@@ -56,7 +58,11 @@ export function EtfHolderSearch() {
   }, [value]);
 
   function goTo(symbol: string) {
-    router.push(`/etfs/holders/${symbol}`);
+    const s = symbol.trim();
+    if (!s) return;
+    // Encode so assets with spaces (e.g. "711339Z US") don't make a malformed
+    // URL that 404s.
+    router.push(`/etfs/holders/${encodeURIComponent(s)}`);
   }
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>) {

@@ -2488,8 +2488,12 @@ export async function searchHoldableAssets(query: string, limit = 12): Promise<H
   // collapse into a single suggestion. We don't add tickers we already have.
   const etfOnly = new Map<string, { name: string | null; count: number }>();
   for (const r of (holdingRes.data as { asset: string; name: string | null }[]) ?? []) {
-    if (!r.asset || seen.has(r.asset)) continue;
-    const key = r.asset.toUpperCase();
+    const a = (r.asset ?? "").trim();
+    // Skip junk holding identifiers — blank/whitespace-only or without any
+    // alphanumeric char (e.g. the literal asset " ") produce broken
+    // /etfs/holders/{asset} links that 404.
+    if (!a || !/[a-z0-9]/i.test(a) || seen.has(a.toUpperCase())) continue;
+    const key = a.toUpperCase();
     const cur = etfOnly.get(key) ?? { name: r.name, count: 0 };
     cur.count += 1;
     // Prefer a non-null name across collisions.
