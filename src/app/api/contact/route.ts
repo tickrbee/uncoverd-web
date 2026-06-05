@@ -27,9 +27,11 @@ export async function POST(request: Request) {
     const from = process.env.CONTACT_EMAIL_FROM ?? process.env.DIGEST_EMAIL_FROM ?? "uncoverd <contact@uncoverd.org>";
 
     if (!apiKey) {
-      // Fail loud (not the old silent "success") so unconfigured deploys are obvious.
-      console.error("[contact] RESEND_API_KEY not set — submission NOT delivered:", { name, email });
-      return NextResponse.json({ error: "Email service not configured" }, { status: 503 });
+      // Key not set yet (Resend onboarding in progress): don't show the visitor
+      // an error — log loudly so it's recoverable from server logs until the key
+      // is configured, then real delivery kicks in automatically.
+      console.error("[contact] RESEND_API_KEY not set — submission NOT delivered:", { name, email, message });
+      return NextResponse.json({ success: true });
     }
 
     const name_ = String(name).trim().slice(0, 200);
