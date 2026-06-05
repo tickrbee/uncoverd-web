@@ -83,11 +83,12 @@ export default function PricingPage() {
           style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #1e3a8a 100%)" }}
         >
           <p className="dv-eyebrow"><T>Pricing</T></p>
-          <h1><T>Serious dividend research, without the Wall-Street price tag</T></h1>
+          <h1><T>Maximize your portfolio&apos;s returns</T></h1>
           <p style={{ maxWidth: "60ch", marginTop: "0.6rem", color: "rgba(255,255,255,0.85)" }}>
             <T>
-              Ratings on every stock, model portfolios, curated best-of lists, dividend-capture
-              picks, income tools and alerts — all of it for one flat price.
+              Find safer, higher-returning dividends faster — with a rating on every stock,
+              model portfolios, curated best-of lists, dividend-capture picks, income tools
+              and alerts, all for one flat price.
             </T>
           </p>
           <p style={{ marginTop: "0.85rem", fontSize: "1.05rem" }}>
