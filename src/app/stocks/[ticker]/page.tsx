@@ -409,7 +409,7 @@ export default async function StockPage({
       </>
     ),
     payouts: <PayoutsTab symbol={symbol} dividends={dividends} stock={stock} ratios={ratios} />,
-    "div-growth": <DivGrowthTab symbol={symbol} dividends={dividends} ratios={ratios} />,
+    "div-growth": <DivGrowthTab symbol={symbol} dividends={dividends} ratios={ratios} currency={stock.currency} />,
     financials: (
       <FinancialsTab
         symbol={symbol}
@@ -618,10 +618,12 @@ function DivGrowthTab({
   symbol,
   dividends,
   ratios,
+  currency,
 }: {
   symbol: string;
   dividends: Awaited<ReturnType<typeof dividendHistoryBySymbol>>;
   ratios: Awaited<ReturnType<typeof ratiosLatest>>;
+  currency: string | null;
 }) {
   // Group dividends by year and sum. Use adj_dividend so a stock split
   // doesn't create a fake "cut year" in the CAGR — pre-split years show
@@ -680,7 +682,7 @@ function DivGrowthTab({
                   return (
                     <tr key={year}>
                       <td>{year}</td>
-                      <td className="dv-td--num">{formatCurrency(amount)}</td>
+                      <td className="dv-td--num">{formatCurrency(amount, { currency })}</td>
                       <td className="dv-td--num">
                         {yoy != null ? (
                           <span className={yoy >= 0 ? "dv-change--pos" : "dv-change--neg"}>
