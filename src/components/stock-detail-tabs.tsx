@@ -175,7 +175,7 @@ function RatingsPanel({
   loading: boolean;
 }) {
   const cards = [
-    { key: "overall", label: "Overall", grade: rating?.composite_grade, score: rating?.composite_total ?? null, max: 20, blurb: "Composite of the five pillars below (Value + Growth + Profitability + Momentum + Health, each 0–4). 17–20 = A, 14–16 = B, 12–13 = C, 10–11 = D, below = F." },
+    { key: "overall", label: "Overall", grade: rating?.composite_grade, score: rating?.composite_total ?? null, max: 25, blurb: "Composite of the five pillars below (Value + Growth + Profitability + Momentum + Health, each 1–5, so 5–25 total). 22–25 = A, 19–21 = A-, 17–18 = B+, 14–16 = B, 12–13 = C+, 10–11 = C, 8–9 = D, below = F." },
     { key: "value", label: "Value", score: rating?.value_score ?? null, max: 5, blurb: "How cheap the stock looks vs peers in its industry — combines P/E, P/B and dividend-yield percentile." },
     { key: "growth", label: "Growth", score: rating?.growth_score ?? null, max: 5, blurb: "5-year revenue + EPS + dividend CAGR scored against industry peers. Rewards consistent compounding." },
     { key: "profit", label: "Profitability", score: rating?.profit_score ?? null, max: 5, blurb: "Net margin, ROE and return on invested capital — how much profit the business squeezes out of its sales and capital." },
@@ -226,10 +226,12 @@ function RecommendationPanel({
   loading: boolean;
 }) {
   const score = rating?.composite_total ?? null;
+  // Thresholds on the 25-point composite (5 pillars × 1–5), aligned with the
+  // letter grades: A/A- = Strong Buy, B+ = Buy, B = Hold, C+/C = Reduce, D/F = Avoid.
   const verdict =
-    score == null ? "Insufficient data" : score >= 17 ? "Strong Buy" : score >= 14 ? "Buy" : score >= 12 ? "Hold" : score >= 10 ? "Reduce" : "Avoid";
+    score == null ? "Insufficient data" : score >= 19 ? "Strong Buy" : score >= 17 ? "Buy" : score >= 14 ? "Hold" : score >= 10 ? "Reduce" : "Avoid";
   const verdictColor =
-    score == null ? "var(--text-muted)" : score >= 14 ? "var(--positive)" : score >= 12 ? "#fbbf24" : "var(--negative)";
+    score == null ? "var(--text-muted)" : score >= 17 ? "var(--positive)" : score >= 14 ? "#fbbf24" : "var(--negative)";
 
   return (
     <section className="dv-section">
@@ -249,13 +251,13 @@ function RecommendationPanel({
               {verdict}
             </p>
             <p className="dv-stat-card__label" style={{ marginTop: "0.35rem" }}>
-              Based on uncoverd composite {score ?? "—"} / 20
+              Based on uncoverd composite {score ?? "—"} / 25
             </p>
           </div>
           <div className="dv-prose" style={{ marginTop: "1rem" }}>
             <h3 style={{ marginTop: 0 }}>Why?</h3>
             <ul>
-              <li>Composite rating: <strong>{rating?.composite_grade ?? "—"}</strong> ({score ?? "—"} / 20)</li>
+              <li>Composite rating: <strong>{rating?.composite_grade ?? "—"}</strong> ({score ?? "—"} / 25)</li>
               <li>Current yield: <strong>{formatPercent(premium.dividendYield)}</strong></li>
               <li>Payout ratio: <strong>{premium.payoutRatio != null ? formatPercent(premium.payoutRatio * 100) : "—"}</strong></li>
               <li>P/E: <strong>{premium.peRatio?.toFixed(2) ?? "—"}</strong></li>

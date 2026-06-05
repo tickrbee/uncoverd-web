@@ -1195,14 +1195,14 @@ function colorForScore5(score: number): string {
 }
 
 function RatingBadge({ rating, isPremium }: { rating?: StockRating; isPremium: boolean }) {
-  // Free users have no rating data, but we still show a BLURRED placeholder grade
-  // (not an empty "—") so the column reads as locked-content, with a hover unlock.
+  // Free users show a BLURRED *decoy* grade (not an empty "—") so the column reads
+  // as locked-content, with a hover unlock. IMPORTANT: never render the real grade
+  // here even if a `rating` is passed — a free page may pass server-side ratings,
+  // and the real value would otherwise sit in the DOM under a removable CSS blur.
   if (!isPremium) {
     return (
       <PremiumLock isPremium={false} inline>
-        <span style={{ color: "var(--positive)", fontWeight: 700 }}>
-          {rating?.composite_grade ?? "B+"}
-        </span>
+        <span style={{ color: "var(--positive)", fontWeight: 700 }}>B+</span>
       </PremiumLock>
     );
   }
@@ -1219,9 +1219,10 @@ function RatingBadge({ rating, isPremium }: { rating?: StockRating; isPremium: b
 
 function ScoreCell({ score, isPremium }: { score: number; isPremium: boolean }) {
   if (!isPremium) {
+    // Decoy, never the real per-pillar score (see RatingBadge note).
     return (
       <PremiumLock isPremium={false} inline>
-        <span style={{ color: "var(--positive)" }}>{score.toFixed(0)}/5</span>
+        <span style={{ color: "var(--positive)" }}>4/5</span>
       </PremiumLock>
     );
   }
