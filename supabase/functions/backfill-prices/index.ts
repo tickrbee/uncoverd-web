@@ -1,28 +1,28 @@
 // @ts-nocheck
 // Supabase Edge Function: backfill-prices
 //
-// Re-fetches a window of daily EOD bars (default 2 years) for active tickers and
-// upserts close+volume into backend.historical_prices_stocks — refilling any
-// holes and re-propagating split adjustments.
+// Re-fetches a window of daily EOD bars (default 2 years) for a CONTIGUOUS BATCH
+// of active tickers and upserts close+volume into backend.historical_prices_stocks
+// — refilling holes and re-propagating split adjustments.
 //
-// WHY this exists separately from refresh-fmp-data's daily price refresh:
+// WHY this exists (vs refresh-fmp-data's daily price refresh):
 //   - `stage=prices` patches only the LAST 7 DAYS, ordered by SHARE volume, so
 //     low-share-volume names fall past the 150s timeout and accumulate holes:
 //     high-priced US stocks (e.g. TDG ~$1,300 → few shares traded), ADRs (SBS),
 //     and foreign lines (EXA.PA). They went un-refreshed Dec 2025–May 2026.
 //   - `refresh-recent-prices` (batch-quote) keeps every symbol's LAST bar current
 //     but never backfills the gap behind it.
-// This walks every symbol symbol-ordered (fair, not volume-ordered) and refetches
-// the whole window, so the buried tail gets its history filled and kept healed.
 //
-// Sharded for the 150s edge timeout: ?shards=M&shard=N (each shard must finish
-// inside 150s, so size shards so ~total/shards <= ~3k symbols at CONCURRENCY=8).
-// ?years=N window (default 2), ?scope=stocks|etfs|all (default stocks).
-// Idempotent (upsert on symbol,date). Only writes close+volume; leaves any
-// existing open/high/low/dividends/change_percent untouched.
+// BATCHING: a whole-universe shard (~2,700 symbols) hits the edge worker
+// WORKER_RESOURCE_LIMIT (546). So each invocation processes ONE offset..offset+limit
+// slice (symbol-ordered) — loaded with a single range() query (no full-list scan)
+// — and a per-minute pg_cron tick advances the offset (backend.backfill_cursor).
 //
-// Manual: curl -X POST ".../functions/v1/backfill-prices?shards=24&shard=0" \
-//            -H "Authorization: Bearer $SERVICE_ROLE_KEY"
+// Params: ?offset=N&limit=M (default 500) & ?years=Y (2) & ?scope=stocks|etfs|all.
+// Idempotent (upsert on symbol,date); only writes close+volume. Inline-await,
+// returns 200 — the worker keeps running past the 5s pg_net timeout, but the
+// TRIGGER must hold the connection (timeout_milliseconds >= batch runtime) so the
+// worker isn't torn down before it writes.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -35,37 +35,20 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   db: { schema: "backend" },
 });
 
-function shardSlice(arr, shard, shards) {
-  if (shards <= 1) return arr;
-  const out = [];
-  for (let i = 0; i < arr.length; i++) if (i % shards === shard) out.push(arr[i]);
-  return out;
-}
+async function run(offset, limit, scope, years) {
+  let q = sb
+    .from("tickers")
+    .select("symbol")
+    .eq("is_actively_trading", true)
+    .gt("price", 0)
+    .order("symbol", { ascending: true })
+    .range(offset, offset + limit - 1);
+  if (scope === "etfs") q = q.or("is_etf.eq.true,is_fund.eq.true");
+  else if (scope === "stocks") q = q.eq("is_etf", false).eq("is_fund", false);
+  const { data, error } = await q;
+  if (error) throw new Error(`ticker load: ${error.message}`);
+  const subset = (data ?? []).map((r) => r.symbol);
 
-async function run(shard, shards, scope, years) {
-  const candidates = [];
-  let offset = 0;
-  while (true) {
-    let q = sb
-      .from("tickers")
-      .select("symbol")
-      .eq("is_actively_trading", true)
-      .gt("price", 0)
-      .order("symbol", { ascending: true })
-      .range(offset, offset + 999);
-    if (scope === "etfs") q = q.or("is_etf.eq.true,is_fund.eq.true");
-    else if (scope === "stocks") q = q.eq("is_etf", false).eq("is_fund", false);
-    const { data, error } = await q;
-    if (error || !data) break;
-    for (const r of data) candidates.push(r.symbol);
-    if (data.length < 1000) break;
-    offset += 1000;
-    if (offset > 300000) break;
-  }
-  const subset = shardSlice(candidates, shard, shards);
-
-  // years<=2 is ~250-500 rows/symbol, so 8 concurrent fetches stay well under
-  // the worker memory ceiling (we also flush at 500 buffered rows).
   const CONCURRENCY = 8;
   let next = 0;
   let inserted = 0;
@@ -125,13 +108,7 @@ async function run(shard, shards, scope, years) {
   const workers = Array.from({ length: Math.min(CONCURRENCY, subset.length) }, () => worker());
   await Promise.all(workers);
 
-  return {
-    barsUpserted: inserted,
-    symbols: subset.length,
-    processed,
-    total: candidates.length,
-    errors: errors.slice(0, 3),
-  };
+  return { offset, limit, symbols: subset.length, processed, barsUpserted: inserted, errors: errors.slice(0, 3) };
 }
 
 Deno.serve(async (req) => {
@@ -139,26 +116,22 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   }
   const url = new URL(req.url);
-  const shard = Math.max(0, parseInt(url.searchParams.get("shard") ?? "0", 10) || 0);
-  const shards = Math.max(1, parseInt(url.searchParams.get("shards") ?? "1", 10) || 1);
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
+  const limit = Math.min(2000, Math.max(1, parseInt(url.searchParams.get("limit") ?? "500", 10) || 500));
   const years = Math.max(1, parseInt(url.searchParams.get("years") ?? "2", 10) || 2);
   const scope = url.searchParams.get("scope") ?? "stocks";
 
-  // Inline await (the pattern proven by refresh-recent-prices / refresh-fmp-data):
-  // the work runs ~100-140s, longer than the 5s pg_net trigger timeout, but the
-  // edge worker keeps running after the client disconnects and finishes writing.
-  // Size shards so each finishes inside the ~150s wall-clock limit.
   const startedAt = Date.now();
   try {
-    const result = await run(shard, shards, scope, years);
-    console.log(`[backfill-prices] shard ${shard}/${shards} done in ${Date.now() - startedAt}ms`, JSON.stringify(result));
+    const result = await run(offset, limit, scope, years);
+    console.log(`[backfill-prices] offset ${offset} (+${limit}) done in ${Date.now() - startedAt}ms`, JSON.stringify(result));
     return new Response(
-      JSON.stringify({ ok: true, shard, shards, years, scope, ...result, ms: Date.now() - startedAt }),
+      JSON.stringify({ ok: true, scope, years, ...result, ms: Date.now() - startedAt }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (e) {
-    console.error(`[backfill-prices] shard ${shard}/${shards} failed`, String(e));
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+    console.error(`[backfill-prices] offset ${offset} failed`, String(e));
+    return new Response(JSON.stringify({ ok: false, offset, error: String(e) }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
