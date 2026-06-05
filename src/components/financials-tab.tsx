@@ -63,9 +63,26 @@ export function FinancialsTab({ symbol, annual, quarterly, isPremium }: Financia
     );
   }
 
+  // The statements are reported in the company's own currency (INR for an
+  // Indian listing, EUR for a French one, etc.) — surface it so the abbreviated
+  // figures aren't silently assumed to be USD.
+  const reportingCurrency =
+    annual.income[0]?.reported_currency ??
+    annual.balance[0]?.reported_currency ??
+    annual.cashFlow[0]?.reported_currency ??
+    quarterly.income[0]?.reported_currency ??
+    quarterly.balance[0]?.reported_currency ??
+    quarterly.cashFlow[0]?.reported_currency ??
+    null;
+
   return (
     <section className="dv-section">
       <h2 className="dv-section__title">Financials — {symbol}</h2>
+      {reportingCurrency && (
+        <p style={{ margin: "-0.25rem 0 0.85rem", color: "var(--text-muted)", fontSize: "0.8rem" }}>
+          All figures in {reportingCurrency}.
+        </p>
+      )}
       <div className="dv-fin-grid">
         <IncomeChart symbol={symbol} annual={annual.income} quarterly={quarterly.income} isPremium={effectivePremium} />
         <BalanceSheetChart symbol={symbol} annual={annual.balance} quarterly={quarterly.balance} isPremium={effectivePremium} />
