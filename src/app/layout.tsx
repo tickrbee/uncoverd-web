@@ -128,6 +128,13 @@ export default function RootLayout({
             package supports Next 16. */}
         <script defer src="/_vercel/insights/script.js" />
         <script defer src="/_vercel/speed-insights/script.js" />
+        {/* Ahrefs Web Analytics — hand-rendered in <head> like the scripts
+            above. Tracks traffic/Core Web Vitals for the Ahrefs dashboard. */}
+        <script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="2PvDfKV06I6B3bTrWXslJg"
+          async
+        />
       </head>
       <body className={`${bodyFont.variable} ${headingFont.variable}`}>
         <div className="global-background-effect">
