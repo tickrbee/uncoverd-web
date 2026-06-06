@@ -1202,7 +1202,7 @@ function RatingBadge({ rating, isPremium }: { rating?: StockRating; isPremium: b
   if (!isPremium) {
     return (
       <PremiumLock isPremium={false} inline>
-        <span style={{ color: "var(--positive)", fontWeight: 700 }}>yo mama</span>
+        <span style={{ color: "var(--positive)", fontWeight: 700 }}>na</span>
       </PremiumLock>
     );
   }
