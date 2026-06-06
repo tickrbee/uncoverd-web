@@ -1142,6 +1142,13 @@ a {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* When only the Premium card is shown, center it at a comfortable width
+   instead of stretching it across a third of the row. */
+.pricing-grid--single {
+  grid-template-columns: minmax(0, 460px);
+  justify-content: center;
+}
+
 .pricing-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

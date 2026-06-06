@@ -89,13 +89,15 @@ export function PricingCards() {
     window.location.assign(payload.url);
   }
 
-  // Hide the "Pro" / gold tier from public pricing for now — the AI mobile
-  // app suite isn't shipping yet. Existing gold subscribers retain access via
-  // their stored tier; the card just isn't offered as an upgrade target.
-  const visiblePlans = plans.filter((p) => p.tier !== "gold");
+  // Show only the Premium ("plus") card. The free tier is intentionally not
+  // shown as a plan card — offering a $0 "plan" psychologically frames not
+  // upgrading as a choice. (Free features are still covered in the comparison
+  // table below.) The "Pro" / gold tier is also hidden while the AI mobile app
+  // suite isn't shipping; existing gold subscribers keep access via their tier.
+  const visiblePlans = plans.filter((p) => p.tier === "plus");
 
   return (
-    <section className="pricing-grid">
+    <section className={`pricing-grid${visiblePlans.length === 1 ? " pricing-grid--single" : ""}`}>
       {visiblePlans.map((plan) => (
         <article key={plan.tier} className={`pricing-card ${plan.tier === "plus" ? "pricing-card--highlight" : ""}`}>
           <header>

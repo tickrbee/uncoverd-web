@@ -8,8 +8,22 @@ import { updateSession } from "./src/lib/supabase/middleware";
 const BOT_UA =
   /bot|crawler|spider|crawling|slurp|googlebot|bingbot|duckduckbot|baiduspider|yandex|ahrefs|semrush|gptbot|claudebot|perplexity|bytespider|facebookexternalhit|embedly|quora link preview|outbrain|pinterest|whatsapp|telegrambot/i;
 
+// Hard-blocked crawlers: AI-training / aggressive scrapers that provide no SEO
+// or referral value and were a big chunk of our Supabase edge calls. We return
+// 403 *before* touching Supabase or rendering. NOTE: this is Meta's training
+// crawler (meta-externalagent/meta-externalfetcher), NOT facebookexternalhit —
+// share-preview cards keep working. Googlebot/Bingbot never match this.
+const BLOCK_UA = /meta-externalagent|meta-externalfetcher/i;
+
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host");
+  const userAgent = request.headers.get("user-agent") ?? "";
+
+  // Block AI-training scrapers outright — cheapest possible response, no
+  // Supabase call, no page render.
+  if (BLOCK_UA.test(userAgent)) {
+    return new NextResponse(null, { status: 403 });
+  }
 
   if (host?.startsWith("www.uncoverd.org")) {
     const redirectUrl = request.nextUrl.clone();
@@ -18,7 +32,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Bots: skip the auth-session refresh entirely (they're never logged in).
-  if (BOT_UA.test(request.headers.get("user-agent") ?? "")) {
+  if (BOT_UA.test(userAgent)) {
     return NextResponse.next();
   }
 
