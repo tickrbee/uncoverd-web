@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 function toSafePath(input: string | null): string {
+  // Default landing after auth is the home page (keep people in the product),
+  // unless the flow passed an explicit `next` (e.g. /reset-password, or a
+  // protected page they were heading to).
   if (!input || !input.startsWith("/")) {
-    return "/account";
+    return "/";
   }
 
   return input;

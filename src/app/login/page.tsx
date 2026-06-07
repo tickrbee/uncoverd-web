@@ -13,9 +13,9 @@ export default async function LoginPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect to account page if already logged in
+  // Already logged in → send home (keep people in the product, not on /account)
   if (user) {
-    redirect("/account");
+    redirect("/");
   }
 
   return (

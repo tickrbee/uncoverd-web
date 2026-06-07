@@ -45,3 +45,6 @@ next-env.d.ts
 
 # auto-generated blog drafts (review locally, then move into content/blog/<locale>/)
 /content/drafts/
+
+# Local design prototype (not shipped)
+.prototype-health/

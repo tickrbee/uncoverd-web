@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/browser";
 import { getAppUrl } from "@/lib/env";
 
 function sanitizeNextPath(candidate: string | null): string {
+  // Default landing after sign-in is the home page, unless they were sent to
+  // login from a specific protected page (preserved in `next`).
   if (!candidate || !candidate.startsWith("/")) {
-    return "/account";
+    return "/";
   }
 
   return candidate;

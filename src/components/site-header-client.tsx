@@ -192,18 +192,18 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (activeIdx >= 0 && suggestions[activeIdx]) {
-      goToResult(suggestions[activeIdx]);
+    // Prefer the highlighted result, else the top suggestion — both are real
+    // tickers. Only when there are no matches do we fall back to the /search
+    // results page (which handles "no results"). Never guess a ticker URL
+    // directly, which 404s when the symbol doesn't exist.
+    const sel = activeIdx >= 0 ? suggestions[activeIdx] : suggestions[0];
+    if (sel) {
+      goToResult(sel);
       return;
     }
     const q = searchValue.trim();
     if (!q) return;
-    const upper = q.toUpperCase().replace(/[^A-Z.\-]/g, "");
-    if (upper.length >= 1 && upper.length <= 6) {
-      router.push(tickerHref(upper));
-    } else {
-      router.push(`/search?q=${encodeURIComponent(q)}`);
-    }
+    router.push(`/search?q=${encodeURIComponent(q)}`);
     closeSearch();
   }
 
