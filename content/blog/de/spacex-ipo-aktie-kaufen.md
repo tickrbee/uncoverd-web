@@ -13,7 +13,7 @@ keywords:
 translationKey: "spacex-ipo-how-to-buy"
 cover: "https://images.pexels.com/photos/23764/pexels-photo.jpg"
 coverAlt: "Eine startende Rakete als Sinnbild für den Börsengang von SpaceX"
-definition: "Ein IPO (Börsengang) ist der erste Verkauf von Aktien eines privaten Unternehmens an die Öffentlichkeit. Der „IPO-Preis“ wird von den Banken am Vorabend festgelegt; der „Eröffnungskurs“ ist das, was der Markt am ersten Handelstag bestimmt."
+definition: "Ein IPO (Börsengang) ist der erste Verkauf von Aktien eines privaten Unternehmens an die Öffentlichkeit. Der «IPO-Preis» wird von den Banken am Vorabend festgelegt; der «Eröffnungskurs» ist das, was der Markt am ersten Handelstag bestimmt."
 keyTakeaways:
   - "SpaceX soll am 12. Juni 2026 unter dem Kürzel SPCX an der Nasdaq starten — angestrebte Bewertung von rund 1,75 Billionen Dollar und Emission von etwa 75 Milliarden, der größte Börsengang der Geschichte."
   - "Der IPO-Preis (berichtet ~135 $) geht an zugeteilte Anleger vor dem Handel; der Eröffnungskurs am 12. Juni kann deutlich darüber oder darunter liegen."
@@ -23,7 +23,7 @@ faqs:
   - q: "Wann beginnt der Handel mit der SpaceX-Aktie (SPCX)?"
     a: "SpaceX soll am 12. Juni 2026 unter dem Kürzel SPCX an der Nasdaq gehandelt werden, bei einer angestrebten Bewertung von rund 1,75 Billionen Dollar und einer Emission von etwa 75 Milliarden — damit wäre es der größte Börsengang aller Zeiten."
   - q: "Was ist der Unterschied zwischen IPO-Preis und Eröffnungskurs?"
-    a: "Der IPO-Preis (etwa 135 $) wird von den Banken am Vorabend festgelegt und geht an Institutionen sowie einen Teil der zugeteilten Privatanleger. Der Eröffnungskurs ist das, was der Markt am Morgen des 12. Juni bestimmt — die Differenz ist der „Pop“, und sie kann positiv wie negativ ausfallen."
+    a: "Der IPO-Preis (etwa 135 $) wird von den Banken am Vorabend festgelegt und geht an Institutionen sowie einen Teil der zugeteilten Privatanleger. Der Eröffnungskurs ist das, was der Markt am Morgen des 12. Juni bestimmt — die Differenz ist der «Pop», und sie kann positiv wie negativ ausfallen."
   - q: "Kann ich SpaceX-Aktien zum IPO-Preis bekommen?"
     a: "Möglicherweise über Broker, die an der Privatanleger-Zuteilung teilnehmen (Robinhood, SoFi, Schwab, Fidelity, E*TRADE), aber ein Antrag ist keine garantierte Ausführung. Überzeichnete Emissionen werden rationiert: Sie könnten weit weniger Aktien als gewünscht erhalten – oder keine. Andernfalls kaufen Sie am 12. Juni über den Markt."
   - q: "Gibt es einen sichereren Weg zu SpaceX-Engagement als Einzelaktien?"

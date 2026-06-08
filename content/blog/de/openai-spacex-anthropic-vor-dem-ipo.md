@@ -20,9 +20,9 @@ keyTakeaways:
   - "Das meiste SpaceX-Engagement läuft über SPVs, nicht über Direktaktien — der Fondskurs folgt einem SpaceX-IPO daher weder sofort noch eins zu eins. Aufschläge, Sperrfristen und hohe Gebühren kommen hinzu."
 faqs:
   - q: "Kann ich gerade jetzt OpenAI-Aktien kaufen?"
-    a: "Nicht direkt — OpenAI ist privat und nicht börsennotiert. Der nächste Weg für Privatanleger ist ein ETF, der einen Anteil hält: Der ARK Innovation ETF (ARKK) hält eine Position „OpenAI Group PBC Series C“ zu rund 2,4 % des Fonds, und der ARK Venture Fund (ARKVX) hält ebenfalls OpenAI. Ein IPO-Termin ist nicht bestätigt."
+    a: "Nicht direkt — OpenAI ist privat und nicht börsennotiert. Der nächste Weg für Privatanleger ist ein ETF, der einen Anteil hält: Der ARK Innovation ETF (ARKK) hält eine Position «OpenAI Group PBC Series C» zu rund 2,4 % des Fonds, und der ARK Venture Fund (ARKVX) hält ebenfalls OpenAI. Ein IPO-Termin ist nicht bestätigt."
   - q: "Welcher ETF hält Anthropic?"
-    a: "In unseren Daten hält der KraneShares Artificial Intelligence & Technology ETF (AGIX) eine Position „Anthropic, PBC“ zu etwa 1 % des Fonds. Es ist ein kleiner, indirekter Anteil — Sie kaufen einen diversifizierten KI-ETF, der etwas Anthropic enthält, nicht Anthropic selbst."
+    a: "In unseren Daten hält der KraneShares Artificial Intelligence & Technology ETF (AGIX) eine Position «Anthropic, PBC» zu etwa 1 % des Fonds. Es ist ein kleiner, indirekter Anteil — Sie kaufen einen diversifizierten KI-ETF, der etwas Anthropic enthält, nicht Anthropic selbst."
   - q: "Wie bekomme ich ein SpaceX-Engagement?"
     a: "Über ETFs, die SpaceX via SPVs (Zweckgesellschaften) halten: der Tema Space Innovators ETF (NASA) zu rund 10 % des Fonds, der ERShares Crossover ETF (XOVR) zu rund 9–10 %, und KraneShares (AGIX) hält sowohl ein SpaceX-SPV als auch eine kleine direkte Class-A-Position. Eine SpaceX-Aktie zum Direktkauf gibt es nicht."
   - q: "Was ist ein SPV und warum ist das wichtig?"
