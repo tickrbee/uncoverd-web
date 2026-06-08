@@ -169,6 +169,13 @@ export function PortfolioHealthcheckApp() {
     setSelected(newPicks);
     runAnalysis(newPicks, customPf.name, savedActiveId);
   };
+  // Add a suggested diversifier → append and re-score.
+  const addHolding = (pick: any) => {
+    if (!customPf?.picks || customPf.picks.some((s: any) => s.symbol === pick.symbol)) return;
+    const newPicks = [...customPf.picks, { symbol: pick.symbol, name: pick.name, type: pick.type, sector: pick.sector }];
+    setSelected(newPicks);
+    runAnalysis(newPicks, customPf.name, savedActiveId);
+  };
   const renamePf = (name: string) => { setCustomName(name); setCustomPf((prev: any) => (prev ? { ...prev, name } : prev)); };
 
   // Persistence (Supabase, RLS-protected to the logged-in user).
@@ -218,7 +225,7 @@ export function PortfolioHealthcheckApp() {
       case "frontier": return <FrontierSection p={p} onOptimize={() => setSection("optimize")} />;
       case "optimize": return <OptimizeSection p={p} />;
       case "corr": return <CorrSection p={p} />;
-      case "conc": return <ConcentrationSection p={p} />;
+      case "conc": return <ConcentrationSection p={p} onAdd={p.isCustom ? addHolding : undefined} />;
       case "compare": return <CompareSection p={p} />;
       case "holdings": return <HoldingsSection p={p} />;
       case "etf": return <EtfSection p={p} />;

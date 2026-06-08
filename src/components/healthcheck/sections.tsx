@@ -551,12 +551,60 @@ export function CorrSection({ p }: any) {
   );
 }
 
+/* ============================== SUGGESTED DIVERSIFIERS ============================== */
+function DiversifiersPanel({ symbols, onAdd }: any) {
+  const [sugs, setSugs] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [note, setNote] = React.useState("");
+  const key = symbols.join(",");
+  React.useEffect(() => {
+    let alive = true; setLoading(true);
+    fetch("/api/portfolio/diversifiers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbols }) })
+      .then((r) => r.json())
+      .then((d) => { if (!alive) return; setSugs(d.suggestions || []); setNote(d.note || ""); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const gc = (g: string) => (g?.startsWith("A") ? T.green : g?.startsWith("B") ? T.gold : T.red);
+  return (
+    <Panel>
+      <Eyebrow icon="sparkles" accent={T.green} info={{ title: "Suggested diversifiers", body: "Top-rated names from the sectors where you're most underweight versus the S&P 500, excluding what you already hold. v1 ranks by uncoverd rating and sector gap (lower correlation is approximated by 'different sector'). Adding one re-scores your book. Educational, not advice." }}>Suggested diversifiers</Eyebrow>
+      <div style={{ fontSize: 12.5, color: T.faint, marginBottom: 16 }}>Strong-rated names in the sectors you're most underweight vs the S&P 500 — tap Add to drop one in and re-score.</div>
+      {loading ? <div style={{ fontSize: 13, color: T.faint, padding: "8px 0" }}>Finding diversifiers…</div>
+        : note ? <div style={{ fontSize: 13, color: T.muted, padding: "8px 0" }}>{note}</div>
+        : sugs.length === 0 ? <div style={{ fontSize: 13, color: T.muted, padding: "8px 0" }}>No clear diversifiers stood out for this book.</div>
+        : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {sugs.map((s) => (
+              <div key={s.symbol} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 14, alignItems: "center", padding: "13px 16px", background: T.bg, border: `1px solid ${T.line}`, borderRadius: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <span style={{ fontFamily: mono, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{s.symbol}</span>
+                  <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: gc(s.grade) }}>{s.grade}</span>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                  <div style={{ fontSize: 12, color: T.muted }}>{s.reason}{s.yield != null && s.yield > 0 ? ` · ${s.yield.toFixed(1)}% yield` : ""}</div>
+                </div>
+                <button onClick={() => onAdd(s)} className="hc-btnPrimary" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.green, color: T.bg, border: "none", borderRadius: 9, padding: "8px 14px", fontFamily: body, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  <Icon name="plus" size={14} color={T.bg} /> Add
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+    </Panel>
+  );
+}
+
 /* ============================== CONCENTRATION (look-through) ============================== */
-export function ConcentrationSection({ p }: any) {
+export function ConcentrationSection({ p, onAdd }: any) {
   const sectors = p.sectors.filter((s: any) => s.lt > 0);
   const bets = p.sectors.filter((s: any) => isRealSector(s.name) && s.lt > 0);
   return (
-    <div className="hc-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 18 }}>
+    <div style={{ display: "grid", gap: 18 }}>
+      <div className="hc-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 18 }}>
       <Panel>
         <Eyebrow icon="pie" accent={T.blue} info={{ title: "Look-through sector mix", body: "Your sector exposure. For sample portfolios this unwraps ETFs into their underlying sectors; for your own live portfolios it currently shows direct sector weights (full ETF unwrap is in progress). Compare vs the S&P to see your active bets." }}>Look-Through Sector Mix</Eyebrow>
         <div style={{ fontSize: 12, color: T.faint, marginBottom: 8 }}>ETFs decomposed into their underlying sectors</div>
@@ -604,6 +652,8 @@ export function ConcentrationSection({ p }: any) {
           <b style={{ color: T.amber }}>Note:</b> a single sector above +10pt active breaches the concentration guardrail.
         </div>
       </Panel>
+      </div>
+      {p.live && onAdd && <DiversifiersPanel symbols={p.holdings.map((h: any) => h.tk)} onAdd={onAdd} />}
     </div>
   );
 }
