@@ -318,8 +318,22 @@ PORTFOLIOS.forEach(attachSeries);
    portfolio. Figures are demo-derived from the holding metadata (not live
    market data yet); the premium path will swap in real prices/ratings. */
 const RATE_SCORE: Record<string, number> = { "A+": 96, "A": 91, "A−": 85, "B+": 80, "B": 73, "B−": 67, "C+": 58, "C": 48, "D": 40 };
-const SECTOR_BENCH: Record<string, number> = { Technology: 31, Financials: 13, "Health Care": 12, "Cons. Discretionary": 10, "Comm. Services": 9, Industrials: 8, "Cons. Staples": 6, Energy: 4, Utilities: 2.5, "Real Estate": 2.4, Materials: 2.4, Diversified: 0, "Fixed Income": 0, Cash: 0 };
-const SECTOR_COLOR: Record<string, string> = { Technology: "#3b6ef0", "Comm. Services": "#9b8cf0", "Cons. Discretionary": "#36c2d6", "Cons. Staples": "#36c2d6", "Health Care": "#2fe3a0", "Real Estate": "#9b8cf0", Energy: "#ff5d6c", Financials: "#e0b34e", Diversified: "#2a3a50", "Fixed Income": "#5d6b80", Cash: "#5d6b80", Industrials: "#36c2d6", Utilities: "#5d6b80", Materials: "#e0b34e" };
+// Approx S&P 500 sector weights (%). Keys cover BOTH the prototype's sample
+// names AND the FMP sector names that come back for live portfolios.
+const SECTOR_BENCH: Record<string, number> = {
+  // prototype / sample names
+  Technology: 31, Financials: 13, "Health Care": 12, "Cons. Discretionary": 10, "Comm. Services": 9, Industrials: 8, "Cons. Staples": 6, Energy: 4, Utilities: 2.5, "Real Estate": 2.4, Materials: 2.4,
+  // FMP live names
+  Healthcare: 12, "Financial Services": 13, "Consumer Cyclical": 10, "Communication Services": 9, "Consumer Defensive": 6, "Basic Materials": 2.4,
+  // non-sectors → no benchmark
+  Diversified: 0, "Fixed Income": 0, Cash: 0, ETF: 0, Unknown: 0,
+};
+const SECTOR_COLOR: Record<string, string> = {
+  Technology: "#3b6ef0", "Comm. Services": "#9b8cf0", "Communication Services": "#9b8cf0", "Cons. Discretionary": "#36c2d6", "Consumer Cyclical": "#36c2d6", "Cons. Staples": "#36c2d6", "Consumer Defensive": "#36c2d6", "Health Care": "#2fe3a0", Healthcare: "#2fe3a0", "Real Estate": "#9b8cf0", Energy: "#ff5d6c", Financials: "#e0b34e", "Financial Services": "#e0b34e", Diversified: "#2a3a50", "Fixed Income": "#5d6b80", Cash: "#5d6b80", Industrials: "#36c2d6", Utilities: "#5d6b80", Materials: "#e0b34e", "Basic Materials": "#e0b34e", ETF: "#2a3a50", Unknown: "#5d6b80",
+};
+// Buckets that aren't real S&P sectors and shouldn't show as "active bets".
+const NON_SECTORS = new Set(["Diversified", "Diversified ETF", "ETF", "Unknown", "Fixed Income", "Fixed Income / Cash", "Cash", "Other sectors"]);
+export const isRealSector = (name: string) => !NON_SECTORS.has(name);
 
 function hashSeed(tickers: string[]) { let h = 7; for (const ch of tickers.join(",")) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h) || 999; }
 const clampN = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));

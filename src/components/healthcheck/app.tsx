@@ -50,20 +50,28 @@ const CSS = `
 @keyframes hc-dash{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
 @keyframes hc-spin{to{transform:rotate(360deg)}}
 @media (max-width:920px){
-  .hc-grid2,.hc-grid4,.hc-grid5,.hc-pricing-grid{grid-template-columns:1fr !important}
+  .hc-grid2,.hc-pricing-grid{grid-template-columns:1fr !important}
 }
+@media (max-width:760px){
+  .hc-inner{padding:16px 13px 30px !important}
+  .hc-hero{padding:24px 18px !important}
+  .hc-hero h1{font-size:28px !important;line-height:1.12 !important}
+  .hc-hero p{font-size:14px !important}
+  .hc-grid4,.hc-grid5{grid-template-columns:1fr 1fr !important}
+  .hc-optrow{grid-template-columns:1fr !important;gap:8px !important}
+  .hc-root table{font-size:12px}
+  .hc-secnav{top:0 !important}
+}
+@media (max-width:480px){
+  .hc-grid4,.hc-grid5{grid-template-columns:1fr !important}
+}
+/* Tables always scroll horizontally rather than overflow the screen. */
+.hc-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 `;
 
 export function PortfolioHealthcheckApp() {
-  // Starter selection (objects with metadata, like the search returns).
-  const STARTER = [
-    { symbol: "AAPL", name: "Apple Inc.", type: "stock", sector: "Technology" },
-    { symbol: "MSFT", name: "Microsoft", type: "stock", sector: "Technology" },
-    { symbol: "SCHD", name: "Schwab US Dividend Equity ETF", type: "etf", sector: "Diversified" },
-    { symbol: "JNJ", name: "Johnson & Johnson", type: "stock", sector: "Health Care" },
-    { symbol: "KO", name: "Coca-Cola", type: "stock", sector: "Cons. Staples" },
-  ];
-  const [selected, setSelected] = React.useState<any[]>(STARTER);
+  // The builder starts empty — no default portfolio is pre-loaded.
+  const [selected, setSelected] = React.useState<any[]>([]);
   const [activePf, setActivePf] = React.useState("income");
   const [section, setSection] = React.useState("overview");
   const [modal, setModal] = React.useState<any>({ open: false, reason: "", plan: null });
@@ -136,6 +144,15 @@ export function PortfolioHealthcheckApp() {
     setActivePf("custom");
     setSection("overview");
     setTimeout(() => scrollTo("hc-tool"), 60);
+    // If this is a saved portfolio, persist the new holdings immediately so an
+    // "Update portfolio" actually saves what you changed.
+    if (savedId) {
+      try {
+        const supabase = createClient();
+        await supabase.from("healthcheck_portfolios").update({ name: nm, picks, updated_at: new Date().toISOString() }).eq("id", savedId);
+        fetchSaved();
+      } catch { /* best effort */ }
+    }
   };
   // Re-analyzing keeps the active portfolio (saved or draft) — adding a holding
   // updates THIS book rather than spawning a new one. "New portfolio" resets it.
@@ -144,7 +161,6 @@ export function PortfolioHealthcheckApp() {
 
   // New portfolio → start a fresh build at the search box (Pro only).
   const newPortfolio = () => { if (!isPremium) { onLocked(); return; } setSelected([]); setCustomPf(null); setSavedActiveId(null); scrollTo("hc-builder"); };
-  const editHoldings = () => { setSelected(customPf?.picks ?? []); scrollTo("hc-builder"); };
   // Remove a holding directly from the analysis → re-score the smaller book.
   const removeHolding = (tk: string) => {
     if (!customPf?.picks) return;
@@ -214,7 +230,7 @@ export function PortfolioHealthcheckApp() {
   return (
     <div className="hc-root" style={{ background: `radial-gradient(120% 80% at 50% -10%, #0e1830 0%, rgba(14,24,48,0) 55%), ${T.bg}`, minHeight: "100vh", color: T.ink, fontFamily: body }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div style={{ maxWidth: 1340, margin: "0 auto", padding: "26px 26px 40px" }}>
+      <div className="hc-inner" style={{ maxWidth: 1340, margin: "0 auto", padding: "26px 26px 40px" }}>
         <div id="hc-builder" style={{ scrollMarginTop: 64 }}>
           <Hero>
             <div style={{ marginTop: 26, background: "rgba(7,11,19,0.55)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 20, backdropFilter: "blur(6px)" }}>
@@ -280,9 +296,6 @@ export function PortfolioHealthcheckApp() {
                 style={{ flex: "1 1 200px", minWidth: 160, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 9, padding: "8px 11px", color: T.ink, fontFamily: display, fontSize: 14, fontWeight: 700, outline: "none" }} />
               <button onClick={saveCurrent} className="hc-btnPrimary" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.green, color: T.bg, border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontFamily: body, fontSize: 13, fontWeight: 700 }}>
                 <Icon name="check" size={14} color={T.bg} /> {savedActiveId ? "Saved ✓ · Update" : "Save portfolio"}
-              </button>
-              <button onClick={editHoldings} className="hc-pfTab" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: T.panel2, color: T.ink, border: `1px solid ${T.line2}`, borderRadius: 10, padding: "8px 13px", cursor: "pointer", fontFamily: body, fontSize: 13, fontWeight: 600 }}>
-                <Icon name="plus" size={14} color={T.green} /> Edit holdings
               </button>
               <button onClick={deletePf} className="hc-pfTab" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "transparent", color: T.red, border: `1px solid ${T.red}55`, borderRadius: 10, padding: "8px 13px", cursor: "pointer", fontFamily: body, fontSize: 13, fontWeight: 600 }}>
                 <Icon name="x" size={14} color={T.red} /> Delete portfolio

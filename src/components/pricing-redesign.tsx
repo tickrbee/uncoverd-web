@@ -67,7 +67,13 @@ const CSS = `
 .pr-cmpRow:hover{background:rgba(20,29,43,0.5)}
 .pr-link:hover{filter:brightness(1.1)}
 @media (max-width:880px){ .pr-plans,.pr-unlocks{grid-template-columns:1fr !important} }
-@media (max-width:620px){ .pr-cmp-grid{grid-template-columns:1.5fr 1fr 1fr !important} }
+@media (max-width:680px){
+  .pr-root{padding-left:0;padding-right:0}
+  .pr-hero{padding:34px 22px !important}
+  .pr-hero h1{font-size:34px !important;line-height:1.08 !important}
+  .pr-hero p{font-size:15px !important}
+}
+@media (max-width:620px){ .pr-cmp-grid{grid-template-columns:1.4fr 0.8fr 0.8fr !important} .pr-cmp-grid > div{padding-left:12px !important;padding-right:8px !important} }
 `;
 
 export function PricingRedesign() {
@@ -133,7 +139,7 @@ export function PricingRedesign() {
 
       {/* Hero */}
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ position: "relative", overflow: "hidden", background: HERO_GRAD, borderRadius: 24, padding: "56px 48px 52px", border: `1px solid ${T.indigo}55`, marginTop: 26 }}>
+        <div className="pr-hero" style={{ position: "relative", overflow: "hidden", background: HERO_GRAD, borderRadius: 24, padding: "56px 48px 52px", border: `1px solid ${T.indigo}55`, marginTop: 26 }}>
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(110% 90% at 88% -10%, rgba(255,255,255,0.12), transparent 58%)" }} />
           <div style={{ position: "relative", maxWidth: 720 }}>
             <div style={{ fontFamily: mono, fontSize: 11.5, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(255,255,255,0.62)", marginBottom: 18 }}>Pricing</div>

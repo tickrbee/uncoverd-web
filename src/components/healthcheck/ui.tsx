@@ -202,7 +202,7 @@ export function PortfolioTabs({ active, setActive, onNew, custom, isPremium }: a
 /* ============================== HERO ============================== */
 export function Hero({ children }: { children?: React.ReactNode }) {
   return (
-    <div style={{ background: HERO_GRAD, borderRadius: 20, padding: "32px 36px", position: "relative", overflow: "hidden", border: `1px solid ${T.indigo}55` }}>
+    <div className="hc-hero" style={{ background: HERO_GRAD, borderRadius: 20, padding: "32px 36px", position: "relative", overflow: "hidden", border: `1px solid ${T.indigo}55` }}>
       <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 90% at 85% 0%, rgba(255,255,255,0.10), transparent 60%)" }} />
       <div style={{ position: "relative" }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", marginBottom: 12 }}>Tools · Demo</div>

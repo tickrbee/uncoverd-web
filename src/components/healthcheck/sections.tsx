@@ -13,6 +13,7 @@ import {
   HealthGauge, ScoreBar, scoreColor, gradeOf, usd, pct,
 } from "./theme";
 import { typeColor, typeLabel } from "./ui";
+import { isRealSector } from "./data";
 
 /* ============================== COMPARE MODAL ============================== */
 // Index proxies (ETFs that exist in the DB) + free search for any stock/ETF.
@@ -205,7 +206,7 @@ export function RiskSection({ p }: any) {
       </Panel>
 
       <Panel>
-        <Eyebrow icon="activity" info={{ title: "Risk vs market sensitivity", body: "Each bubble is a holding: x = its annual volatility (how much it swings), y = its beta (how much it moves with the market), bubble size = its weight. Top-right names are your biggest risk drivers; bottom-left are your dampeners." }}>Risk vs. Market Sensitivity</Eyebrow>
+        <Eyebrow icon="activity" info={{ title: "Risk vs market sensitivity", body: "Each bubble is a holding: x = annual volatility (how much it swings), y = beta (how much it moves with the market), bubble size = weight. Why it matters: a small position in a top-right name can dominate your risk, while a big position bottom-left barely moves the needle — so it surfaces risk that's hiding in low weights. Read it with Contribution to Total Risk below." }}>Risk vs. Market Sensitivity</Eyebrow>
         <div style={{ fontSize: 12, color: T.faint, marginBottom: 8 }}>Bubble size = weight · blue = ETF · green = stock</div>
         <div style={{ height: 260 }}>
           <ResponsiveContainer>
@@ -243,7 +244,7 @@ export function RiskSection({ p }: any) {
       </Panel>
 
       <Panel style={{ gridColumn: "1 / -1" }}>
-        <Eyebrow icon="activity" accent={T.red}>Contribution to Total Risk</Eyebrow>
+        <Eyebrow icon="activity" accent={T.red} info={{ title: "Contribution to total risk", body: "Each holding's share of the portfolio's total risk (variance) — not just its weight. A name shows red when it contributes MORE risk than its weight, because its volatility and how it co-moves with the rest amplify it. Roughly: (weight × covariance of the holding with the whole portfolio) ÷ portfolio variance. Trimming a high-contribution name cuts risk faster than its weight suggests." }}>Contribution to Total Risk</Eyebrow>
         <div style={{ fontSize: 12.5, color: T.faint, marginBottom: 16 }}>Where your risk actually comes from — names in red carry more risk than their weight.</div>
         {rc.map((h: any) => (
           <div key={h.tk} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 9 }}>
@@ -271,6 +272,26 @@ export function ConsistencySection({ p }: any) {
   for (let i = 0; i < p.monthly.length; i += 12) years.push(p.monthly.slice(i, i + 12));
   const MO = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
   const cellCol = (v: any) => v == null ? T.raised : v > 3 ? T.green : v > 0 ? T.green + "88" : v > -3 ? T.red + "88" : T.red;
+
+  // S&P 500 monthly returns derived from the benchmark curve, for the vs-S&P view.
+  const benchMonthly = (() => {
+    const eq = (p.equity || []).map((d: any) => d.bench);
+    if (eq.length < 3) return [] as number[];
+    const n = data.length; const step = eq.length / n; const out: number[] = [];
+    for (let b = 0; b < n; b++) { const a = eq[Math.floor(b * step)] ?? 100; const z = eq[Math.min(eq.length - 1, Math.floor((b + 1) * step))] ?? a; out.push(+(((z - a) / a) * 100).toFixed(1)); }
+    return out;
+  })();
+  const bPos = benchMonthly.length ? Math.round(benchMonthly.filter((x) => x > 0).length / benchMonthly.length * 100) : null;
+  const bBest = benchMonthly.length ? Math.max(...benchMonthly) : null;
+  const bWorst = benchMonthly.length ? Math.min(...benchMonthly) : null;
+  const gradeBox = (
+    <div style={{ marginTop: 16, padding: "12px 14px", background: scoreColor(grade) + "12", border: `1px solid ${scoreColor(grade)}33`, borderRadius: 10 }}>
+      <div style={{ fontFamily: mono, fontSize: 11, color: scoreColor(grade), fontWeight: 600, marginBottom: 4 }}>CONSISTENCY GRADE · {gradeOf(grade)}</div>
+      <div style={{ fontSize: 12.5, color: T.muted }}>
+        {c.posRate >= 65 ? "Steady compounder — gains arrive often and drawdowns are shallow." : c.posRate >= 55 ? "Decent rhythm, but losing months bite. Smoother is achievable." : "Lumpy ride — big up months offset frequent, sharp drawdowns."}
+      </div>
+    </div>
+  );
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <div className="hc-grid5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14 }}>
@@ -301,27 +322,48 @@ export function ConsistencySection({ p }: any) {
           </div>
         </Panel>
 
-        <Panel>
-          <Eyebrow icon="calendar" accent={T.violet}>Consistency Calendar</Eyebrow>
-          <div style={{ display: "flex", gap: 6, fontFamily: mono, fontSize: 9, color: T.faint, marginBottom: 6, paddingLeft: 30 }}>
-            {MO.map((m, i) => <span key={i} style={{ width: 18, textAlign: "center" }}>{m}</span>)}
-          </div>
-          {years.map((yr, yi) => (
-            <div key={yi} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontFamily: mono, fontSize: 9.5, color: T.faint, width: 24 }}>{years.length > 1 ? `Y${yi + 1}` : ""}</span>
-              {Array.from({ length: 12 }).map((_, mi) => {
-                const v = yr[mi];
-                return <span key={mi} title={v != null ? `${pct(v)}` : ""} style={{ width: 18, height: 18, borderRadius: 4, background: cellCol(v) }} />;
-              })}
+        {years.length > 1 ? (
+          <Panel>
+            <Eyebrow icon="calendar" accent={T.violet} info={{ title: "Consistency calendar", body: "Each cell is a month — green = up, red = down, darker = bigger move. Reading across years shows whether good and bad months cluster or spread out over time." }}>Consistency Calendar</Eyebrow>
+            <div style={{ display: "flex", gap: 6, fontFamily: mono, fontSize: 9, color: T.faint, marginBottom: 6, paddingLeft: 30 }}>
+              {MO.map((m, i) => <span key={i} style={{ width: 18, textAlign: "center" }}>{m}</span>)}
             </div>
-          ))}
-          <div style={{ marginTop: 16, padding: "12px 14px", background: scoreColor(grade) + "12", border: `1px solid ${scoreColor(grade)}33`, borderRadius: 10 }}>
-            <div style={{ fontFamily: mono, fontSize: 11, color: scoreColor(grade), fontWeight: 600, marginBottom: 4 }}>CONSISTENCY GRADE · {gradeOf(grade)}</div>
-            <div style={{ fontSize: 12.5, color: T.muted }}>
-              {c.posRate >= 65 ? "Steady compounder — gains arrive often and drawdowns are shallow." : c.posRate >= 55 ? "Decent rhythm, but losing months bite. Smoother is achievable." : "Lumpy ride — big up months offset frequent, sharp drawdowns."}
+            {years.map((yr, yi) => (
+              <div key={yi} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontFamily: mono, fontSize: 9.5, color: T.faint, width: 24 }}>Y{yi + 1}</span>
+                {Array.from({ length: 12 }).map((_, mi) => {
+                  const v = yr[mi];
+                  return <span key={mi} title={v != null ? `${pct(v)}` : ""} style={{ width: 18, height: 18, borderRadius: 4, background: cellCol(v) }} />;
+                })}
+              </div>
+            ))}
+            {gradeBox}
+          </Panel>
+        ) : (
+          <Panel>
+            <Eyebrow icon="scale" accent={T.violet} info={{ title: "Consistency vs the S&P 500", body: "Your month-to-month reliability next to the index over the same window. A higher share of positive months and a shallower worst month mean a smoother ride than the market — even if total return differs." }}>Consistency vs S&P 500</Eyebrow>
+            <div style={{ border: `1px solid ${T.line}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", padding: "10px 14px", background: T.panel2, borderBottom: `1px solid ${T.line2}` }}>
+                <span style={{ fontFamily: mono, fontSize: 10, color: T.faint, textTransform: "uppercase", letterSpacing: "0.06em" }}>Metric</span>
+                <span style={{ fontFamily: mono, fontSize: 10, color: T.green, textTransform: "uppercase", textAlign: "right" }}>You</span>
+                <span style={{ fontFamily: mono, fontSize: 10, color: T.faint, textTransform: "uppercase", textAlign: "right" }}>S&P</span>
+              </div>
+              {[
+                { k: "Positive months", a: `${c.posRate}%`, b: bPos != null ? `${bPos}%` : "—", aw: bPos == null || c.posRate >= bPos },
+                { k: "Best month", a: pct(c.bestMonth), b: bBest != null ? pct(bBest) : "—", aw: null },
+                { k: "Worst month", a: pct(c.worstMonth), b: bWorst != null ? pct(bWorst) : "—", aw: bWorst == null || c.worstMonth >= bWorst },
+                { k: "Avg up / down", a: `${c.avgUp}% / ${c.avgDown}%`, b: "—", aw: null },
+              ].map((r, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", padding: "12px 14px", borderBottom: i < 3 ? `1px solid ${T.line}` : "none", fontSize: 13 }}>
+                  <span style={{ color: T.muted }}>{r.k}</span>
+                  <span style={{ textAlign: "right", fontFamily: mono, fontWeight: 600, color: r.aw === null ? T.ink : r.aw ? T.green : T.red }}>{r.a}</span>
+                  <span style={{ textAlign: "right", fontFamily: mono, color: T.faint }}>{r.b}</span>
+                </div>
+              ))}
             </div>
-          </div>
-        </Panel>
+            {gradeBox}
+          </Panel>
+        )}
       </div>
     </div>
   );
@@ -512,7 +554,7 @@ export function CorrSection({ p }: any) {
 /* ============================== CONCENTRATION (look-through) ============================== */
 export function ConcentrationSection({ p }: any) {
   const sectors = p.sectors.filter((s: any) => s.lt > 0);
-  const bets = p.sectors.filter((s: any) => s.name !== "Other sectors" && s.name !== "Diversified ETF" && s.lt > 0);
+  const bets = p.sectors.filter((s: any) => isRealSector(s.name) && s.lt > 0);
   return (
     <div className="hc-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 18 }}>
       <Panel>
@@ -720,7 +762,7 @@ export function CompareSection({ p }: any) {
       </Panel>
 
       <Panel pad={0}>
-        <div style={{ padding: "22px 22px 0" }}><Eyebrow icon="scale" accent={T.violet}>Head-to-Head</Eyebrow></div>
+        <div style={{ padding: "22px 22px 0" }}><Eyebrow icon="scale" accent={T.violet} info={{ title: "Head-to-head vs the S&P 500", body: "Your portfolio against the index over the same window. Green = you're ahead on that metric. Up-capture = the share of the S&P's up-moves you captured; down-capture = the share of its down-moves you took (lower is better). Correlation to S&P shows how closely you track it (1.0 = identical)." }}>Head-to-Head</Eyebrow></div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr style={{ borderBottom: `1px solid ${T.line}` }}>
             <th style={{ textAlign: "left", padding: "0 22px 10px", fontFamily: mono, fontSize: 10, color: T.faint, textTransform: "uppercase", letterSpacing: "0.06em" }}>Metric</th>
