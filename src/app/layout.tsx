@@ -118,12 +118,12 @@ export default function RootLayout({
             __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`,
           }}
         />
-        {/* TEST (branch test-analytics-component): Vercel Web Analytics + Speed
-            Insights are rendered via the official <Analytics/>/<SpeedInsights/>
-            components (in <body> below) instead of the hand-rendered <head>
-            scripts, to check whether they now inject + fire route data under
-            Next 16.1.6. If the beacon does NOT fire on the preview, revert to the
-            manual scripts on main. */}
+        {/* Vercel Web Analytics + Speed Insights are rendered via the official
+            <Analytics/>/<SpeedInsights/> components in <body> (below), NOT the
+            old hand-rendered /_vercel/insights <head> scripts. The components
+            now inject + fire the beacon under Next 16.1.6 (verified on a preview:
+            the /view beacon fires with the route), which the manual scripts
+            could not provide — so this restores the dashboard's Routes data. */}
         {/* Ahrefs Web Analytics — hand-rendered in <head> like the scripts
             above. Tracks traffic/Core Web Vitals for the Ahrefs dashboard. */}
         <script
