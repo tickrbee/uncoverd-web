@@ -17,6 +17,7 @@ type Strings = {
   defaultAuthor: string;
   definitionLabel: string;
   keyTakeawaysHeading: string;
+  topPickCta: string;
 };
 
 export const BLOG_STRINGS: Record<Locale, Strings> = {
@@ -36,6 +37,7 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     defaultAuthor: "uncoverd Research Team",
     definitionLabel: "Definition",
     keyTakeawaysHeading: "Key takeaways",
+    topPickCta: "See uncoverd's top-rated dividend stock this month →",
   },
   fr: {
     blogTitle: "Blog Dividendes",
@@ -53,6 +55,7 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     defaultAuthor: "L'équipe de recherche uncoverd",
     definitionLabel: "Définition",
     keyTakeawaysHeading: "Points clés",
+    topPickCta: "Découvrez l'action à dividende la mieux notée du mois sur uncoverd →",
   },
   de: {
     blogTitle: "Dividenden-Blog",
@@ -70,6 +73,7 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     defaultAuthor: "uncoverd Research-Team",
     definitionLabel: "Definition",
     keyTakeawaysHeading: "Das Wichtigste in Kürze",
+    topPickCta: "Die bestbewertete Dividendenaktie des Monats auf uncoverd ansehen →",
   },
   it: {
     blogTitle: "Blog Dividendi",
@@ -87,6 +91,7 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     defaultAuthor: "Team di ricerca uncoverd",
     definitionLabel: "Definizione",
     keyTakeawaysHeading: "Punti chiave",
+    topPickCta: "Scopri l'azione a dividendo meglio valutata del mese su uncoverd →",
   },
   es: {
     blogTitle: "Blog de Dividendos",
@@ -104,6 +109,7 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     defaultAuthor: "Equipo de investigación de uncoverd",
     definitionLabel: "Definición",
     keyTakeawaysHeading: "Puntos clave",
+    topPickCta: "Descubre la acción de dividendo mejor valorada del mes en uncoverd →",
   },
 };
 
