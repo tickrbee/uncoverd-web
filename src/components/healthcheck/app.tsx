@@ -79,6 +79,7 @@ export function PortfolioHealthcheckApp() {
   const [customPf, setCustomPf] = React.useState<any>(null);
   const [customName, setCustomName] = React.useState("My portfolio");
   const [isPremium, setIsPremium] = React.useState(false);
+  const seedConsumed = React.useRef(false); // generator → healthcheck handoff
   const [analyzing, setAnalyzing] = React.useState(false);
   const [savedList, setSavedList] = React.useState<any[]>([]);
   const [savedActiveId, setSavedActiveId] = React.useState<string | null>(null);
@@ -157,6 +158,22 @@ export function PortfolioHealthcheckApp() {
   // Re-analyzing keeps the active portfolio (saved or draft) — adding a holding
   // updates THIS book rather than spawning a new one. "New portfolio" resets it.
   const analyzeCustom = () => runAnalysis(selected, customPf?.name || customName || "My portfolio", savedActiveId);
+
+  // Handoff from the Portfolio Generator: pick up the seeded picks from
+  // sessionStorage, load them into the builder, and (for Pro) auto-analyze.
+  React.useEffect(() => {
+    if (seedConsumed.current) return;
+    let parsed: any = null;
+    try { const raw = sessionStorage.getItem("hc-seed-picks"); if (raw) parsed = JSON.parse(raw); } catch { /* ignore */ }
+    if (!parsed?.picks || !Array.isArray(parsed.picks) || parsed.picks.length < 2) return;
+    setSelected(parsed.picks);
+    if (isPremium) {
+      seedConsumed.current = true;
+      try { sessionStorage.removeItem("hc-seed-picks"); } catch { /* ignore */ }
+      runAnalysis(parsed.picks, parsed.name || "Generated portfolio", null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPremium]);
   const loadSaved = (item: any) => { setSelected(item.picks ?? []); setCustomName(item.name); runAnalysis(item.picks ?? [], item.name, item.id); };
 
   // New portfolio → start a fresh build at the search box (Pro only).
