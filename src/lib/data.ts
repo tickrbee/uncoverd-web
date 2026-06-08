@@ -320,6 +320,9 @@ export const INDUSTRY_SLUG_MAP: Record<
 export type ScreenerOptions = {
   sector?: string;
   industryPattern?: string;
+  // Exclude rows whose industry matches this ILIKE pattern (e.g. equity REITs =
+  // all "REIT%" except "REIT - Mortgage").
+  industryExcludePattern?: string;
   minMarketCap?: number;
   minDividend?: number;
   minYieldPct?: number;
@@ -378,6 +381,8 @@ export async function listStocks(opts: ScreenerOptions = {}): Promise<StockRow[]
   }
   if (opts.sector) q = q.eq("sector", opts.sector);
   if (opts.industryPattern) q = q.ilike("industry", opts.industryPattern);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (opts.industryExcludePattern) q = (q as any).not("industry", "ilike", opts.industryExcludePattern);
   if (opts.minMarketCap) q = q.gte("mkt_cap", opts.minMarketCap);
   if (opts.minDividend != null) q = q.gte("last_div", opts.minDividend);
   if (opts.symbols && opts.symbols.length > 0) q = q.in("symbol", opts.symbols);
@@ -449,6 +454,8 @@ export async function countStocks(opts: ScreenerOptions = {}): Promise<number> {
   }
   if (opts.sector) q = q.eq("sector", opts.sector);
   if (opts.industryPattern) q = q.ilike("industry", opts.industryPattern);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (opts.industryExcludePattern) q = (q as any).not("industry", "ilike", opts.industryExcludePattern);
   if (opts.minMarketCap) q = q.gte("mkt_cap", opts.minMarketCap);
   if (opts.minDividend != null) q = q.gte("last_div", opts.minDividend);
   if (opts.requireUpcomingDividend) {

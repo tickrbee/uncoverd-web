@@ -345,11 +345,11 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
               </MenuCol>
               <MenuCol title="REITs">
                 <MenuLink href="/industries/reit">{m.allReits}</MenuLink>
-                <MenuLink href="/industries/reit?type=equity">{m.equityReits}</MenuLink>
-                <MenuLink href="/industries/reit?type=mortgage">{m.mortgageReits}</MenuLink>
-                <MenuLink href="/industries/reit?type=industrial">{m.industrialReits}</MenuLink>
-                <MenuLink href="/industries/reit?type=residential">{m.residentialReits}</MenuLink>
-                <MenuLink href="/industries/reit?type=healthcare">{m.healthcareReits}</MenuLink>
+                <MenuLink href="/industries/reit?reit=equity">{m.equityReits}</MenuLink>
+                <MenuLink href="/industries/reit?reit=mortgage">{m.mortgageReits}</MenuLink>
+                <MenuLink href="/industries/reit?reit=industrial">{m.industrialReits}</MenuLink>
+                <MenuLink href="/industries/reit?reit=residential">{m.residentialReits}</MenuLink>
+                <MenuLink href="/industries/reit?reit=healthcare">{m.healthcareReits}</MenuLink>
               </MenuCol>
             </MenuGrid>
           </NavItem>

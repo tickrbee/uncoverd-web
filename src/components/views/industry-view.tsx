@@ -25,8 +25,18 @@ import { industryHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP }
 const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 
+// Sub-categories for the REIT industry (mapped to real backend industry names).
+// "equity" = all REITs except mortgage; the rest match a specific industry.
+const REIT_SUBS: Record<string, { label: string; pattern?: string; exclude?: string }> = {
+  equity: { label: "Equity REITs", pattern: "REIT%", exclude: "REIT - Mortgage" },
+  mortgage: { label: "Mortgage REITs", pattern: "REIT - Mortgage" },
+  industrial: { label: "Industrial REITs", pattern: "REIT - Industrial" },
+  residential: { label: "Residential REITs", pattern: "REIT - Residential" },
+  healthcare: { label: "Healthcare REITs", pattern: "REIT - Healthcare%" },
+};
+
 export type IndustrySearch = {
-  view?: string; page?: string; currency?: string; country?: string; type?: string; tier?: string;
+  view?: string; page?: string; currency?: string; country?: string; type?: string; tier?: string; reit?: string;
 };
 
 // Shared, locale-aware industry listing — identical to the English
@@ -43,7 +53,10 @@ export async function IndustryView({
   const entry = INDUSTRY_SLUG_MAP[slug];
   if (!entry) notFound();
   const taxo = INDUSTRIES.find((i) => i.key === slug);
-  const label = locale === "en" ? entry.label : taxo?.label[locale] ?? entry.label;
+  // REIT sub-category (equity / mortgage / industrial / residential / healthcare)
+  // refines the industry filter and the page label.
+  const reitSub = slug === "reit" && sp.reit ? REIT_SUBS[sp.reit] : null;
+  const label = reitSub ? reitSub.label : locale === "en" ? entry.label : taxo?.label[locale] ?? entry.label;
   const basePath = taxo ? industryUrl(locale, taxo) : `/industries/${slug}`;
 
   const view: ColumnView = sp.view && VALID_VIEWS.includes(sp.view as ColumnView) ? (sp.view as ColumnView) : "overview";
@@ -60,7 +73,8 @@ export async function IndustryView({
   const minMarketCap = sp.tier === "large" ? BLUE_CHIP_MIN_MARKET_CAP : 250_000_000;
 
   const baseOpts = {
-    industryPattern: entry.industryPattern,
+    industryPattern: reitSub?.pattern ?? entry.industryPattern,
+    industryExcludePattern: reitSub?.exclude,
     sector: entry.sector,
     minMarketCap,
     minDividend: 0.01,
