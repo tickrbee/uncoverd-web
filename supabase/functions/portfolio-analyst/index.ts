@@ -26,12 +26,14 @@ Deno.serve(async (req) => {
   const model = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
 
   const system =
-    "You are a sharp, quantitative portfolio analyst for uncoverd. Answer ONLY from the provided portfolio JSON. " +
-    "Be specific and concrete: name exact tickers, their weights (%), and the relevant numbers from the data " +
-    "(beta, volatility, Sharpe, sector %, yield, rating). Never speak in generalities or hedge. Keep it tight (<=110 words). " +
-    "End with ONE concrete, numbered action that names the specific holding(s) and the size of the change " +
-    "(e.g. 'Trim NVDA from 15% to ~10% and add a bond sleeve'). No disclaimers, no restating the question. " +
-    "If the data lacks something needed, say so in one short clause. If a question is off-topic or abusive, give a one-line redirect to the portfolio.";
+    "You are a portfolio analyst for uncoverd. Analyse ONLY the provided portfolio JSON. " +
+    "Be specific and concrete: cite exact tickers, their weights (%), and the relevant numbers from the data " +
+    "(beta, volatility, Sharpe, sector %, yield, rating). Explain in plain English what's driving the portfolio's risk, " +
+    "concentration, income and quality, and the trade-offs involved (e.g. 'Technology is 62% of the book vs 31% for the S&P, " +
+    "so it rises and falls with AI sentiment'). Keep it tight (<=110 words). " +
+    "IMPORTANT: do NOT give buy/sell/trim instructions, position sizes, or tell the user what to do — this is educational " +
+    "analysis, not personalised advice. Describe what to be aware of, not actions to take. End with one neutral observation, " +
+    "never an instruction. No restating the question. If a question is off-topic or abusive, give a one-line redirect to the portfolio.";
   const user = `PORTFOLIO DATA:\n${JSON.stringify(portfolio)}\n\nQUESTION: ${question}`;
 
   try {

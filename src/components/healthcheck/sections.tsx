@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, ComposedChart, Line,
   ScatterChart, Scatter, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, Radar,
@@ -13,14 +14,85 @@ import {
 } from "./theme";
 import { typeColor, typeLabel } from "./ui";
 
+/* ============================== COMPARE MODAL ============================== */
+// Index proxies (ETFs that exist in the DB) + free search for any stock/ETF.
+const INDEX_PRESETS: { label: string; sym: string }[] = [
+  { label: "S&P 500", sym: "SPY" }, { label: "Nasdaq 100", sym: "QQQ" }, { label: "Dow Jones", sym: "DIA" },
+  { label: "Russell 2000", sym: "IWM" }, { label: "CAC 40", sym: "EWQ" }, { label: "DAX (Germany)", sym: "EWG" },
+  { label: "FTSE 100", sym: "EWU" }, { label: "Euro Stoxx 50", sym: "FEZ" }, { label: "Nikkei (Japan)", sym: "EWJ" },
+  { label: "Emerging Mkts", sym: "EEM" }, { label: "World", sym: "URTH" },
+];
+
+function CompareModal({ open, onClose, cmps, onAdd, onRemove }: any) {
+  const [q, setQ] = React.useState("");
+  const [results, setResults] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const deb = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    if (deb.current) clearTimeout(deb.current);
+    const term = q.trim();
+    if (term.length < 1) { setResults([]); return; }
+    setLoading(true);
+    deb.current = setTimeout(async () => {
+      try { const r = await fetch(`/api/search?q=${encodeURIComponent(term)}`); const d = await r.json(); setResults(Array.isArray(d.results) ? d.results : []); }
+      catch { setResults([]); } finally { setLoading(false); }
+    }, 180);
+    return () => { if (deb.current) clearTimeout(deb.current); };
+  }, [q, open]);
+  if (!open || typeof document === "undefined") return null;
+  const has = (s: string) => cmps.some((c: any) => c.symbol === s);
+
+  return createPortal(
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(3,6,12,0.82)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 18px 18px", fontFamily: body }}>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)", background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, padding: 22, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontFamily: display, fontSize: 18, fontWeight: 800, color: T.ink, margin: 0 }}>Compare against…</h3>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: T.faint, cursor: "pointer", display: "flex" }}><Icon name="x" size={18} /></button>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: T.faint, marginBottom: 9 }}>Indices</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16 }}>
+          {INDEX_PRESETS.map((ix) => {
+            const on = has(ix.sym);
+            return <button key={ix.sym} onClick={() => (on ? onRemove(ix.sym) : onAdd(ix.sym, ix.label))} className="hc-sampleChip" style={{ background: on ? T.green : T.panel2, color: on ? T.bg : T.muted, border: `1px solid ${on ? T.green : T.line2}`, borderRadius: 18, padding: "6px 12px", cursor: "pointer", fontFamily: body, fontSize: 12.5, fontWeight: on ? 700 : 500 }}>{on ? "✓ " : "+ "}{ix.label}</button>;
+          })}
+        </div>
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", display: "flex" }}><Icon name="search" size={16} color={T.faint} /></span>
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="…or search any stock or ETF" style={{ width: "100%", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "12px 14px 12px 38px", color: T.ink, fontFamily: body, fontSize: 14, outline: "none" }} />
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, border: q.trim() ? `1px solid ${T.line}` : "none", borderRadius: 12 }}>
+          {q.trim().length < 1 ? null
+            : loading ? <div style={{ padding: 16, fontSize: 13, color: T.faint, textAlign: "center" }}>Searching…</div>
+            : results.length === 0 ? <div style={{ padding: 16, fontSize: 13, color: T.faint, textAlign: "center" }}>No matches.</div>
+            : results.map((r, i) => {
+              const on = has(r.symbol);
+              return (
+                <button key={r.symbol} onClick={() => (on ? onRemove(r.symbol) : onAdd(r.symbol, r.symbol))} className="hc-row" style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 13px", cursor: "pointer", background: "transparent", border: "none", borderTop: i ? `1px solid ${T.line}` : "none", textAlign: "left" }}>
+                  <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.ink, width: 64 }}>{r.symbol}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: T.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                  <span style={{ fontFamily: body, fontSize: 12, fontWeight: 700, color: on ? T.faint : T.green }}>{on ? "Added" : "+ Add"}</span>
+                </button>
+              );
+            })}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+          <button onClick={onClose} className="hc-btnPrimary" style={{ background: T.green, color: T.bg, border: "none", borderRadius: 10, padding: "10px 20px", fontFamily: body, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>Done</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /* ============================== OVERVIEW ============================== */
 export function Overview({ p, onRemove }: any) {
   const up = p.dayChg >= 0;
-  const [cmps, setCmps] = React.useState<{ symbol: string; vals: number[] }[]>([]);
-  const [cmpQ, setCmpQ] = React.useState("");
+  const [cmps, setCmps] = React.useState<{ symbol: string; label: string; vals: number[] }[]>([]);
+  const [cmpOpen, setCmpOpen] = React.useState(false);
   const eqLen = p.equity.length;
-  const cmpColors = [T.violet, T.gold, T.teal, T.red];
-  const addCompare = async (sym: string) => {
+  const cmpColors = [T.violet, T.gold, T.teal, T.red, T.blue];
+  const addCompare = async (sym: string, label?: string) => {
     const s = (sym || "").trim().toUpperCase();
     if (!s || cmps.some((c) => c.symbol === s)) return;
     try {
@@ -31,7 +103,7 @@ export function Overview({ p, onRemove }: any) {
       const base = pts[0].close;
       const norm = pts.map((x: any) => (x.close / base) * 100);
       const vals = Array.from({ length: eqLen }, (_, i) => norm[Math.round((i / Math.max(1, eqLen - 1)) * (norm.length - 1))]);
-      setCmps((c) => [...c, { symbol: s, vals }]);
+      setCmps((c) => [...c, { symbol: s, label: label || s, vals }]);
     } catch { /* ignore */ }
   };
   const removeCompare = (s: string) => setCmps((c) => c.filter((x) => x.symbol !== s));
@@ -85,24 +157,22 @@ export function Overview({ p, onRemove }: any) {
               <Tooltip content={<Tip />} />
               <Area isAnimationActive={false} type="monotone" dataKey="bench" name="S&P 500" stroke={T.faint} strokeWidth={1.4} fill="none" strokeDasharray="4 3" />
               <Area isAnimationActive={false} type="monotone" dataKey="port" name="Portfolio" stroke={T.green} strokeWidth={2.6} fill="url(#ap)" />
-              {cmps.map((c, i) => <Line key={c.symbol} isAnimationActive={false} type="monotone" dataKey={"cmp_" + c.symbol} name={c.symbol} stroke={cmpColors[i % cmpColors.length]} strokeWidth={1.8} dot={false} connectNulls />)}
+              {cmps.map((c, i) => <Line key={c.symbol} isAnimationActive={false} type="monotone" dataKey={"cmp_" + c.symbol} name={c.label} stroke={cmpColors[i % cmpColors.length]} strokeWidth={1.8} dot={false} connectNulls />)}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: T.faint }}>Compare</span>
-          {["SPY", "QQQ", "DIA"].map((s) => (
-            <button key={s} onClick={() => addCompare(s)} className="hc-sampleChip" style={{ background: T.panel2, color: T.muted, border: `1px solid ${T.line2}`, borderRadius: 16, padding: "4px 11px", cursor: "pointer", fontFamily: mono, fontSize: 11 }}>+ {s}</button>
-          ))}
-          <input value={cmpQ} onChange={(e) => setCmpQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompare(cmpQ); setCmpQ(""); } }}
-            placeholder="ticker…" aria-label="Compare ticker" style={{ width: 92, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 8, padding: "5px 9px", color: T.ink, fontFamily: mono, fontSize: 12, outline: "none" }} />
+          <button onClick={() => setCmpOpen(true)} className="hc-sampleChip" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.panel2, color: T.ink, border: `1px solid ${T.line2}`, borderRadius: 18, padding: "6px 13px", cursor: "pointer", fontFamily: body, fontSize: 12.5, fontWeight: 600 }}>
+            <Icon name="plus" size={14} color={T.green} /> Compare an index or stock
+          </button>
           {cmps.map((c, i) => (
-            <span key={c.symbol} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: mono, fontSize: 11, color: cmpColors[i % cmpColors.length] }}>
-              <span style={{ width: 10, height: 2, background: cmpColors[i % cmpColors.length] }} />{c.symbol}
+            <span key={c.symbol} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: body, fontSize: 12, color: cmpColors[i % cmpColors.length] }}>
+              <span style={{ width: 12, height: 2, background: cmpColors[i % cmpColors.length] }} />{c.label}
               <button onClick={() => removeCompare(c.symbol)} style={{ border: "none", background: "transparent", color: T.faint, cursor: "pointer", padding: 0, display: "flex" }}><Icon name="x" size={12} /></button>
             </span>
           ))}
         </div>
+        <CompareModal open={cmpOpen} onClose={() => setCmpOpen(false)} cmps={cmps} onAdd={addCompare} onRemove={removeCompare} />
       </Panel>
 
       <HoldingsSection p={p} onRemove={onRemove} title="Your holdings" />
@@ -135,7 +205,7 @@ export function RiskSection({ p }: any) {
       </Panel>
 
       <Panel>
-        <Eyebrow icon="activity">Risk vs. Market Sensitivity</Eyebrow>
+        <Eyebrow icon="activity" info={{ title: "Risk vs market sensitivity", body: "Each bubble is a holding: x = its annual volatility (how much it swings), y = its beta (how much it moves with the market), bubble size = its weight. Top-right names are your biggest risk drivers; bottom-left are your dampeners." }}>Risk vs. Market Sensitivity</Eyebrow>
         <div style={{ fontSize: 12, color: T.faint, marginBottom: 8 }}>Bubble size = weight · blue = ETF · green = stock</div>
         <div style={{ height: 260 }}>
           <ResponsiveContainer>
@@ -215,7 +285,7 @@ export function ConsistencySection({ p }: any) {
 
       <div className="hc-grid2" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18 }}>
         <Panel>
-          <Eyebrow icon="bars" accent={T.green}>Monthly Returns · last {p.monthly.length} months</Eyebrow>
+          <Eyebrow icon="bars" accent={T.green} info={{ title: "Consistency", body: "How reliably the book goes up, not just the total. Share of positive months, longest winning streak, and how often a rolling 12-month window finished green. Steady, shallow drawdowns score higher than a few big spikes around frequent losses." }}>Monthly Returns · last {p.monthly.length} months</Eyebrow>
           <div style={{ height: 220 }}>
             <ResponsiveContainer>
               <BarChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
@@ -258,7 +328,7 @@ export function ConsistencySection({ p }: any) {
 }
 
 /* ============================== FRONTIER ============================== */
-export function FrontierSection({ p }: any) {
+export function FrontierSection({ p, onOptimize }: any) {
   const cur = p.frontierCur, opt = p.frontierOpt, min = p.frontierMin;
   const sharpeCur = +(cur.y / cur.x).toFixed(2);
   const sharpeOpt = +(opt.y / opt.x).toFixed(2);
@@ -311,6 +381,11 @@ export function FrontierSection({ p }: any) {
           <Stat label="Your Sharpe ratio" value={sharpeCur.toFixed(2)} sub="return per unit of risk" color={T.ink} />
           <div style={{ height: 14 }} />
           <Stat label="Optimal Sharpe (max)" value={sharpeOpt.toFixed(2)} sub={optimized ? "you're essentially there" : `+${(sharpeOpt - sharpeCur).toFixed(2)} achievable`} color={T.gold} />
+          {onOptimize && (
+            <button onClick={onOptimize} className="hc-btnPrimary" style={{ marginTop: 16, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: T.green, color: T.bg, border: "none", borderRadius: 11, padding: "12px", fontFamily: body, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
+              See how to get there <Icon name="arrowRight" size={16} color={T.bg} />
+            </button>
+          )}
         </Panel>
       </div>
     </div>
@@ -319,41 +394,51 @@ export function FrontierSection({ p }: any) {
 
 /* ============================== OPTIMIZE ============================== */
 export function OptimizeSection({ p }: any) {
-  const [lens, setLens] = React.useState<"income" | "ret">("income");
-  const list = p.optimize[lens];
+  const income = p.optimize?.income ?? [];
+  const ret = p.optimize?.ret ?? [];
+  const bothSame = JSON.stringify(income) === JSON.stringify(ret);
+  const [lens, setLens] = React.useState<"income" | "ret">("ret");
   const lensMeta: any = {
-    income: { label: "Dividend / income", icon: "coins", color: T.green, blurb: "Maximize durable, growing income without taking on more equity risk." },
-    ret: { label: "Total return", icon: "trending", color: T.blue, blurb: "Lift expected return per unit of risk — push toward the efficient frontier." },
+    income: { label: "Dividend / income", icon: "coins", color: T.green, blurb: "Tilt toward durable, growing income without taking on more equity risk." },
+    ret: { label: "Total return", icon: "trending", color: T.blue, blurb: "An illustrative mix that improves return per unit of risk — closer to the efficient frontier." },
   };
+  const list = bothSame ? ret : p.optimize[lens];
+  const color = bothSame ? T.blue : lensMeta[lens].color;
   return (
     <Panel>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
-        <Eyebrow icon="zap" accent={T.gold} style={{ marginBottom: 0 }}>Optimization Suggestions</Eyebrow>
-        <div style={{ display: "flex", gap: 6, background: T.bg, border: `1px solid ${T.line}`, borderRadius: 11, padding: 4 }}>
-          {Object.entries(lensMeta).map(([k, m]: any) => (
-            <button key={k} onClick={() => setLens(k)} style={{
-              display: "inline-flex", alignItems: "center", gap: 7, background: lens === k ? m.color : "transparent", color: lens === k ? T.bg : T.muted,
-              border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: body, fontSize: 13, fontWeight: 600,
-            }}><Icon name={m.icon} size={14} /> {m.label}</button>
-          ))}
-        </div>
-      </div>
-      <div style={{ fontSize: 13, color: T.muted, marginBottom: 20, maxWidth: 620 }}>{lensMeta[lens].blurb}</div>
-      <div style={{ display: "grid", gap: 12 }}>
-        {list.map((s: any, i: number) => (
-          <div key={i} className="hc-optrow" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 18, alignItems: "center", padding: "16px 18px", background: T.bg, border: `1px solid ${T.line}`, borderRadius: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-              <span style={{ fontFamily: mono, fontSize: 12.5, color: T.red, fontWeight: 600 }}>{s.from}</span>
-              <Icon name="arrowRight" size={15} color={lensMeta[lens].color} />
-              <span style={{ fontFamily: mono, fontSize: 12.5, color: T.green, fontWeight: 600 }}>{s.to}</span>
-            </div>
-            <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}>{s.why}</div>
-            <Pill color={lensMeta[lens].color}>{s.impact}</Pill>
+        <Eyebrow icon="zap" accent={T.gold} style={{ marginBottom: 0 }} info={{ title: "Illustrative optimisation", body: "A long-only mean-variance optimisation on ~1 year of returns: the weights that would have given the best return per unit of risk (max-Sharpe). Expected returns are noisy, so this is an illustration to explore — not advice or a prediction." }}>Illustrative optimisation</Eyebrow>
+        {!bothSame && (
+          <div style={{ display: "flex", gap: 6, background: T.bg, border: `1px solid ${T.line}`, borderRadius: 11, padding: 4 }}>
+            {Object.entries(lensMeta).map(([k, m]: any) => (
+              <button key={k} onClick={() => setLens(k)} style={{
+                display: "inline-flex", alignItems: "center", gap: 7, background: lens === k ? m.color : "transparent", color: lens === k ? T.bg : T.muted,
+                border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: body, fontSize: 13, fontWeight: 600,
+              }}><Icon name={m.icon} size={14} /> {m.label}</button>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-      <div style={{ marginTop: 16, fontSize: 12, color: T.faint, display: "flex", alignItems: "center", gap: 8 }}>
-        <Icon name="sparkles" size={13} color={T.gold} /> Suggestions are illustrative on sample data — Premium runs them on your real holdings and lets you apply & re-score instantly.
+      <div style={{ fontSize: 13, color: T.muted, marginBottom: 20, maxWidth: 640 }}>{bothSame ? "How the weights would shift to move your book toward the best risk-adjusted (max-Sharpe) mix on the frontier. Shown for context, not as instructions." : lensMeta[lens].blurb}</div>
+      {list.length === 0
+        ? <div style={{ fontSize: 13.5, color: T.muted, padding: "10px 0" }}>Your portfolio already sits close to the optimised mix — no material reweighting stands out.</div>
+        : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {list.map((s: any, i: number) => (
+              <div key={i} className="hc-optrow" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 18, alignItems: "center", padding: "16px 18px", background: T.bg, border: `1px solid ${T.line}`, borderRadius: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <span style={{ fontFamily: mono, fontSize: 12.5, color: T.muted, fontWeight: 600 }}>{s.from}</span>
+                  <Icon name="arrowRight" size={15} color={color} />
+                  <span style={{ fontFamily: mono, fontSize: 12.5, color: T.ink, fontWeight: 600 }}>{s.to}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}>{s.why}</div>
+                <Pill color={color}>{s.impact}</Pill>
+              </div>
+            ))}
+          </div>
+        )}
+      <div style={{ marginTop: 16, fontSize: 12, color: T.faint, display: "flex", alignItems: "center", gap: 8, lineHeight: 1.5 }}>
+        <Icon name="sparkles" size={13} color={T.gold} /> Illustrative mean-variance optimisation, not investment advice. Expected returns are noisy — use it to understand trade-offs, not as a trade list.
       </div>
     </Panel>
   );
@@ -362,6 +447,8 @@ export function OptimizeSection({ p }: any) {
 /* ============================== CORRELATION ============================== */
 export function CorrSection({ p }: any) {
   const { tks, M } = p.corr;
+  const cz = tks.length <= 5 ? 58 : tks.length <= 8 ? 46 : 38; // bigger cells when few holdings
+  const fz = tks.length <= 5 ? 13 : tks.length <= 8 ? 11.5 : 10.5;
   const cell = (v: number) => (v >= 0.7 ? T.red : v >= 0.5 ? T.amber : v >= 0.35 ? T.gold : T.green);
   const flat: number[] = []; for (let i = 0; i < M.length; i++) for (let j = 0; j < i; j++) flat.push(M[i][j]);
   const avg = flat.length ? (flat.reduce((s, v) => s + v, 0) / flat.length) : 0;
@@ -373,17 +460,17 @@ export function CorrSection({ p }: any) {
         <Eyebrow icon="network" accent={T.red} info={{ title: "Correlation matrix", body: "Pairwise correlation of daily returns over ~1y (−1 to +1). Red (>0.7) means the two move together, so they don't diversify each other. Your effective diversification ≈ holding count discounted by how correlated everything is." }}>Holding Correlation Matrix</Eyebrow>
         <div style={{ fontSize: 12, color: T.faint, marginBottom: 16 }}>Pairwise return correlation, trailing 1yr · red = moves together</div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "separate", borderSpacing: 3, fontFamily: mono, fontSize: 10.5 }}>
+          <table style={{ borderCollapse: "separate", borderSpacing: 3, fontFamily: mono, fontSize: fz }}>
             <thead>
-              <tr><th></th>{tks.map((tk: string) => <th key={tk} style={{ color: T.muted, fontWeight: 500, padding: "0 2px 6px", fontSize: 9.5 }}>{tk}</th>)}</tr>
+              <tr><th></th>{tks.map((tk: string) => <th key={tk} style={{ color: T.muted, fontWeight: 500, padding: "0 2px 6px", fontSize: fz - 1 }}>{tk}</th>)}</tr>
             </thead>
             <tbody>
               {M.map((row: number[], i: number) => (
                 <tr key={i}>
-                  <td style={{ color: T.muted, paddingRight: 8, textAlign: "right", fontSize: 9.5 }}>{tks[i]}</td>
+                  <td style={{ color: T.muted, paddingRight: 8, textAlign: "right", fontSize: fz - 1 }}>{tks[i]}</td>
                   {row.map((v: number, j: number) => (
                     <td key={j} title={`${tks[i]}–${tks[j]}: ${v}`}
-                      style={{ width: 38, height: 30, textAlign: "center", borderRadius: 4, color: v >= 0.5 ? T.bg : T.ink, fontWeight: v >= 0.7 ? 700 : 500, background: i === j ? T.line2 : cell(v), opacity: i === j ? 0.45 : 0.92 }}>
+                      style={{ width: cz, height: Math.round(cz * 0.72), textAlign: "center", borderRadius: 5, color: v >= 0.5 ? T.bg : T.ink, fontWeight: v >= 0.7 ? 700 : 500, background: i === j ? T.line2 : cell(v), opacity: i === j ? 0.45 : 0.92 }}>
                       {v.toFixed(2)}
                     </td>
                   ))}
@@ -412,7 +499,7 @@ export function CorrSection({ p }: any) {
           </div>
         </Panel>
         <Panel>
-          <Eyebrow icon="activity">Diversification Verdict</Eyebrow>
+          <Eyebrow icon="activity" info={{ title: "Effective # of holdings", body: "Your real diversification, not your count. We discount the nominal number of holdings by how correlated they are (≈ count × (1 − avg correlation × factor)). If everything moves together, ten holdings behave like far fewer — so 4.8 vs 5 means your five barely overlap." }}>Diversification Verdict</Eyebrow>
           <Stat label="Effective # of holdings" value={effN} sub={`vs ${p.holdings.filter((h: any) => h.type !== "cash").length} nominal — overlap erodes the rest`} color={T.amber} />
           <div style={{ height: 14 }} />
           <Stat label="Avg pairwise correlation" value={avg.toFixed(2)} sub={avg > 0.55 ? "tightly clustered" : "reasonably spread"} color={avg > 0.55 ? T.amber : T.green} />
@@ -453,7 +540,7 @@ export function ConcentrationSection({ p }: any) {
       </Panel>
 
       <Panel>
-        <Eyebrow icon="alert" accent={T.amber}>Active Sector Bets vs S&P 500</Eyebrow>
+        <Eyebrow icon="alert" accent={T.amber} info={{ title: "Active sector bets", body: "Your weight in each sector minus the S&P 500's weight. Red bars (overweight) are sectors you're betting on vs the index; anything beyond +10 points is a concentrated active bet. It shows where you diverge from 'the market'." }}>Active Sector Bets vs S&P 500</Eyebrow>
         <div style={{ fontSize: 12, color: T.faint, marginBottom: 16 }}>Look-through weight minus benchmark weight</div>
         {bets.map((s: any) => {
           const diff = +(s.lt - s.bench).toFixed(1);
@@ -669,6 +756,19 @@ export function AiSection({ p, onUpgrade, unlimited, onAsk }: any) {
   const [loading, setLoading] = React.useState(false);
   const [used, setUsed] = React.useState(0);
   const [walled, setWalled] = React.useState(false);
+  // Persist the daily free-question count so it survives navigation/refresh.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("hc-ai-used");
+      if (raw) { const o = JSON.parse(raw); if (o.date === todayKey) setUsed(o.count || 0); }
+    } catch { /* storage blocked */ }
+  }, [todayKey]);
+  const bumpUsed = () => setUsed((u) => {
+    const n = u + 1;
+    try { localStorage.setItem("hc-ai-used", JSON.stringify({ date: todayKey, count: n })); } catch { /* ignore */ }
+    return n;
+  });
   const sevColor: any = { critical: T.red, warning: T.amber, positive: T.green };
   const sevIcon: any = { critical: "alert", warning: "shield", positive: "check" };
 
@@ -689,7 +789,7 @@ export function AiSection({ p, onUpgrade, unlimited, onAsk }: any) {
       const ins = p.insights[0];
       setAns(`(Offline fallback) On the ${p.name} book (Grade ${gradeOf(p.overall)} · ${p.overall}/100): ${ins.body}`);
     }
-    setUsed((u) => u + 1); setLoading(false);
+    bumpUsed(); setLoading(false);
   };
 
   const chips = ["What's my single biggest risk?", "How do I reach an A grade?", "Is my income durable?", "Am I too concentrated?"];
@@ -750,6 +850,7 @@ export function AiSection({ p, onUpgrade, unlimited, onAsk }: any) {
           ) : loading ? <span style={{ color: T.faint }}>Analyzing holdings, risk and exposures…</span>
             : ans || <span style={{ color: T.faint }}>Pick a question above or type your own. The analyst reasons over the live data on this page.</span>}
         </div>
+        <div style={{ fontSize: 11, color: T.faint, marginTop: 10, lineHeight: 1.5 }}>Educational analysis of your data — not personalised investment advice. Always do your own research.</div>
       </Panel>
     </div>
   );

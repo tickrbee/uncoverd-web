@@ -99,7 +99,7 @@ function SelectorModal({ open, onClose, selected, setSelected }: any) {
   );
 }
 
-export function HoldingSearch({ selected, setSelected, onAnalyze, isPremium, onLocked, loading, ctaLabel = "Create & analyze portfolio" }: any) {
+export function HoldingSearch({ selected, setSelected, onAnalyze, isPremium, onLocked, loading, ctaLabel = "Create & analyze portfolio", addLabel = "Add holdings" }: any) {
   const [open, setOpen] = React.useState(false);
   const remove = (sym: string) => setSelected(selected.filter((s: Pick) => s.symbol !== sym));
   const openSelector = () => (isPremium ? setOpen(true) : onLocked?.());
@@ -114,7 +114,7 @@ export function HoldingSearch({ selected, setSelected, onAnalyze, isPremium, onL
         <Icon name="search" size={16} color={T.faint} />
         <span style={{ flex: 1, color: T.faint, fontFamily: body, fontSize: 14 }}>Search stocks &amp; ETFs to add — ticker or company name</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: body, fontSize: 12.5, fontWeight: 700, color: T.green }}>
-          {!isPremium && <Icon name="lock" size={12} color={T.gold} />}<Icon name="plus" size={14} color={T.green} /> Add holdings
+          {!isPremium && <Icon name="lock" size={12} color={T.gold} />}<Icon name="plus" size={14} color={T.green} /> {addLabel}
         </span>
       </button>
 

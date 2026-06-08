@@ -16,11 +16,10 @@ const SECTIONS = [
   { id: "risk", label: "Risk", icon: "shield", kicker: "Risk X-ray", title: "See exactly where your risk comes from", body: "Volatility, beta, drawdown and Value-at-Risk — plus a contribution-to-risk breakdown that reveals which holdings carry more danger than their weight suggests.", premium: false },
   { id: "consistency", label: "Consistency", icon: "calendar", kicker: "New", title: "How reliably does it actually go up?", body: "Most tools only show total return. We grade the journey: your share of positive months, longest winning streak, and the probability that any rolling 12-month window finished in the green.", premium: false },
   { id: "frontier", label: "Risk / Return", icon: "target", kicker: "New · Premium", title: "Are you being paid for the risk you take?", body: "We plot your portfolio against the efficient frontier — the best possible return for every level of risk — and show whether you could earn more for the same risk, or hold the same return for less.", premium: true },
-  { id: "optimize", label: "Optimize", icon: "zap", kicker: "New · Premium", title: "Specific moves, not vague advice", body: "Concrete swap-by-swap suggestions from two angles: maximize durable dividend income, or maximize total return per unit of risk. Each shows its expected impact.", premium: true },
+  { id: "optimize", label: "Optimize", icon: "zap", kicker: "New · Premium", title: "An illustrative, more efficient mix", body: "How the weights would shift to move your book toward the best risk-adjusted (max-Sharpe) point on the frontier. Shown to illustrate trade-offs — it's not investment advice.", premium: true },
   { id: "corr", label: "Correlation", icon: "network", kicker: "Hidden risk", title: "Your 13 holdings might be 6 real bets", body: "A correlation matrix surfaces clusters of holdings that move as one. Effective diversification is almost always lower than your position count — we quantify it.", premium: false },
   { id: "conc", label: "Concentration", icon: "pie", kicker: "Look-through", title: "We unwrap your ETFs", body: "Your funds hide your true exposure. We decompose every ETF into its underlying sectors and names so you can see real concentration and your active bets versus the S&P 500.", premium: false },
   { id: "compare", label: "vs S&P 500", icon: "line", kicker: "New · Premium", title: "Would an index fund have beaten you?", body: "The honest benchmark every portfolio deserves. Growth of $10k, CAGR, drawdown, Sharpe and up/down capture — head-to-head against the S&P 500.", premium: true },
-  { id: "holdings", label: "Holdings", icon: "building", kicker: "Ratings", title: "Every holding, rated", body: "A composite rating per holding blending value, quality, momentum and income — sortable, scannable, and tied to the same factors that drive the overall grade.", premium: false },
   { id: "etf", label: "ETF Overlap", icon: "layers", kicker: "Crowding", title: "Passive ownership & overlap risk", body: "How much of each name is held by ETFs (crowding & flow risk), and how your direct positions stack on top of your fund exposure once everything is unwrapped.", premium: false },
   { id: "ai", label: "AI Insights", icon: "sparkles", kicker: "Premium", title: "An analyst that reads your data", body: "Plain-English diagnosis, prioritized actions, and a chat analyst that reasons over your actual holdings — ask it anything about your portfolio.", premium: true },
 ];
@@ -138,7 +137,9 @@ export function PortfolioHealthcheckApp() {
     setSection("overview");
     setTimeout(() => scrollTo("hc-tool"), 60);
   };
-  const analyzeCustom = () => runAnalysis(selected, customName || "My portfolio", null);
+  // Re-analyzing keeps the active portfolio (saved or draft) — adding a holding
+  // updates THIS book rather than spawning a new one. "New portfolio" resets it.
+  const analyzeCustom = () => runAnalysis(selected, customPf?.name || customName || "My portfolio", savedActiveId);
   const loadSaved = (item: any) => { setSelected(item.picks ?? []); setCustomName(item.name); runAnalysis(item.picks ?? [], item.name, item.id); };
 
   // New portfolio → start a fresh build at the search box (Pro only).
@@ -198,7 +199,7 @@ export function PortfolioHealthcheckApp() {
       case "overview": return <Overview p={p} onRemove={p.isCustom ? removeHolding : undefined} />;
       case "risk": return <RiskSection p={p} />;
       case "consistency": return <ConsistencySection p={p} />;
-      case "frontier": return <FrontierSection p={p} />;
+      case "frontier": return <FrontierSection p={p} onOptimize={() => setSection("optimize")} />;
       case "optimize": return <OptimizeSection p={p} />;
       case "corr": return <CorrSection p={p} />;
       case "conc": return <ConcentrationSection p={p} />;
@@ -217,7 +218,7 @@ export function PortfolioHealthcheckApp() {
         <div id="hc-builder" style={{ scrollMarginTop: 64 }}>
           <Hero>
             <div style={{ marginTop: 26, background: "rgba(7,11,19,0.55)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 20, backdropFilter: "blur(6px)" }}>
-              <HoldingSearch selected={selected} setSelected={setSelected} onAnalyze={analyzeCustom} isPremium={isPremium} onLocked={onLocked} loading={analyzing} />
+              <HoldingSearch selected={selected} setSelected={setSelected} onAnalyze={analyzeCustom} isPremium={isPremium} onLocked={onLocked} loading={analyzing} ctaLabel={customPf ? "Update portfolio" : "Create & analyze portfolio"} addLabel={customPf ? "Add stock / ETF" : "Add holdings"} />
             </div>
           </Hero>
         </div>
