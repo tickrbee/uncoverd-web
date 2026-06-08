@@ -4,8 +4,13 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { DividendTable } from "@/components/dividend-table";
 import { redactRowsForFree, getStockRatings, type StockRow } from "@/lib/data";
-import { buildBestYearRows } from "@/lib/picks";
+import { buildBestYearRows, getMonthlyTopPick } from "@/lib/picks";
+import { MonthlyCountdown } from "@/components/monthly-countdown";
 import { breadcrumbList, faqJsonLd, jsonLdScript } from "@/lib/structured-data";
+
+// Revalidate hourly so the pinned monthly pick rolls over to the new month and
+// the ranking refreshes without a redeploy.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Best Dividend Stocks This Month — uncoverd's Top-Rated Picks",
@@ -24,17 +29,18 @@ export default async function BestStocksFunnelPage() {
   } catch (e) {
     console.error(e);
   }
-  // Tease the #1 pick without revealing its identity: show only its sector and
-  // composite grade. The name is gated behind sign-up / Pro like the table.
-  const top = realRows[0];
-  let topGrade = "A";
-  try {
-    if (top) {
-      const r = (await getStockRatings([top.symbol])).get(top.symbol);
+  // Featured pick = this month's PINNED top pick (stable all month), so the
+  // headline doesn't change day to day. We only surface its sector + grade; the
+  // name stays gated behind sign-up / Pro. Falls back to the live #1.
+  const pick = await getMonthlyTopPick();
+  let topGrade = pick?.grade || "A";
+  const topSector = pick?.sector || realRows[0]?.sector || "large-cap";
+  if (!pick && realRows[0]) {
+    try {
+      const r = (await getStockRatings([realRows[0].symbol])).get(realRows[0].symbol);
       if (r?.composite_grade) topGrade = r.composite_grade;
-    }
-  } catch { /* ignore */ }
-  const topSector = top?.sector || "large-cap";
+    } catch { /* ignore */ }
+  }
   const rows = redactRowsForFree(realRows, false);
 
   const breadcrumbs = breadcrumbList([
@@ -78,8 +84,11 @@ export default async function BestStocksFunnelPage() {
             <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT, marginBottom: 10 }}>
               🔒 This month's #1-rated pick
             </div>
-            <div style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: 8 }}>
+            <div style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: 16 }}>
               A <span style={{ color: ACCENT }}>{topSector}</span> dividend stock rated <span style={{ color: ACCENT }}>{topGrade}</span>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <MonthlyCountdown accent={ACCENT} />
             </div>
             <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", margin: "0 auto 18px", maxWidth: 480 }}>
               Create a free account to reveal the name — and unlock the full top-30 ranking with every stock's rating.

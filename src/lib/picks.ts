@@ -10,7 +10,24 @@ import {
   cachedListEtfsByCategory as listEtfsByCategory,
   cachedStaggeredQuarterlyPortfolio as staggeredQuarterlyPortfolio,
 } from "@/lib/cached-data";
-import { getBackendClient } from "@/lib/supabase/admin";
+import { getBackendClient, getAdminClient } from "@/lib/supabase/admin";
+
+// This month's pinned top pick. The Postgres function lazy-pins the top-rated
+// US large-cap dividend stock for the current month (first caller computes &
+// stores it; everyone after reads the same row), so the featured pick is stable
+// all month. Identity stays gated on the page — we only surface sector + grade.
+export type MonthlyPick = { symbol: string; name: string; sector: string; grade: string; total: number };
+export async function getMonthlyTopPick(): Promise<MonthlyPick | null> {
+  try {
+    const sb = getAdminClient("public");
+    const { data, error } = await sb.rpc("get_monthly_top_pick");
+    const row = Array.isArray(data) ? data[0] : null;
+    if (error || !row) return null;
+    return { symbol: row.symbol, name: row.name, sector: row.sector || "", grade: row.grade || "", total: row.total ?? 0 };
+  } catch {
+    return null;
+  }
+}
 
 // Model-portfolio / best-of list definitions + row builders. Centralised here
 // so BOTH the (identity-gated) pages and the /api/picks/premium rows-reveal
