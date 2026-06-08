@@ -3346,6 +3346,17 @@ a {
 .dv-takeaways__cta:hover {
   background: rgba(21, 184, 127, 0.16);
 }
+/* /join sales-page grids collapse on small screens */
+@media (max-width: 860px) {
+  .join-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (max-width: 560px) {
+  .join-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
 /* "Important"-style callouts authored as Markdown blockquotes */
 .dv-blog-prose blockquote {
   border-left: 3px solid #fbbf24;

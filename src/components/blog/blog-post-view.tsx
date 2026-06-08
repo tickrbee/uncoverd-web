@@ -151,7 +151,7 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
                     <li key={i}>{k}</li>
                   ))}
                 </ul>
-                <a href="/best-stocks" className="dv-takeaways__cta">
+                <a href="/unlock" className="dv-takeaways__cta">
                   {t.topPickCta}
                 </a>
               </div>
