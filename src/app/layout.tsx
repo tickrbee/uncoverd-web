@@ -3,6 +3,8 @@ import { DM_Sans, Outfit } from "next/font/google";
 import { APP_NAME } from "@/lib/branding";
 import { SessionRestorer } from "@/components/session-restorer";
 import { CookieBanner } from "@/components/cookie-banner";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const bodyFont = DM_Sans({
@@ -116,18 +118,12 @@ export default function RootLayout({
             __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`,
           }}
         />
-        {/* Vercel Web Analytics + Speed Insights — hand-rendered like Plausible
-            above, on purpose. The @vercel/analytics <Analytics/> component
-            (v2.0.1, the latest stable) does NOT inject its next/script under
-            Next 16 / React 19, so no beacon ever fired (Vercel support confirmed
-            no /view request). Web Analytics IS enabled — both scripts are served
-            200 at these canonical paths — so we load them directly, which is
-            Vercel's documented manual integration. A plain <script> in <head>
-            renders into the HTML reliably (Plausible proves it), unlike the
-            component. DO NOT revert to <Analytics/>/<SpeedInsights/> until the
-            package supports Next 16. */}
-        <script defer src="/_vercel/insights/script.js" />
-        <script defer src="/_vercel/speed-insights/script.js" />
+        {/* TEST (branch test-analytics-component): Vercel Web Analytics + Speed
+            Insights are rendered via the official <Analytics/>/<SpeedInsights/>
+            components (in <body> below) instead of the hand-rendered <head>
+            scripts, to check whether they now inject + fire route data under
+            Next 16.1.6. If the beacon does NOT fire on the preview, revert to the
+            manual scripts on main. */}
         {/* Ahrefs Web Analytics — hand-rendered in <head> like the scripts
             above. Tracks traffic/Core Web Vitals for the Ahrefs dashboard. */}
         <script
@@ -144,6 +140,8 @@ export default function RootLayout({
         <SessionRestorer />
         {children}
         <CookieBanner />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
