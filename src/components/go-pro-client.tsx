@@ -263,11 +263,13 @@ function CenterStatus({ children }: { children: React.ReactNode }) {
 
 /* ============================== app ============================== */
 export function GoProClient() {
-  const [phase, setPhase] = React.useState<"checking" | "account" | "redirecting" | "confirm" | "error">("checking");
+  const [phase, setPhase] = React.useState<"checking" | "account" | "review" | "redirecting" | "confirm" | "error">("checking");
   const [msg, setMsg] = React.useState("Setting up your secure checkout…");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [formErr, setFormErr] = React.useState("");
+  const [token, setToken] = React.useState<string | null>(null);
+  const [userEmail, setUserEmail] = React.useState("");
 
   const checkout = React.useCallback(async (token: string) => {
     setPhase("redirecting"); setMsg("Redirecting to secure payment…");
@@ -286,22 +288,25 @@ export function GoProClient() {
   }, []);
 
   React.useEffect(() => {
-    let done = false;
-    (async () => {
-      let token: string | null = null;
-      try {
-        const supabase = createClient();
-        token = await Promise.race<string | null>([
-          supabase.auth.getSession().then((r) => r?.data?.session?.access_token ?? null),
-          new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 4000)),
-        ]);
-      } catch { token = null; }
-      if (done) return;
-      if (token) checkout(token);
-      else setPhase("account");
-    })();
-    return () => { done = true; };
-  }, [checkout]);
+    const supabase = createClient();
+    let decided = false;
+    const decide = (session: { access_token?: string; user?: { email?: string } } | null) => {
+      if (decided) return;
+      decided = true;
+      if (session?.access_token) {
+        setToken(session.access_token);
+        setUserEmail(session.user?.email ?? "");
+        setPhase("review");          // logged in → clear "Review & pay" step (not a blank redirect)
+      } else {
+        setPhase("account");         // logged out → create-account step
+      }
+    };
+    // onAuthStateChange emits INITIAL_SESSION with the loaded session — reliable,
+    // unlike getSession() which was losing its race with the timeout.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => decide(session));
+    const safety = setTimeout(() => decide(null), 4500); // only fires if no auth event arrives
+    return () => { clearTimeout(safety); subscription.unsubscribe(); };
+  }, []);
 
   async function createAndPay() {
     setFormErr("");
@@ -360,13 +365,31 @@ export function GoProClient() {
       ` }} />
       <CkNav />
 
-      {phase === "account" ? (
+      {phase === "account" || phase === "review" ? (
         <div className="ckGrid" style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 24px 70px", display: "grid", gridTemplateColumns: "1fr 400px", gap: 30, alignItems: "start" }}>
           <div style={{ minWidth: 0 }}>
-            <Stepper step={1} />
+            <Stepper step={phase === "review" ? 2 : 1} />
             <Panel pad={30}>
               {formErr && <div style={{ background: T.red + "14", border: `1px solid ${T.red}55`, color: T.red, borderRadius: 11, padding: "10px 13px", fontSize: 13, marginBottom: 18 }}>{formErr}</div>}
-              <AccountStep email={email} password={password} setEmail={setEmail} setPassword={setPassword} onSubmit={createAndPay} onSso={sso} />
+              {phase === "review" ? (
+                <div>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.green + "14", border: `1px solid ${T.green}44`, borderRadius: 999, padding: "5px 12px", fontSize: 12, color: T.green, fontWeight: 700, marginBottom: 16 }}>
+                    <Icon name="check" size={13} color={T.green} /> Signed in
+                  </div>
+                  <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Review &amp; pay</h1>
+                  <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>
+                    You&apos;re signed in as <b style={{ color: T.ink }}>{userEmail || "your account"}</b>. One click and you&apos;ll complete the upgrade on Stripe&apos;s secure checkout.
+                  </p>
+                  <button onClick={() => token && checkout(token)} className="ckPrimary" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+                    <Icon name="lock" size={16} color={T.bg} /> Continue to secure payment — {money(PLAN.price)}/yr
+                  </button>
+                  <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
+                    Not you? <a href={`/login?next=${NEXT}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>Use another account</a>
+                  </div>
+                </div>
+              ) : (
+                <AccountStep email={email} password={password} setEmail={setEmail} setPassword={setPassword} onSubmit={createAndPay} onSso={sso} />
+              )}
             </Panel>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 11.5, color: T.faint }}>
               <Icon name="lock" size={13} color={T.faint} /> Payment is processed securely by Stripe. We never see or store your card.
