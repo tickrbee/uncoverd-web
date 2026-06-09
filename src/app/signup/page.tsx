@@ -21,11 +21,11 @@ export default async function SignupPage() {
   return (
     <>
       <MainNav />
-      <div style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
         <SignupForm />
-        <p style={{ 
-          marginTop: "auto",
-          paddingBottom: "1rem",
+        <p style={{
+          marginTop: "0.5rem",
+          paddingBottom: "1.5rem",
           textAlign: "center", 
           fontSize: "0.875rem",
           color: "var(--text-secondary)",

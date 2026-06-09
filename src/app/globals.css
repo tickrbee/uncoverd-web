@@ -737,7 +737,9 @@ a {
 
 /* New Login/Signup Styles */
 .login-container {
-  min-height: 100vh;
+  /* Fill the viewport minus the nav + the small Terms footer, so the card
+     centers in the visible area instead of being pushed below the fold. */
+  min-height: calc(100dvh - 150px);
   position: relative;
   display: flex;
   align-items: center;
