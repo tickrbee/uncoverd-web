@@ -3,6 +3,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/browser";
 
 const ACCENT = "#15b87f";
 const SECTORS = ["Technology", "Healthcare", "Financial Services", "Consumer Cyclical", "Consumer Defensive", "Industrials", "Energy", "Utilities", "Real Estate", "Communication Services", "Basic Materials"];
@@ -25,6 +26,21 @@ export function PortfolioGenerator() {
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
   const [res, setRes] = React.useState<Result | null>(null);
+  const [isPremium, setIsPremium] = React.useState(false);
+
+  // Detect Pro so the generated holdings are revealed for paying users and
+  // blurred (teased) for everyone else.
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const { data: profile } = await supabase.from("user_profiles").select("subscription_tier").eq("id", session.user.id).maybeSingle<{ subscription_tier: string | null }>();
+        if (profile && (profile.subscription_tier === "plus" || profile.subscription_tier === "gold")) setIsPremium(true);
+      } catch { /* free chrome */ }
+    })();
+  }, []);
 
   const toggleSector = (s: string) => setSectors((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
@@ -121,7 +137,8 @@ export function PortfolioGenerator() {
                 {res.yield != null && <Stat label="Yield" value={`${res.yield.toFixed(1)}%`} />}
               </div>
             </div>
-            <div style={{ overflowX: "auto" }}>
+            <div style={{ position: "relative" }}>
+              <div style={{ overflowX: "auto", filter: isPremium ? "none" : "blur(7px)", pointerEvents: isPremium ? "auto" : "none", userSelect: isPremium ? "auto" : "none", transition: "filter .2s" }} aria-hidden={!isPremium}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem", minWidth: 560 }}>
                 <thead>
                   <tr style={{ color: "var(--text-muted)", textAlign: "left", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -142,9 +159,20 @@ export function PortfolioGenerator() {
                   ))}
                 </tbody>
               </table>
+              </div>
+              {!isPremium && (
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 12, padding: 20 }}>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>🔒 The {res.holdings.length} holdings are part of Pro</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: "0.9rem", maxWidth: 430 }}>Your generated portfolio scores <b style={{ color: gradeColor(res.grade) }}>{res.grade || "—"}</b> — unlock to see every holding and its exact dollar sizing.</div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                    <a href="/join" className="btn" style={{ background: ACCENT, borderColor: ACCENT, color: "#04140d", fontWeight: 700 }}>Get Pro to reveal →</a>
+                    <a href="/signup?next=%2Ftools%2Fportfolio-generator" className="btn btn--ghost">Create free account</a>
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "18px 4px 14px" }}>
-              <button onClick={openInHealthcheck} className="btn" style={{ background: ACCENT, borderColor: ACCENT, color: "#04140d", fontWeight: 700 }}>Open in Portfolio Healthcheck →</button>
+              <button onClick={openInHealthcheck} className="btn" style={{ background: ACCENT, borderColor: ACCENT, color: "#04140d", fontWeight: 700, opacity: isPremium ? 1 : 0.6 }}>Open in Portfolio Healthcheck →</button>
               <button onClick={generate} className="btn btn--ghost">Regenerate</button>
             </div>
           </div>
