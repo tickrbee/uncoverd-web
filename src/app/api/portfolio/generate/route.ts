@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error(e);
   }
-  let cands = pool.filter((r) => isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "") && (sectors.length === 0 || (r.sector && sectors.includes(r.sector))));
+  const cands = pool.filter((r) => isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "") && (sectors.length === 0 || (r.sector && sectors.includes(r.sector))));
   if (cands.length < 4) return NextResponse.json({ error: "Not enough names match those preferences — loosen them a little." }, { status: 422 });
 
   const ratings = await getStockRatings(cands.map((r) => r.symbol)).catch(() => new Map());

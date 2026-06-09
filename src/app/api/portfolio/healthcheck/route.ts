@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   //   { holdings: [{ symbol, weight | shares | value }] } → weighted
   // `weight` is treated as a relative share (normalised server-side); `shares`
   // and `value` are also relative weights here since we don't price quantities.
-  let symbols: string[] = [];
+  const symbols: string[] = [];
   const weightBySymbol = new Map<string, number>();
   try {
     const body = (await req.json()) as {
