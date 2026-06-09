@@ -127,13 +127,6 @@ export function SignupForm() {
 
       <div className="login-content">
         <div className="login-logo-section">
-          <div className="login-logo-wrapper">
-            <img 
-              src="https://llbatqfycdppdcqrocqx.supabase.co/storage/v1/object/sign/logo/logo%20uncoverd.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84MGMxMWYwNS1iODNlLTQzYjYtODczYi03MDU4ZmM2NmI1NDQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJsb2dvL2xvZ28gdW5jb3ZlcmQucG5nIiwiaWF0IjoxNzcyNzIyMDA5LCJleHAiOjE4MzU3OTQwMDl9.x370GRxceBTNXku6gimQrd-sBC9W4N1zIOw6Fl3B4Ik"
-              alt="uncoverd logo"
-              className="login-logo"
-            />
-          </div>
           <div className="login-title-section">
             <h1 className="login-title">
               <span className="login-title-dot"></span>
