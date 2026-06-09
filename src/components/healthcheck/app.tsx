@@ -4,7 +4,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Pill, pct, usd } from "./theme";
-import { PORTFOLIOS, PRICING, buildCustomPortfolio, adaptHealthResult } from "./data";
+import { PORTFOLIOS, buildCustomPortfolio, adaptHealthResult } from "./data";
 import { HoldingSearch, PortfolioTabs, Hero, SectionIntro, Pricing, UpgradeBar, SignupModal } from "./ui";
 import {
   Overview, RiskSection, ConsistencySection, FrontierSection, OptimizeSection,
@@ -120,8 +120,8 @@ export function PortfolioHealthcheckApp() {
     const el = document.getElementById(id);
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: "smooth" });
   };
-  // Building your own portfolio is a Pro feature — free users get an upgrade prompt.
-  const onLocked = () => setModal({ open: true, plan: PRICING.find((x: any) => x.id === "premium"), reason: "Building and analyzing your own portfolio is a Pro feature. Get Pro to add holdings, save portfolios and run every section on your real holdings." });
+  // Building your own portfolio is a Pro feature — send free users to checkout.
+  const onLocked = () => { window.location.href = "/go-pro"; };
   // Analyze the user's own selection → build a portfolio object and show it.
   // Run the engine on a set of picks and show the result (live, estimated fallback).
   const runAnalysis = async (picks: any[], nm: string, savedId: string | null) => {
@@ -229,8 +229,8 @@ export function PortfolioHealthcheckApp() {
     if (data?.error) throw new Error(data.error);
     return data?.answer || "No response — try rephrasing.";
   };
-  const goPricing = () => scrollTo("hc-pricing");
-  const pickPlan = (t: any) => t.id === "free" ? scrollTo("hc-tool") : setModal({ open: true, plan: t, reason: `Unlock the full healthcheck on your own holdings with ${t.name}.` });
+  const goPricing = () => { window.location.href = "/go-pro"; };
+  const pickPlan = (t: any) => { if (t.id === "free") { scrollTo("hc-tool"); } else { window.location.href = "/go-pro"; } };
 
   const cur = SECTIONS.find((s) => s.id === section)!;
 

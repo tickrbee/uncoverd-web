@@ -300,7 +300,12 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
   }
 
   async function useAnotherAccount() {
-    try { await fetch("/api/auth/signout", { method: "POST", cache: "no-store" }); } catch { /* best-effort */ }
+    try {
+      await Promise.race([
+        fetch("/api/auth/signout", { method: "POST", cache: "no-store" }),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]);
+    } catch { /* best-effort */ }
     window.location.href = "/go-pro";
   }
 

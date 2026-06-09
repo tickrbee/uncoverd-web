@@ -54,8 +54,13 @@ export function AccountActions() {
     // hang on the auth lock, which BLOCKED the redirect below, so the session
     // only appeared cleared after the user manually navigated. The server route
     // + hard navigation are enough; the header re-reads auth from the server.
+    // Cap the wait so a slow response can never leave the button stuck — the
+    // server clears the cookies first, so it returns fast; this is just safety.
     try {
-      await fetch("/api/auth/signout", { method: "POST", cache: "no-store" });
+      await Promise.race([
+        fetch("/api/auth/signout", { method: "POST", cache: "no-store" }),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]);
     } catch { /* best-effort */ }
 
     window.location.assign("/login");

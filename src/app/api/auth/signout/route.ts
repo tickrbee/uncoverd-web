@@ -5,17 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Server-side sign-out. The browser supabase client can't reliably clear the
-// session cookies in this config (and its signOut() can hang in production), so
-// we clear them here. First the normal signOut, then a belt-and-suspenders sweep
-// of any remaining `sb-*` auth cookies so the session can't survive.
+// Server-side sign-out. Clearing the `sb-*` auth cookies is what actually logs
+// the user out — so we do that FIRST and return fast. Revoking the token at
+// Supabase (a network call that can be slow) is secondary and capped, so a slow
+// GoTrue response can't hang the route (which left the button on "Signing out…"
+// until the user manually navigated).
 export async function POST() {
-  try {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-  } catch {
-    /* best-effort — fall through to the explicit cookie clear */
-  }
+  // 1) Clear the auth cookies immediately.
   try {
     const store = await cookies();
     for (const c of store.getAll()) {
@@ -26,5 +22,17 @@ export async function POST() {
   } catch {
     /* best-effort */
   }
+
+  // 2) Best-effort token revoke — capped so it can never block the response.
+  try {
+    const supabase = await createClient();
+    await Promise.race([
+      supabase.auth.signOut().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 600)),
+    ]);
+  } catch {
+    /* best-effort */
+  }
+
   return NextResponse.json({ ok: true });
 }
