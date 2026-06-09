@@ -22,10 +22,15 @@ export async function POST(req: Request) {
 
   let email = "";
   let password = "";
+  let promo = "";
   try {
-    const b = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown };
+    const b = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown; promo?: unknown };
     email = String(b.email ?? "").trim().toLowerCase();
     password = String(b.password ?? "");
+    // Optional promo code (e.g. from a /go-pro?promo=WARREN15 link). Validated
+    // here and looked up against Stripe in the edge function.
+    const p = String(b.promo ?? "").trim();
+    if (/^[A-Za-z0-9_-]{3,40}$/.test(p)) promo = p;
   } catch {
     /* no body — treat as the signed-in case */
   }
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
     const res = await fetch(getSupabaseUrl() + "/functions/v1/create-checkout-session", {
       method: "POST",
       headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json", Origin: origin },
-      body: JSON.stringify({ tier: "plus" }),
+      body: JSON.stringify({ tier: "plus", ...(promo ? { promo } : {}) }),
     });
     const payload = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
     if (payload?.url) return NextResponse.json({ url: payload.url });

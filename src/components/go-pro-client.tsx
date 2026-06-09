@@ -135,10 +135,10 @@ function CkNav() {
 }
 
 /* ---------- account step ---------- */
-function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso }: {
+function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso, nextEnc = NEXT }: {
   email: string; password: string; confirm: string;
   setEmail: (v: string) => void; setPassword: (v: string) => void; setConfirm: (v: string) => void;
-  onSubmit: () => void; onSso: (p: string) => void;
+  onSubmit: () => void; onSso: (p: string) => void; nextEnc?: string;
 }) {
   const [showPw, setShowPw] = React.useState(false);
   const [err, setErr] = React.useState<{ email?: string; password?: string; confirm?: string }>({});
@@ -188,7 +188,7 @@ function AccountStep({ email, password, confirm, setEmail, setPassword, setConfi
         Continue to secure payment <Icon name="arrowRight" size={17} color={T.bg} />
       </button>
       <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
-        Already have an account? <a href={`/login?next=${NEXT}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>Sign in</a>
+        Already have an account? <a href={`/login?next=${nextEnc}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>Sign in</a>
       </div>
     </form>
   );
@@ -203,7 +203,7 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
     </div>
   );
 }
-function OrderSummary() {
+function OrderSummary({ promo }: { promo?: string }) {
   return (
     <div style={{ position: "sticky", top: 76 }}>
       <Panel pad={0} style={{ overflow: "hidden" }}>
@@ -246,7 +246,13 @@ function OrderSummary() {
               <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>Total due today</span>
               <span style={{ fontFamily: display, fontSize: 24, fontWeight: 800, color: T.ink, letterSpacing: "-0.02em" }}>{money(PLAN.price)}</span>
             </div>
-            <div style={{ fontSize: 11.5, color: T.faint, lineHeight: 1.5 }}>Renews at {PLAN.renew}. Cancel anytime. Have a promo code? Enter it at checkout.</div>
+            {promo ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.green + "12", border: `1px dashed ${T.green}66`, borderRadius: 9, padding: "8px 11px", fontSize: 12, color: T.green, fontWeight: 600 }}>
+                <Icon name="check" size={13} color={T.green} /> Promo code {promo.toUpperCase()} will be applied at checkout
+              </div>
+            ) : (
+              <div style={{ fontSize: 11.5, color: T.faint, lineHeight: 1.5 }}>Renews at {PLAN.renew}. Cancel anytime. Have a promo code? Enter it at checkout.</div>
+            )}
           </div>
         </div>
       </Panel>
@@ -278,19 +284,32 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [formErr, setFormErr] = React.useState("");
+  // Promo code from a shared link (/go-pro?promo=WARREN15) — pre-applied at
+  // Stripe checkout and carried through the SSO/login round-trips.
+  const [promo, setPromo] = React.useState("");
 
+  // URL params are read in an effect (not a state initializer) so the SSR'd
+  // HTML and first client render match — the setState here is intentional.
+  /* eslint-disable react-hooks/set-state-in-effect */
   React.useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error")) {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error")) {
       setFormErr("We couldn't start checkout — please try again.");
     }
+    const p = (params.get("promo") ?? "").trim();
+    if (/^[A-Za-z0-9_-]{3,40}$/.test(p)) setPromo(p);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const nextPath = "/go-pro" + (promo ? `?promo=${encodeURIComponent(promo)}` : "");
 
   // Logged in → server reads the cookie session and starts checkout.
   async function continuePay() {
     setFormErr("");
     setPhase("redirecting"); setMsg("Redirecting to secure payment…");
     try {
-      const res = await fetch(CHECKOUT, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const res = await fetch(CHECKOUT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(promo ? { promo } : {}) });
       const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (out.url) { window.location.href = out.url; return; }
       setFormErr(out.error === "not_authenticated" ? "Your session expired — please sign in again." : (out.error || "Could not start checkout.")); setPhase("review");
@@ -306,7 +325,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
         new Promise((resolve) => setTimeout(resolve, 2500)),
       ]);
     } catch { /* best-effort */ }
-    window.location.href = "/go-pro";
+    window.location.href = nextPath;
   }
 
   // Social login. OAuth inherently signs the user in, then returns to /go-pro
@@ -315,7 +334,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
   async function sso(provider: string) {
     try {
       const supabase = createClient();
-      const options: { redirectTo: string; queryParams?: Record<string, string> } = { redirectTo: getAppUrl() + "/auth/callback?next=" + NEXT };
+      const options: { redirectTo: string; queryParams?: Record<string, string> } = { redirectTo: getAppUrl() + "/auth/callback?next=" + encodeURIComponent(nextPath) };
       if (provider === "google") options.queryParams = { prompt: "select_account" };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await supabase.auth.signInWithOAuth({ provider: provider as any, options });
@@ -332,7 +351,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
     try {
       const res = await fetch(CHECKOUT, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, ...(promo ? { promo } : {}) }),
       });
       const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (out.error === "account_exists") { setFormErr("That email already has an account — please sign in to upgrade."); setPhase("account"); return; }
@@ -381,14 +400,14 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
                   </div>
                 </div>
               ) : (
-                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} />
+                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} nextEnc={encodeURIComponent(nextPath)} />
               )}
             </Panel>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 11.5, color: T.faint }}>
               <Icon name="lock" size={13} color={T.faint} /> Payment is processed securely by Stripe. We never see or store your card.
             </div>
           </div>
-          <OrderSummary />
+          <OrderSummary promo={promo} />
         </div>
       ) : phase === "error" ? (
         <CenterStatus>
