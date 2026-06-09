@@ -2,6 +2,7 @@
 
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
+import { getAppUrl } from "@/lib/env";
 
 /* ============================== theme (self-contained, ported from prototype) ============================== */
 const T = {
@@ -134,10 +135,10 @@ function CkNav() {
 }
 
 /* ---------- account step ---------- */
-function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit }: {
+function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso }: {
   email: string; password: string; confirm: string;
   setEmail: (v: string) => void; setPassword: (v: string) => void; setConfirm: (v: string) => void;
-  onSubmit: () => void;
+  onSubmit: () => void; onSso: (p: string) => void;
 }) {
   const [showPw, setShowPw] = React.useState(false);
   const [err, setErr] = React.useState<{ email?: string; password?: string; confirm?: string }>({});
@@ -150,10 +151,24 @@ function AccountStep({ email, password, confirm, setEmail, setPassword, setConfi
     setErr(ne);
     if (!Object.keys(ne).length) onSubmit();
   };
+  const sso: [string, string][] = [["google", "Google"], ["facebook", "Facebook"], ["linkedin_oidc", "LinkedIn"], ["twitter", "Twitter"]];
+  const ssoIcon: Record<string, string> = { google: "google", facebook: "facebook", linkedin_oidc: "linkedin", twitter: "twitter" };
   return (
     <form onSubmit={submit} noValidate>
       <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Create your account</h1>
-      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>This is how you&apos;ll sign in and manage your subscription. One minute, then straight to secure payment — no email confirmation needed. You&apos;ll sign in after paying to unlock Premium.</p>
+      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>This is how you&apos;ll sign in and manage your subscription. One minute, then straight to secure payment — no email confirmation needed.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        {sso.map(([prov, lbl]) => (
+          <button type="button" key={prov} className="ckSso" onClick={() => onSso(prov)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.raised, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px", cursor: "pointer", color: T.ink, fontFamily: body, fontSize: 13.5, fontWeight: 600 }}>
+            <Icon name={ssoIcon[prov]} size={16} color={T.ink} fill="currentColor" /> {lbl}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 18px" }}>
+        <span style={{ flex: 1, height: 1, background: T.line }} />
+        <span style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, letterSpacing: "0.08em" }}>OR WITH EMAIL</span>
+        <span style={{ flex: 1, height: 1, background: T.line }} />
+      </div>
       <div style={{ display: "grid", gap: 16 }}>
         <Field label="Email address" htmlFor="ck-email">
           <input id="ck-email" type="email" value={email} placeholder="you@example.com" autoComplete="email" autoFocus
@@ -290,6 +305,21 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
     window.location.href = "/go-pro";
   }
 
+  // Social login. OAuth inherently signs the user in, then returns to /go-pro
+  // (server detects them → Review & pay). Now that header/sign-out are
+  // consistent, being logged in here is fine.
+  async function sso(provider: string) {
+    try {
+      const supabase = createClient();
+      const options: { redirectTo: string; queryParams?: Record<string, string> } = { redirectTo: getAppUrl() + "/auth/callback?next=" + NEXT };
+      if (provider === "google") options.queryParams = { prompt: "select_account" };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await supabase.auth.signInWithOAuth({ provider: provider as any, options });
+    } catch {
+      setFormErr("Couldn't start social sign-in. Try email instead.");
+    }
+  }
+
   // Logged out → create an ALREADY-CONFIRMED account and start checkout WITHOUT
   // logging the buyer in (no cookie). They sign in themselves after paying.
   async function createAndPay() {
@@ -347,7 +377,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
                   </div>
                 </div>
               ) : (
-                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} />
+                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} />
               )}
             </Panel>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 11.5, color: T.faint }}>
