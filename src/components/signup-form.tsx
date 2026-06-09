@@ -60,12 +60,17 @@ export function SignupForm() {
 
     const supabase = createClient();
 
+    // When the user came from a flow (e.g. next=/go-pro for checkout), send the
+    // confirmation link through /auth/callback so it logs them in AND continues
+    // to `next` (PKCE/code flow). Normal signups keep the nice confirmed page.
+    const emailRedirectTo = nextPath !== "/account"
+      ? `${getAppUrl()}/auth/callback?next=${encodeURIComponent(nextPath)}`
+      : `${getAppUrl()}/auth/email-confirmed`;
+
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${getAppUrl()}/auth/email-confirmed`,
-      },
+      options: { emailRedirectTo },
     });
 
     if (signUpError) {
@@ -74,7 +79,11 @@ export function SignupForm() {
       return;
     }
 
-    setNotice("Account created! Please check your email to confirm your account.");
+    setNotice(
+      nextPath !== "/account"
+        ? "Account created! Check your email to confirm — you'll continue to checkout right after."
+        : "Account created! Please check your email to confirm your account.",
+    );
     setBusy(false);
   }
 

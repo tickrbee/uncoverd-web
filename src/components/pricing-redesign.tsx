@@ -4,8 +4,6 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
-import { getSupabaseUrl } from "@/lib/env";
 import { T, display, body, mono, HERO_GRAD, Icon } from "@/components/healthcheck/theme";
 
 const PLAN_FREE = {
@@ -81,22 +79,12 @@ export function PricingRedesign() {
   const [busy, setBusy] = React.useState(false);
   const [openFaq, setOpenFaq] = React.useState(0);
 
-  async function startCheckout() {
+  // Single checkout entry — /go-pro handles auth (logged-out users are sent to
+  // create an account first, then returned to checkout) and redirects to Stripe.
+  function startCheckout() {
     if (busy) return;
     setBusy(true);
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push(`/login?next=${encodeURIComponent("/pricing")}`); return; }
-      const res = await fetch(`${getSupabaseUrl()}/functions/v1/create-checkout-session`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: "plus" }),
-      });
-      const payload = await res.json();
-      if (payload?.url) { window.location.assign(payload.url); return; }
-    } catch { /* fall through */ }
-    setBusy(false);
+    router.push("/go-pro");
   }
 
   const Cell = ({ v, prem }: any) => {

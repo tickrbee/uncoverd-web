@@ -4,8 +4,6 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
-import { getSupabaseUrl } from "@/lib/env";
 
 // Ported from the "uncoverd Pro" marketing prototype. All CSS is scoped under
 // `.joinp` so the generic class names (.btn, .wrap, .hero…) can't leak into the
@@ -130,22 +128,12 @@ export function JoinOffer() {
   const [busy, setBusy] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
 
-  async function startCheckout() {
+  // Single checkout entry — /go-pro handles auth (logged-out users are sent to
+  // create an account first, then returned to checkout) and redirects to Stripe.
+  function startCheckout() {
     if (busy) return;
     setBusy(true);
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push(`/signup?next=${encodeURIComponent("/join")}`); return; }
-      const res = await fetch(`${getSupabaseUrl()}/functions/v1/create-checkout-session`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: "plus" }),
-      });
-      const payload = await res.json();
-      if (payload?.url) { window.location.assign(payload.url); return; }
-    } catch { /* fall through */ }
-    setBusy(false);
+    router.push("/go-pro");
   }
 
   // Reveal-on-scroll + animate the healthcheck bars + count-up the 65k stat.
