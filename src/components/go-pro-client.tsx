@@ -2,7 +2,7 @@
 
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
-import { getSupabaseUrl, getAppUrl } from "@/lib/env";
+import { getAppUrl } from "@/lib/env";
 
 /* ============================== theme (self-contained, ported from prototype) ============================== */
 const T = {
@@ -15,6 +15,7 @@ const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 const display = body;
 
 const NEXT = encodeURIComponent("/go-pro");
+const START = "/api/go-pro/start";
 
 const ICONS: Record<string, string> = {
   check: '<path d="M20 6 9 17l-5-5"/>',
@@ -40,8 +41,6 @@ function Icon({ name, size = 16, color = "currentColor", style, strokeWidth = 2,
 }
 
 const PLAN = { label: "Annual", price: 100, unit: "/year", monthlyEq: "$8.33/mo", renew: "$100/year", badge: "BEST VALUE", note: "Billed once a year" };
-// Honest "what's included" — features that exist today (the generator/stress-tests get
-// added here when they ship). See freemium tier boundary.
 const INCLUDED = [
   "A–F dividend rating on every stock",
   "Model portfolios & curated best-of lists",
@@ -69,6 +68,17 @@ function Field({ label, hint, children, htmlFor }: { label: string; hint?: strin
       </div>
       {children}
     </label>
+  );
+}
+function PwInput({ id, value, onChange, placeholder, show, onToggle, error }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; show: boolean; onToggle: () => void; error?: boolean }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input id={id} type={show ? "text" : "password"} value={value} placeholder={placeholder} autoComplete="new-password"
+        onChange={(e) => onChange(e.target.value)} className="ckInput" style={{ ...inputStyle, paddingRight: 44, borderColor: error ? T.red : T.line2 }} />
+      <button type="button" onClick={onToggle} aria-label="Toggle password visibility" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", padding: 8, display: "flex" }}>
+        <Icon name={show ? "eyeOff" : "eye"} size={16} color={T.faint} />
+      </button>
+    </div>
   );
 }
 function PwMeter({ pw }: { pw: string }) {
@@ -125,17 +135,19 @@ function CkNav() {
 }
 
 /* ---------- account step ---------- */
-function AccountStep({ email, password, setEmail, setPassword, onSubmit, onSso }: {
-  email: string; password: string; setEmail: (v: string) => void; setPassword: (v: string) => void;
+function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso }: {
+  email: string; password: string; confirm: string;
+  setEmail: (v: string) => void; setPassword: (v: string) => void; setConfirm: (v: string) => void;
   onSubmit: () => void; onSso: (p: string) => void;
 }) {
   const [showPw, setShowPw] = React.useState(false);
-  const [err, setErr] = React.useState<{ email?: string; password?: string }>({});
+  const [err, setErr] = React.useState<{ email?: string; password?: string; confirm?: string }>({});
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const ne: { email?: string; password?: string } = {};
+    const ne: { email?: string; password?: string; confirm?: string } = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ne.email = "Enter a valid email address";
     if (password.length < 6) ne.password = "At least 6 characters";
+    if (confirm !== password) ne.confirm = "Passwords don't match";
     setErr(ne);
     if (!Object.keys(ne).length) onSubmit();
   };
@@ -144,7 +156,7 @@ function AccountStep({ email, password, setEmail, setPassword, onSubmit, onSso }
   return (
     <form onSubmit={submit} noValidate>
       <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Create your account</h1>
-      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>This is how you&apos;ll sign in and manage your subscription. One minute, then straight to secure payment.</p>
+      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>This is how you&apos;ll sign in and manage your subscription. One minute, then straight to secure payment — no email confirmation needed.</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
         {sso.map(([prov, lbl]) => (
           <button type="button" key={prov} className="ckSso" onClick={() => onSso(prov)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.raised, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px", cursor: "pointer", color: T.ink, fontFamily: body, fontSize: 13.5, fontWeight: 600 }}>
@@ -164,14 +176,12 @@ function AccountStep({ email, password, setEmail, setPassword, onSubmit, onSso }
           {err.email && <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.email}</div>}
         </Field>
         <Field label="Password" hint="min. 6 characters" htmlFor="ck-pw">
-          <div style={{ position: "relative" }}>
-            <input id="ck-pw" type={showPw ? "text" : "password"} value={password} placeholder="Create a password" autoComplete="new-password"
-              onChange={(e) => setPassword(e.target.value)} className="ckInput" style={{ ...inputStyle, paddingRight: 44, borderColor: err.password ? T.red : T.line2 }} />
-            <button type="button" onClick={() => setShowPw((s) => !s)} aria-label="Toggle password" style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", cursor: "pointer", padding: 8, display: "flex" }}>
-              <Icon name={showPw ? "eyeOff" : "eye"} size={16} color={T.faint} />
-            </button>
-          </div>
+          <PwInput id="ck-pw" value={password} onChange={setPassword} placeholder="Create a password" show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.password} />
           {err.password ? <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.password}</div> : <PwMeter pw={password} />}
+        </Field>
+        <Field label="Confirm password" htmlFor="ck-pw2">
+          <PwInput id="ck-pw2" value={confirm} onChange={setConfirm} placeholder="Re-enter your password" show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.confirm} />
+          {err.confirm && <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.confirm}</div>}
         </Field>
       </div>
       <button type="submit" className="ckPrimary" style={{ width: "100%", marginTop: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
@@ -252,7 +262,6 @@ function OrderSummary() {
   );
 }
 
-/* ---------- centred status ---------- */
 function CenterStatus({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
@@ -262,69 +271,46 @@ function CenterStatus({ children }: { children: React.ReactNode }) {
 }
 
 /* ============================== app ============================== */
-export function GoProClient() {
-  const [phase, setPhase] = React.useState<"checking" | "account" | "review" | "redirecting" | "confirm" | "error">("checking");
-  const [msg, setMsg] = React.useState("Setting up your secure checkout…");
+export function GoProClient({ signedInEmail }: { signedInEmail: string | null }) {
+  const [phase, setPhase] = React.useState<"account" | "review" | "redirecting" | "error">(signedInEmail ? "review" : "account");
+  const [msg, setMsg] = React.useState("Redirecting to secure payment…");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
   const [formErr, setFormErr] = React.useState("");
-  const [token, setToken] = React.useState<string | null>(null);
-  const [userEmail, setUserEmail] = React.useState("");
 
-  const checkout = React.useCallback(async (token: string) => {
-    setPhase("redirecting"); setMsg("Redirecting to secure payment…");
-    try {
-      const res = await fetch(getSupabaseUrl() + "/functions/v1/create-checkout-session", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: "plus" }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (payload?.url) { window.location.href = payload.url; return; }
-      setPhase("error"); setMsg(payload?.error || "We couldn't start checkout. Please try again.");
-    } catch {
-      setPhase("error"); setMsg("We couldn't start checkout. Please try again.");
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error")) {
+      setFormErr("We couldn't start checkout — please try again.");
     }
   }, []);
 
-  React.useEffect(() => {
-    const supabase = createClient();
-    let decided = false;
-    const decide = (session: { access_token?: string; user?: { email?: string } } | null) => {
-      if (decided) return;
-      decided = true;
-      if (session?.access_token) {
-        setToken(session.access_token);
-        setUserEmail(session.user?.email ?? "");
-        setPhase("review");          // logged in → clear "Review & pay" step (not a blank redirect)
-      } else {
-        setPhase("account");         // logged out → create-account step
-      }
-    };
-    // onAuthStateChange emits INITIAL_SESSION with the loaded session — reliable,
-    // unlike getSession() which was losing its race with the timeout.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => decide(session));
-    const safety = setTimeout(() => decide(null), 4500); // only fires if no auth event arrives
-    return () => { clearTimeout(safety); subscription.unsubscribe(); };
-  }, []);
+  // Logged in → server route reads the cookie session and redirects to Stripe.
+  function continuePay() {
+    setPhase("redirecting"); setMsg("Redirecting to secure payment…");
+    window.location.href = START;
+  }
 
+  // Logged out → create an ALREADY-CONFIRMED account (no email step), sign in to
+  // set the cookie, then hand off to the server route for checkout.
   async function createAndPay() {
     setFormErr("");
     setPhase("redirecting"); setMsg("Creating your account…");
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(), password,
-        options: { emailRedirectTo: getAppUrl() + "/auth/callback?next=" + NEXT },
+      const res = await fetch("/api/go-pro/create-account", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
-      if (error) {
-        setFormErr(/already|registered|exists/i.test(error.message) ? "That email already has an account — please sign in instead." : error.message);
-        setPhase("account");
-        return;
-      }
-      const token = data.session?.access_token ?? null;
-      if (token) { checkout(token); return; }  // email confirmation off → straight to Stripe
-      setPhase("confirm");                       // confirmation on → verify email first
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (out.error === "account_exists") { setFormErr("That email already has an account — please sign in instead."); setPhase("account"); return; }
+      if (out.error) { setFormErr(out.error); setPhase("account"); return; }
+
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) { setFormErr(error.message); setPhase("account"); return; }
+
+      setMsg("Redirecting to secure payment…");
+      window.location.href = START;
     } catch {
       setFormErr("Something went wrong. Please try again."); setPhase("account");
     }
@@ -341,14 +327,6 @@ export function GoProClient() {
       setFormErr("Couldn't start social sign-in. Try email instead.");
     }
   }
-
-  const Spinner = (
-    <>
-      <div style={{ width: 38, height: 38, border: `3px solid ${T.line2}`, borderTopColor: T.green, borderRadius: "50%", margin: "0 auto 18px", animation: "ckSpin 0.8s linear infinite" }} />
-      <h1 style={{ fontFamily: display, fontSize: 20, fontWeight: 800, color: T.ink, margin: "0 0 8px" }}>{msg}</h1>
-      <p style={{ color: T.muted, fontSize: 14 }}>One moment — taking you to Stripe&apos;s secure checkout.</p>
-    </>
-  );
 
   return (
     <div style={{ background: T.bg, minHeight: "100vh", color: T.ink, fontFamily: body }}>
@@ -378,9 +356,9 @@ export function GoProClient() {
                   </div>
                   <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Review &amp; pay</h1>
                   <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>
-                    You&apos;re signed in as <b style={{ color: T.ink }}>{userEmail || "your account"}</b>. One click and you&apos;ll complete the upgrade on Stripe&apos;s secure checkout.
+                    You&apos;re signed in as <b style={{ color: T.ink }}>{signedInEmail || "your account"}</b>. One click and you&apos;ll complete the upgrade on Stripe&apos;s secure checkout.
                   </p>
-                  <button onClick={() => token && checkout(token)} className="ckPrimary" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+                  <button onClick={continuePay} className="ckPrimary" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
                     <Icon name="lock" size={16} color={T.bg} /> Continue to secure payment — {money(PLAN.price)}/yr
                   </button>
                   <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
@@ -388,7 +366,7 @@ export function GoProClient() {
                   </div>
                 </div>
               ) : (
-                <AccountStep email={email} password={password} setEmail={setEmail} setPassword={setPassword} onSubmit={createAndPay} onSso={sso} />
+                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} />
               )}
             </Panel>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 11.5, color: T.faint }}>
@@ -397,23 +375,18 @@ export function GoProClient() {
           </div>
           <OrderSummary />
         </div>
-      ) : phase === "confirm" ? (
-        <CenterStatus>
-          <div style={{ fontSize: "2rem", marginBottom: 10 }}>✉️</div>
-          <h1 style={{ fontFamily: display, fontSize: 24, fontWeight: 800, color: T.ink, margin: "0 0 8px" }}>Confirm your email</h1>
-          <p style={{ color: T.muted, lineHeight: 1.6, fontSize: 14.5 }}>We sent a confirmation link to <b style={{ color: T.ink }}>{email}</b>. Click it and you&apos;ll land right back here to finish checkout.</p>
-        </CenterStatus>
       ) : phase === "error" ? (
         <CenterStatus>
           <h1 style={{ fontFamily: display, fontSize: 22, fontWeight: 800, color: T.ink, margin: "0 0 10px" }}>Couldn&apos;t start checkout</h1>
           <p style={{ color: T.muted, marginBottom: 22, fontSize: 14.5 }}>{msg}</p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="/go-pro" className="ckPrimary" style={{ textDecoration: "none", background: T.green, color: T.bg, borderRadius: 12, padding: "12px 22px", fontWeight: 700 }}>Try again</a>
-            <a href="/pricing" style={{ textDecoration: "none", background: T.raised, border: `1px solid ${T.line2}`, color: T.ink, borderRadius: 12, padding: "12px 22px", fontWeight: 600 }}>Back to pricing</a>
-          </div>
+          <a href="/go-pro" className="ckPrimary" style={{ textDecoration: "none", background: T.green, color: T.bg, borderRadius: 12, padding: "12px 22px", fontWeight: 700 }}>Try again</a>
         </CenterStatus>
       ) : (
-        <CenterStatus>{Spinner}</CenterStatus>
+        <CenterStatus>
+          <div style={{ width: 38, height: 38, border: `3px solid ${T.line2}`, borderTopColor: T.green, borderRadius: "50%", margin: "0 auto 18px", animation: "ckSpin 0.8s linear infinite" }} />
+          <h1 style={{ fontFamily: display, fontSize: 20, fontWeight: 800, color: T.ink, margin: "0 0 8px" }}>{msg}</h1>
+          <p style={{ color: T.muted, fontSize: 14 }}>One moment — taking you to Stripe&apos;s secure checkout.</p>
+        </CenterStatus>
       )}
     </div>
   );
