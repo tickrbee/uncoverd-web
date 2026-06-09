@@ -12,7 +12,7 @@ import { RISK_ALLOC, OBJ_W, thesisOf, legendaryComparison, type GenResult, type 
 import { curSym, fmtCur, fmtCurShort } from "./currency";
 import { Donut, AllocBars, MonteCarlo } from "./charts";
 import { ThesisCard, RiskContribution, CorrelationMatrix, LegendaryComparison } from "./cards";
-import { FrontierGrid, StatGrid, StressTests, Rationale, GradePill } from "./results";
+import { FrontierGrid, StatGrid, StressTests, Rationale, GradePill, MeasuredBadge } from "./results";
 import { genTypeColor, genTypeLabel } from "./form";
 
 /* blur a ticker/name so free users can't read the actual picks */
@@ -129,11 +129,12 @@ function FreeHoldingsTable({ holdings }: { holdings: Holding[] }) {
 }
 
 /* free results: hooks shown, decision-grade tools locked */
-export function FreeResultsView({ result, selected, onSelect, signedIn }: {
+export function FreeResultsView({ result, selected, onSelect, signedIn, realLoading = false }: {
   result: GenResult;
   selected: string;
   onSelect: (id: string) => void;
   signedIn: boolean;
+  realLoading?: boolean;
 }) {
   const variant = result.variants.find((v) => v.id === selected) || result.variants.find((v) => v.rec) || result.variants[0];
   const m = variant.metrics;
@@ -154,6 +155,7 @@ export function FreeResultsView({ result, selected, onSelect, signedIn }: {
           <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 9 }}>Your generated portfolio</div>
           <h2 style={{ fontFamily: display, fontSize: 28, fontWeight: 800, color: T.ink, margin: 0, letterSpacing: "-0.02em" }}>{name}</h2>
           <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>{variant.label} optimization · {holdings.length} holdings · sized to {fmtCur(result.inputs.amount, sym)}</div>
+          <div style={{ marginTop: 10 }}><MeasuredBadge measured={!!m.measured} loading={realLoading} /></div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ textAlign: "right" }}>

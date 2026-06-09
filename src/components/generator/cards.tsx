@@ -67,12 +67,16 @@ export function RiskContribution({ metrics }: { metrics: Metrics }) {
 }
 
 /* ---------- correlation matrix heatmap ---------- */
-export function CorrelationMatrix({ corr, divR }: { corr: { tks: string[]; M: number[][] }; divR: number }) {
+export function CorrelationMatrix({ corr, divR, measured = false }: { corr: { tks: string[]; M: number[][] }; divR: number; measured?: boolean }) {
   const { tks, M } = corr;
   const n = tks.length;
-  const cell = (v: number) => {
-    const a = 0.1 + v * 0.62;
-    return { bg: `rgba(255,93,108,${a.toFixed(2)})`, fg: v > 0.62 ? "#fff" : v > 0.35 ? T.ink : T.muted };
+  // Diverging scale: low correlation = green (good diversifier), mid = amber,
+  // high = red (moves together). Diagonal stays a quiet neutral.
+  const cell = (v: number, diag: boolean) => {
+    if (diag) return { bg: "#1a2433", fg: T.faint };
+    if (v < 0.35) return { bg: `rgba(47,227,160,${(0.1 + (0.35 - Math.max(v, -1)) * 0.55).toFixed(2)})`, fg: T.ink };
+    if (v < 0.65) return { bg: `rgba(240,168,57,${(0.12 + (v - 0.35) * 0.9).toFixed(2)})`, fg: T.ink };
+    return { bg: `rgba(255,93,108,${(0.3 + (v - 0.65) * 1.4).toFixed(2)})`, fg: v > 0.85 ? "#fff" : T.ink };
   };
   return (
     <Panel pad={20}>
@@ -90,14 +94,17 @@ export function CorrelationMatrix({ corr, divR }: { corr: { tks: string[]; M: nu
             <React.Fragment key={i}>
               <div style={{ fontFamily: mono, fontSize: 8.5, color: T.faint, display: "flex", alignItems: "center", paddingRight: 4, justifyContent: "flex-end" }}>{tks[i]}</div>
               {row.map((v, j) => {
-                const c = cell(v);
+                const c = cell(v, i === j);
                 return <div key={j} style={{ background: c.bg, color: c.fg, fontFamily: mono, fontSize: 8.5, textAlign: "center", padding: "6px 0", borderRadius: 3, fontWeight: i === j ? 700 : 400 }}>{v.toFixed(2)}</div>;
               })}
             </React.Fragment>
           ))}
         </div>
       </div>
-      <div style={{ marginTop: 12, fontSize: 11.5, color: T.faint }}>Lower correlations (paler cells) mean holdings move more independently — that's the volatility you save by combining them. Estimated from sector &amp; asset-class structure, not trailing price data.</div>
+      <div style={{ marginTop: 12, fontSize: 11.5, color: T.faint }}>
+        Green cells = real diversifiers, red = move together — that's the volatility you save by combining holdings.{" "}
+        {measured ? "Computed from real daily price history." : "Estimated from sector & asset-class structure while real data loads."}
+      </div>
     </Panel>
   );
 }

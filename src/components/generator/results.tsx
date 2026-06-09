@@ -4,7 +4,7 @@
 // Portfolio Generator — full results view (premium / paying users).
 
 import React from "react";
-import Link from "next/link";
+import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Panel, Eyebrow, ScoreBar, gradeOf, scoreColor } from "@/components/healthcheck/theme";
 import { RISK_ALLOC, OBJ_W, thesisOf, rationaleOf, legendaryComparison, autoNotes, type GenResult, type Variant, type Holding, type Metrics } from "./engine";
 import { curSym, fmtCur, fmtCurShort } from "./currency";
@@ -22,6 +22,107 @@ export function GradePill({ grade }: { grade: string }) {
     <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: c, background: c + "16", border: `1px solid ${c}44`, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>
       {grade}
     </span>
+  );
+}
+
+/* Measured-vs-modelled status: once the price-history analysis lands, the
+   risk numbers are real; until then they're model estimates. */
+export function MeasuredBadge({ measured, loading }: { measured: boolean; loading: boolean }) {
+  if (measured) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.green, background: T.green + "14", border: `1px solid ${T.green}44`, borderRadius: 999, padding: "4px 10px" }}>
+        <Icon name="check" size={12} color={T.green} /> MEASURED · REAL PRICE HISTORY
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.amber, background: T.amber + "14", border: `1px solid ${T.amber}44`, borderRadius: 999, padding: "4px 10px" }}>
+      {loading && <span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={12} color={T.amber} /></span>}
+      {loading ? "MEASURING REAL DATA…" : "MODEL ESTIMATES"}
+    </span>
+  );
+}
+
+/* Hand the generated book (with weights + amount) to the Portfolio
+   Healthcheck via its sessionStorage seed slot. */
+export function openInHealthcheck(holdings: Holding[], name: string, amount: number) {
+  try {
+    const picks = holdings
+      .filter((h) => h.cls !== "cash")
+      .map((h) => ({
+        symbol: h.tk,
+        name: h.name,
+        sector: h.sector,
+        is_etf: h.etf,
+        type: h.type === "stock" ? "stock" : "etf",
+        weight: +(h.w * 100).toFixed(2),
+      }));
+    sessionStorage.setItem("hc-seed-picks", JSON.stringify({ picks, name, value: amount }));
+  } catch { /* navigation still works; healthcheck just starts empty */ }
+  window.location.href = "/tools/portfolio-healthcheck";
+}
+
+/* ---------- AI analysis (LLM layer, premium) ---------- */
+function AiAnalysis({ result, variant }: { result: GenResult; variant: Variant }) {
+  const [answer, setAnswer] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const m = variant.metrics;
+
+  async function run() {
+    if (busy) return;
+    setBusy(true); setErr("");
+    try {
+      const supabase = createClient();
+      const portfolio = {
+        inputs: {
+          amount: result.inputs.amount, risk: result.inputs.risk, objective: result.inputs.objective,
+          horizonYears: result.inputs.years, goal: result.inputs.goal || undefined,
+          sectors: result.inputs.sectors.length ? result.inputs.sectors : undefined,
+        },
+        optimization: variant.label,
+        holdings: variant.holdings.map((h) => ({
+          symbol: h.tk, name: h.name, type: h.type, sector: h.sector,
+          weightPct: +(h.w * 100).toFixed(1), yieldPct: h.yield, beta: h.beta, rating: h.rate,
+        })),
+        metrics: {
+          annualReturnPct: m.er, volatilityPct: m.vol, sharpe: m.sharpe, sortino: m.sortino,
+          maxDrawdownPct: m.maxDD, betaVsSp500: m.beta, blendedYieldPct: m.yield,
+          diversificationRatio: m.divR, measuredFromPriceHistory: m.measured,
+          sectorWeights: m.sectorAlloc.map((s) => ({ sector: s.k, pct: +(s.w * 100).toFixed(1) })),
+        },
+      };
+      const question =
+        "Write the investment thesis for this generated portfolio: why this mix fits the stated inputs, what drives its risk and income, the concentration to watch, and the role of the largest holdings.";
+      const { data, error } = await supabase.functions.invoke("portfolio-analyst", { body: { question, portfolio } });
+      if (error) throw error;
+      const a = (data as { answer?: string; error?: string }) ?? {};
+      if (a.answer) setAnswer(a.answer);
+      else setErr(a.error || "No answer — try again.");
+    } catch {
+      setErr("AI analysis is unavailable right now — try again in a minute.");
+    }
+    setBusy(false);
+  }
+
+  return (
+    <Panel pad={20}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: answer || err ? 12 : 0 }}>
+        <Eyebrow icon="sparkles" style={{ marginBottom: 0 }}>AI analysis</Eyebrow>
+        <button onClick={run} disabled={busy} className="gen-btnPrimary" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: busy ? T.raised : T.green, color: busy ? T.muted : T.bg, border: "none", borderRadius: 10, padding: "9px 16px", fontFamily: body, fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+          {busy
+            ? <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={14} /></span> Analysing…</>
+            : <><Icon name="sparkles" size={14} /> {answer ? "Re-analyse" : "Analyse this portfolio"}</>}
+        </button>
+      </div>
+      {err && <div style={{ fontSize: 13, color: T.red }}>{err}</div>}
+      {answer && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: T.ink, textWrap: "pretty" }}>{answer}</p>}
+      {!answer && !err && !busy && (
+        <p style={{ margin: "10px 0 0", fontSize: 12.5, color: T.faint, lineHeight: 1.5 }}>
+          An AI analyst reads this exact book — holdings, weights, measured risk — and writes the thesis in plain English. Educational analysis, not advice.
+        </p>
+      )}
+    </Panel>
   );
 }
 
@@ -206,12 +307,13 @@ function downloadCsv(holdings: Holding[], amount: number, code: string) {
 }
 
 /* ---------- main results (premium) ---------- */
-export function ResultsView({ result, selected, onSelect, onPin, onRemove }: {
+export function ResultsView({ result, selected, onSelect, onPin, onRemove, realLoading = false }: {
   result: GenResult;
   selected: string;
   onSelect: (id: string) => void;
   onPin: (tk: string) => void;
   onRemove: (tk: string) => void;
+  realLoading?: boolean;
 }) {
   const variant = result.variants.find((v) => v.id === selected) || result.variants.find((v) => v.rec) || result.variants[0];
   const m = variant.metrics;
@@ -231,6 +333,7 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove }: {
           <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 9 }}>Your generated portfolio</div>
           <h2 style={{ fontFamily: display, fontSize: 28, fontWeight: 800, color: T.ink, margin: 0, letterSpacing: "-0.02em" }}>{name}</h2>
           <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>{variant.label} optimization · {holdings.length} holdings · sized to {fmtCur(result.inputs.amount, sym)}</div>
+          <div style={{ marginTop: 10 }}><MeasuredBadge measured={!!m.measured} loading={realLoading} /></div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ textAlign: "right" }}>
@@ -258,7 +361,7 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove }: {
 
       {/* correlation matrix — full width, above the holdings */}
       <div style={{ marginBottom: 20 }}>
-        <CorrelationMatrix corr={m.corr} divR={m.divR} />
+        <CorrelationMatrix corr={m.corr} divR={m.divR} measured={!!m.measured} />
       </div>
 
       {/* allocation: donut + holdings (holdings get the wide column) */}
@@ -336,6 +439,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove }: {
         </Panel>
       </div>
 
+      {/* AI analysis (LLM) */}
+      <div style={{ marginBottom: 20 }}><AiAnalysis result={result} variant={variant} /></div>
+
       {/* per-holding rationale */}
       <div style={{ marginBottom: 20 }}><Rationale holdings={holdings} /></div>
 
@@ -365,9 +471,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove }: {
         <button onClick={() => downloadCsv(holdings, result.inputs.amount, result.inputs.currency)} className="gen-btnPrimary" style={{ display: "inline-flex", alignItems: "center", gap: 9, background: T.green, color: T.bg, border: `1px solid ${T.green}`, borderRadius: 11, padding: "13px 20px", fontFamily: body, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
           <Icon name="send" size={15} /> Download allocation (CSV)
         </button>
-        <Link href="/tools/portfolio-healthcheck" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 9, background: T.panel, color: T.ink, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "13px 20px", fontFamily: body, fontSize: 14, fontWeight: 600 }}>
-          <Icon name="gauge" size={15} color={T.muted} /> Open Portfolio Healthcheck
-        </Link>
+        <button onClick={() => openInHealthcheck(holdings, name, result.inputs.amount)} style={{ display: "inline-flex", alignItems: "center", gap: 9, background: T.panel, color: T.ink, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "13px 20px", fontFamily: body, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          <Icon name="gauge" size={15} color={T.muted} /> Open in Healthcheck — holdings &amp; weights included
+        </button>
         <span style={{ fontSize: 11.5, color: T.faint, maxWidth: 300 }}>Not investment advice. Forward figures are modelled assumptions, not guarantees.</span>
       </div>
     </div>

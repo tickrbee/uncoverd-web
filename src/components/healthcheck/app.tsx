@@ -124,20 +124,26 @@ export function PortfolioHealthcheckApp() {
   const onLocked = () => { window.location.href = "/go-pro"; };
   // Analyze the user's own selection → build a portfolio object and show it.
   // Run the engine on a set of picks and show the result (live, estimated fallback).
-  const runAnalysis = async (picks: any[], nm: string, savedId: string | null) => {
+  const runAnalysis = async (picks: any[], nm: string, savedId: string | null, value = 100000) => {
     if (!isPremium) { onLocked(); return; }
     if (picks.length < 2) return;
     setAnalyzing(true);
     let pf: any = null;
     try {
+      // Picks seeded from the Portfolio Generator carry weights — analyze the
+      // book at those weights instead of equal-weighting it.
+      const weighted = picks.some((s: any) => typeof s.weight === "number" && s.weight > 0);
+      const body = weighted
+        ? { holdings: picks.map((s: any) => ({ symbol: s.symbol, weight: typeof s.weight === "number" && s.weight > 0 ? s.weight : 1 })) }
+        : { symbols: picks.map((s: any) => s.symbol) };
       const res = await fetch("/api/portfolio/healthcheck", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbols: picks.map((s: any) => s.symbol) }),
+        body: JSON.stringify(body),
       });
       const result = await res.json();
-      if (res.ok && result?.ok) pf = adaptHealthResult(result, picks, 100000, nm);
+      if (res.ok && result?.ok) pf = adaptHealthResult(result, picks, value, nm);
     } catch { /* fall through to estimated */ }
-    if (!pf) pf = buildCustomPortfolio(picks, 100000, nm); // estimated fallback
+    if (!pf) pf = buildCustomPortfolio(picks, value, nm); // estimated fallback
     setAnalyzing(false);
     if (!pf) return;
     setCustomPf(pf);
@@ -170,7 +176,8 @@ export function PortfolioHealthcheckApp() {
     if (isPremium) {
       seedConsumed.current = true;
       try { sessionStorage.removeItem("hc-seed-picks"); } catch { /* ignore */ }
-      runAnalysis(parsed.picks, parsed.name || "Generated portfolio", null);
+      const value = typeof parsed.value === "number" && parsed.value > 0 ? parsed.value : 100000;
+      runAnalysis(parsed.picks, parsed.name || "Generated portfolio", null, value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPremium]);

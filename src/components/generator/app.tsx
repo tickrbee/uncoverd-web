@@ -7,7 +7,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Panel } from "@/components/healthcheck/theme";
-import { generatePortfolio } from "./engine";
+import { generatePortfolio, applyReal } from "./engine";
 import type { GenInstrument, GenOptions } from "./types";
 import { GenForm } from "./form";
 import { ResultsView } from "./results";
@@ -53,7 +53,7 @@ const CSS = `
 `;
 
 const DEFAULT_STATE: GenOptions = {
-  amount: 10000, currency: "USD", risk: "balanced", objective: "balanced", horizon: "medium",
+  amount: 10000, currency: "USD", country: "US", seed: 0, risk: "balanced", objective: "balanced", horizon: "medium",
   sectors: [], anchors: [], count: 10, goal: "", target: 0, monthlyDCA: 0,
 };
 
@@ -93,15 +93,25 @@ export function PortfolioGeneratorApp() {
   const [signedIn, setSignedIn] = React.useState(false);
   const resultsRef = React.useRef<HTMLDivElement>(null);
 
-  // Real instrument universe (top-rated stocks + ETF/bond sleeve).
+  // Real instrument universe (top-rated stocks + ETF/bond sleeve), per market.
+  const uniCache = React.useRef<Map<string, GenInstrument[]>>(new Map());
   React.useEffect(() => {
+    const cc = state.country || "US";
+    const hit = uniCache.current.get(cc);
+    if (hit) { setUniverse(hit); return; }
     let alive = true;
-    fetch("/api/portfolio/universe")
+    fetch(`/api/portfolio/universe?country=${encodeURIComponent(cc)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d) => { if (alive) setUniverse(d.universe); })
-      .catch(() => { if (alive) setLoadErr(true); });
+      .then((d) => {
+        if (!alive) return;
+        uniCache.current.set(cc, d.universe);
+        setUniverse(d.universe);
+        setLoadErr(false);
+      })
+      .catch(() => { if (alive && !universe) setLoadErr(true); });
     return () => { alive = false; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.country]);
 
   // Detect Pro so holdings are revealed for paying users, blurred otherwise.
   React.useEffect(() => {
@@ -132,6 +142,9 @@ export function PortfolioGeneratorApp() {
   );
 
   const generate = () => {
+    // Regenerate with unchanged inputs = "show me another build": bump the
+    // seed so the engine's deterministic jitter produces a fresh mix.
+    if (!dirty) setState((s) => ({ ...s, seed: s.seed + 1 }));
     setExclude([]);
     setSelected("maxSharpe");
     setGenerated(true);
@@ -143,6 +156,53 @@ export function PortfolioGeneratorApp() {
 
   const onPin = (tk: string) => { if (!state.anchors.includes(tk)) set({ anchors: [...state.anchors, tk] }); };
   const onRemove = (tk: string) => setExclude((e) => (e.includes(tk) ? e : [...e, tk]));
+
+  // ---- REAL metrics: measure the selected variant against actual price
+  // history via the weighted healthcheck API, then overlay the modelled
+  // estimates. Cached per (variant + holdings) so switching back is instant.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [realBy, setRealBy] = React.useState<Record<string, any>>({});
+  const [realLoading, setRealLoading] = React.useState(false);
+  const curVariant = result?.variants.find((v) => v.id === selected) ?? result?.variants[0];
+  const realKey = curVariant
+    ? curVariant.id + ":" + curVariant.holdings.filter((h) => h.cls !== "cash").map((h) => h.tk + Math.round(h.w * 1000)).join(",")
+    : "";
+  React.useEffect(() => {
+    if (!generated || !curVariant || !realKey || realBy[realKey]) return;
+    const holdings = curVariant.holdings
+      .filter((h) => h.cls !== "cash")
+      .map((h) => ({ symbol: h.tk, weight: +(h.w * 100).toFixed(2) }));
+    if (holdings.length < 2) return;
+    let alive = true;
+    // Loading flag + fetch are one async "measure" operation; the sync set is
+    // intentional so the badge flips immediately.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRealLoading(true);
+    fetch("/api/portfolio/healthcheck", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ holdings }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.ok) setRealBy((prev) => ({ ...prev, [realKey]: d })); })
+      .catch(() => { /* modelled stays */ })
+      .finally(() => { if (alive) setRealLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generated, realKey]);
+
+  // The result the views render: selected variant's metrics get the real
+  // overlay once measured.
+  const displayResult = React.useMemo(() => {
+    if (!result) return null;
+    const real = realBy[realKey];
+    if (!real) return result;
+    const ctx = { years: result.inputs.years, amount: result.inputs.amount, monthlyDCA: result.inputs.monthlyDCA };
+    return {
+      ...result,
+      variants: result.variants.map((v) => (v.id === (curVariant?.id ?? selected) ? { ...v, metrics: applyReal(v.metrics, real, ctx) } : v)),
+    };
+  }, [result, realBy, realKey, curVariant?.id, selected]);
 
   return (
     <div className="gen-root" style={{ background: T.bg, minHeight: "100vh", color: T.ink, fontFamily: body }}>
@@ -182,10 +242,10 @@ export function PortfolioGeneratorApp() {
         {/* results */}
         <div ref={resultsRef} style={{ minWidth: 0 }}>
           {!isPremium && <PremiumBanner signedIn={signedIn} />}
-          {generated && result ? (
+          {generated && displayResult ? (
             isPremium
-              ? <ResultsView result={result} selected={selected} onSelect={setSelected} onPin={onPin} onRemove={onRemove} />
-              : <FreeResultsView result={result} selected={selected} onSelect={setSelected} signedIn={signedIn} />
+              ? <ResultsView result={displayResult} selected={selected} onSelect={setSelected} onPin={onPin} onRemove={onRemove} realLoading={realLoading} />
+              : <FreeResultsView result={displayResult} selected={selected} onSelect={setSelected} signedIn={signedIn} realLoading={realLoading} />
           ) : (
             <Panel pad={0} style={{ overflow: "hidden" }}><EmptyState /></Panel>
           )}

@@ -25,6 +25,11 @@ export type GenOptions = {
   amount: number;
   // Display currency code (USD/EUR/GBP/…). Formatting only — no FX conversion.
   currency: string;
+  // Optional market focus (ISO country code, e.g. "US", "DE"). Empty = US default.
+  country: string;
+  // Re-roll seed: bumping it on Regenerate jitters the candidate scores
+  // deterministically so the user gets a fresh-but-sensible build.
+  seed: number;
   risk: GenRisk;
   objective: GenObjective;
   horizon: GenHorizon;

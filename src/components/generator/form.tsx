@@ -311,6 +311,18 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
       </FormSection>
 
       <FormSection n="03" title="Refine the build">
+        {/* market focus */}
+        <div>
+          <FieldLabel hint="stocks from this market; core ETFs stay global">Market focus</FieldLabel>
+          <select value={state.country} onChange={(e) => set({ country: e.target.value })} aria-label="Market focus"
+            className="gen-input"
+            style={{ width: "100%", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px 12px", color: T.ink, fontFamily: body, fontSize: 13.5, outline: "none", cursor: "pointer" }}>
+            {([["US", "United States (default)"], ["CA", "Canada"], ["GB", "United Kingdom"], ["DE", "Germany"], ["FR", "France"], ["NL", "Netherlands"], ["CH", "Switzerland"], ["ES", "Spain"], ["IT", "Italy"], ["AU", "Australia"]] as const).map(([code, label]) => (
+              <option key={code} value={code} style={{ background: T.panel2, color: T.ink }}>{label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* sectors */}
         <div>
           <FieldLabel hint="leave blank for all">Favour any sectors?</FieldLabel>

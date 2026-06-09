@@ -29,7 +29,6 @@ export const OBJ_W: Record<string, { y: number; er: number; q: number; label: st
 const HORIZON_TILT: Record<string, number> = { short: -0.1, medium: 0, long: 0.07 };
 const HORIZON_YEARS: Record<string, number> = { short: 5, medium: 10, long: 20 };
 const BENCH_ER = 8;
-const Z10 = 1.2816;
 
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
@@ -127,7 +126,10 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     if (u.kind === "div" && objective === "income") s += 0.25;
     return s + goalBonus(u);
   };
-  const scored: Candidate[] = eqPool.map((u) => ({ ...u, score: scoreOf(u), isAnchor: false }));
+  // Re-roll variety: a deterministic per-ticker jitter keyed on the seed so
+  // hitting Regenerate (same inputs) produces a different-but-sensible build.
+  const jitter = (tk: string) => (o.seed ? (genRng(hashTks([tk]) + o.seed * 7919)() - 0.5) * 0.5 : 0);
+  const scored: Candidate[] = eqPool.map((u) => ({ ...u, score: scoreOf(u) + jitter(u.tk), isAnchor: false }));
   const minScore = Math.min(...scored.map((s) => s.score));
 
   const anchorSet = anchors.map((tk) => byTk.get(tk)).filter(Boolean) as GenInstrument[];
@@ -234,6 +236,39 @@ export function rationaleOf(h: Holding): string {
   return "Quality compounder — strong fundamentals at a sensible weight.";
 }
 
+// Real Monte Carlo: 1,000 GBM paths with monthly steps + DCA contributions.
+// Deterministic (seeded normals) so re-renders don't flicker. Returns yearly
+// p10/p50/p90 snapshots plus a deterministic S&P-median reference line.
+export function simulatePaths(amount: number, monthly: number, years: number, erPct: number, volPct: number, paths = 1000) {
+  const months = Math.max(1, Math.round(years * 12));
+  const mu = Math.log(1 + Math.max(-0.5, erPct / 100)) / 12;
+  const sigma = Math.max(0.001, volPct / 100) / Math.sqrt(12);
+  const rng = genRng(0xc0ffee ^ (months * 31 + Math.round(erPct * 100) * 7 + Math.round(volPct * 100)));
+  const normal = () => {
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const snaps: number[][] = Array.from({ length: years + 1 }, () => []);
+  for (let p = 0; p < paths; p++) {
+    let v = amount;
+    snaps[0].push(v);
+    for (let m = 1; m <= months; m++) {
+      v = v * Math.exp(mu - 0.5 * sigma * sigma + sigma * normal()) + monthly;
+      if (m % 12 === 0 && m / 12 <= years) snaps[m / 12].push(v);
+    }
+  }
+  const annual = monthly * 12;
+  const g = BENCH_ER / 100;
+  const fvSp = (t: number) => amount * Math.pow(1 + g, t) + (t ? annual * ((Math.pow(1 + g, t) - 1) / g) : 0);
+  return snaps.map((arr, t) => {
+    const s = [...arr].sort((a, b) => a - b);
+    const q = (p: number) => s[Math.min(s.length - 1, Math.floor(p * s.length))] ?? amount;
+    return { t, p10: Math.round(q(0.1)), p50: Math.round(q(0.5)), p90: Math.round(q(0.9)), sp: Math.round(fvSp(t)), band: [Math.round(q(0.1)), Math.round(q(0.9))] };
+  });
+}
+
 const PALETTE: Record<string, string> = {
   Technology: "#3b6ef0", Healthcare: "#2fe3a0", "Financial Services": "#e0b34e",
   "Consumer Cyclical": "#36c2d6", "Consumer Defensive": "#9b8cf0", Industrials: "#7c8aa5",
@@ -300,17 +335,7 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
   const corr = corrMatrix(corrItems);
 
   const annual = monthly * 12;
-  const gMid = er / 100, gBand = (vol / 100) * 0.55;
-  const fv = (gg: number, t: number) => {
-    const grown = amount * Math.pow(1 + gg, t);
-    const contrib = Math.abs(gg) < 1e-6 ? annual * t : annual * ((Math.pow(1 + gg, t) - 1) / gg);
-    return grown + contrib;
-  };
-  const gLow = Math.max(-0.05, gMid - Z10 * gBand), gHigh = gMid + Z10 * gBand;
-  const proj: any[] = [];
-  for (let t = 0; t <= years; t++) {
-    proj.push({ t, p10: Math.round(fv(gLow, t)), p50: Math.round(fv(gMid, t)), p90: Math.round(fv(gHigh, t)), sp: Math.round(fv(BENCH_ER / 100, t)), band: [Math.round(fv(gLow, t)), Math.round(fv(gHigh, t))] });
-  }
+  const proj = simulatePaths(amount, monthly, years, er, vol);
   const contributed = amount + annual * years;
 
   const crises = [
@@ -353,9 +378,97 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
     ],
     classAlloc, sectorAlloc, proj, projMid: proj[Math.round(years / 2)], projEnd: proj[years],
     stress, survived, worst, riskContrib, maxRc, corr,
+    // Flipped to true by applyReal() once price-history metrics replace the
+    // model estimates.
+    measured: false,
   };
 }
 export type Metrics = ReturnType<typeof richMetrics>;
+
+// Merge REAL price-history metrics (the /api/portfolio/healthcheck result —
+// computed from daily closes) over the modelled estimates. Everything the
+// HealthResult covers becomes measured: vol, return, Sharpe/Sortino, max
+// drawdown, beta/alpha vs SPY, the correlation matrix, diversification ratio,
+// per-holding risk contribution, and the Monte Carlo (re-simulated from real
+// return/vol). Stress tests stay modelled (history is too short to replay).
+export function applyReal(
+  m: Metrics,
+  real: any,
+  inputs: { years: number; amount: number; monthlyDCA: number },
+): Metrics {
+  const p = real?.portfolio ?? {};
+  const r = real?.risk ?? {};
+  const b = real?.benchmark ?? null;
+  const vol = p.annualVol ?? m.vol;
+  const er = p.annualReturn ?? m.er;
+  const sharpe = r.sharpe ?? m.sharpe;
+  const sortino = r.sortino ?? m.sortino;
+  const maxDD = r.maxDrawdown ?? m.maxDD;
+  const beta = b?.beta ?? m.beta;
+  const alpha = b && b.cagr != null && b.benchCagr != null ? +(b.cagr - b.benchCagr).toFixed(1) : m.alpha;
+  const divR = p.diversificationRatio ?? m.divR;
+  const yld = p.blendedYield ?? m.yield;
+  const totalReturn = (Math.pow(1 + er / 100, inputs.years) - 1) * 100;
+  const income = Math.round((inputs.amount * yld) / 100);
+
+  // Real pairwise correlations (price history) replace the structural model.
+  let corr = m.corr;
+  if (real?.correlation?.symbols?.length >= 2 && Array.isArray(real.correlation.matrix)) {
+    corr = {
+      tks: real.correlation.symbols as string[],
+      M: (real.correlation.matrix as (number | null)[][]).map((row) => row.map((v) => (v == null ? 0 : +(+v).toFixed(2)))),
+    };
+  }
+
+  // Per-holding REAL vols → honest risk-contribution bars.
+  let riskContrib = m.riskContrib;
+  let maxRc = m.maxRc;
+  if (Array.isArray(real?.holdings) && real.holdings.length) {
+    const volBy = new Map<string, number | null>(real.holdings.map((h: any) => [h.symbol, h.annualVol ?? null]));
+    if ([...volBy.values()].some((v) => v != null)) {
+      const raw = m.riskContrib.map((x) => x.w * (volBy.get(x.tk) ?? vol));
+      const tot = raw.reduce((a, c) => a + c, 0) || 1;
+      riskContrib = m.riskContrib
+        .map((x, i) => ({ tk: x.tk, color: x.color, w: x.w, rc: raw[i] / tot, delta: (raw[i] / tot - x.w) * 100 }))
+        .sort((a, b) => b.rc - a.rc);
+      maxRc = Math.max(...riskContrib.map((x) => x.rc), 0.01);
+    }
+  }
+
+  const proj = simulatePaths(inputs.amount, inputs.monthlyDCA, inputs.years, er, vol);
+
+  return {
+    ...m,
+    vol: +(+vol).toFixed(1),
+    er: +(+er).toFixed(1),
+    yield: +(+yld).toFixed(2),
+    sharpe: +(+sharpe).toFixed(2),
+    sortino: +(+sortino).toFixed(2),
+    maxDD: +(+maxDD).toFixed(1),
+    beta: +(+beta).toFixed(2),
+    alpha,
+    divR: +(+divR).toFixed(2),
+    totalReturn: +totalReturn.toFixed(1),
+    income,
+    corr,
+    riskContrib,
+    maxRc,
+    proj,
+    projMid: proj[Math.round(inputs.years / 2)],
+    projEnd: proj[proj.length - 1],
+    stats: [
+      { k: "Total Return", v: "+" + totalReturn.toFixed(0) + "%", sub: "over " + inputs.years + "y", pos: totalReturn > 0 },
+      { k: "Annualized", v: (er > 0 ? "+" : "") + (+er).toFixed(1) + "%", sub: "real, ~1.5y closes", pos: er > 0 },
+      { k: "Volatility", v: (+vol).toFixed(1) + "%", sub: "annual std-dev" },
+      { k: "Sharpe", v: (+sharpe).toFixed(2), sub: "risk-adjusted", pos: sharpe >= 1 },
+      { k: "Sortino", v: (+sortino).toFixed(2), sub: "downside-adjusted", pos: sortino >= 1.2 },
+      { k: "Max Drawdown", v: (+maxDD).toFixed(0) + "%", sub: "peak to trough", neg: true },
+      { k: "Beta", v: (+beta).toFixed(2), sub: "vs S&P 500" },
+      { k: "Alpha", v: (alpha > 0 ? "+" : "") + (+alpha).toFixed(1) + "%", sub: "vs S&P 500", pos: alpha > 0, neg: alpha < 0 },
+    ] as Metrics["stats"],
+    measured: true,
+  };
+}
 
 export type Variant = { id: string; label: string; rec: boolean; blurb: string; holdings: Holding[]; metrics: Metrics; tag: { a: string; b: string; color: string } };
 export type GenResult = { inputs: Required<GenOptions> & { years: number }; variants: Variant[]; recommended: string; feasibility: Feasibility | null };

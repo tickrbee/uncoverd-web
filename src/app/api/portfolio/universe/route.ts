@@ -60,19 +60,24 @@ const BOND_SLEEVE: [string, string, number, number, number, number][] = [
   ["TIP", "iShares TIPS Bond", 3.8, 0.1, 7, 4.2],
 ];
 
-async function buildUniverse(): Promise<GenInstrument[]> {
+const COUNTRY_WHITELIST = new Set(["US", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
+
+async function buildUniverse(country: string): Promise<GenInstrument[]> {
+  const cc = COUNTRY_WHITELIST.has(country) ? country : "US";
   const sleeveSymbols = [...ETF_SLEEVE.map((e) => e[0]), ...BOND_SLEEVE.map((b) => b[0])];
 
   const [pool, sleeveRows] = await Promise.all([
-    // Dividend-paying US stocks; ratings decide who makes the cut.
-    listStocks({ country: "US", minMarketCap: 2e9, minDividend: 0.01, limit: 500 }),
+    // Dividend-paying stocks in the chosen market; ratings decide the cut.
+    listStocks({ country: cc, minMarketCap: cc === "US" ? 2e9 : 1e9, minDividend: 0.01, limit: 500 }),
     listStocks({ symbols: sleeveSymbols, excludeEtfs: false, limit: sleeveSymbols.length }),
   ]);
 
   const bySym = new Map(sleeveRows.map((r) => [r.symbol, r]));
 
+  // For the US, also require a clean primary-exchange listing; foreign markets
+  // use suffixed symbols (SAP.DE, …) so those filters don't apply.
   const cands = pool.filter(
-    (r) => isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "") && r.sector
+    (r) => r.sector && (cc !== "US" || (isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "")))
   );
   const ratings = await getStockRatings(cands.map((r) => r.symbol)).catch(() => new Map());
 
@@ -83,13 +88,31 @@ async function buildUniverse(): Promise<GenInstrument[]> {
     .sort((a, b) => (b.rt!.composite_total ?? 0) - (a.rt!.composite_total ?? 0));
 
   const perSector: Record<string, number> = {};
+  const seen = new Set<string>();
+  // Same company often has several listings (AIXA.DE / AIX2.F / 0Q3C.L…) —
+  // dedupe by normalised company name, keeping the first (best-ranked).
+  const seenNames = new Set<string>();
   const stocks: GenInstrument[] = [];
-  for (const { r, rt } of ranked) {
+  const take = (r: (typeof cands)[number], rt?: ReturnType<typeof ratings.get>) => {
     const sec = r.sector!;
-    if ((perSector[sec] ?? 0) >= 7) continue;
+    const nameKey = (r.name ?? r.symbol).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24);
+    if (seen.has(r.symbol) || seenNames.has(nameKey) || (perSector[sec] ?? 0) >= 10) return;
     perSector[sec] = (perSector[sec] ?? 0) + 1;
-    stocks.push(stockToGenInstrument(r, rt));
-    if (stocks.length >= 90) break;
+    seen.add(r.symbol);
+    seenNames.add(nameKey);
+    stocks.push(stockToGenInstrument(r, rt ?? null));
+  };
+  for (const { r, rt } of ranked) {
+    take(r, rt);
+    if (stocks.length >= 130) break;
+  }
+  // Smaller markets may have few rated names — backfill by market cap so the
+  // generator still has a workable pool (grades show as "—").
+  if (stocks.length < 25) {
+    for (const r of cands) {
+      take(r, ratings.get(r.symbol));
+      if (stocks.length >= 60) break;
+    }
   }
 
   const etfs: GenInstrument[] = ETF_SLEEVE.map(([tk, fbName, kind, sector, fbYield, beta, vol, er]) => {
@@ -123,12 +146,14 @@ async function buildUniverse(): Promise<GenInstrument[]> {
 }
 
 // User-independent + heavy (500-row scan + ratings join) → cache 1h.
-const cachedUniverse = unstable_cache(buildUniverse, ["v1:genUniverse"], { revalidate: 3600 });
+// unstable_cache keys on the call args, so each country caches separately.
+const cachedUniverse = unstable_cache(buildUniverse, ["v2:genUniverse"], { revalidate: 3600 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const universe = await cachedUniverse();
-    if (universe.length < 30) {
+    const country = (new URL(req.url).searchParams.get("country") ?? "US").toUpperCase();
+    const universe = await cachedUniverse(country);
+    if (universe.length < 20) {
       return NextResponse.json({ error: "Universe unavailable" }, { status: 503 });
     }
     return NextResponse.json(
