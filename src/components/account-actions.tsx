@@ -49,13 +49,14 @@ export function AccountActions() {
     setBusy("logout");
     setError(null);
 
-    // Server-side sign-out reliably clears the session cookies — the browser
-    // supabase client can't always read/write them, so a client-only signOut
-    // could leave the user still logged in server-side. Then also clear any
-    // local client state, and hard-navigate so the header re-reads via the
-    // server (/api/auth/state).
-    try { await fetch("/api/auth/signout", { method: "POST" }); } catch { /* best-effort */ }
-    try { await createClient().auth.signOut({ scope: "local" }); } catch { /* best-effort */ }
+    // Server-side sign-out clears the session cookies reliably. We deliberately
+    // do NOT await the browser client's signOut() here — in production it can
+    // hang on the auth lock, which BLOCKED the redirect below, so the session
+    // only appeared cleared after the user manually navigated. The server route
+    // + hard navigation are enough; the header re-reads auth from the server.
+    try {
+      await fetch("/api/auth/signout", { method: "POST", cache: "no-store" });
+    } catch { /* best-effort */ }
 
     window.location.assign("/login");
   }
