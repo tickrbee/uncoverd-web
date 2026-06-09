@@ -2,46 +2,68 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { getSupabaseUrl } from "@/lib/env";
 
 const ACCENT = "#15b87f";
+const SIGNUP = "/signup?next=" + encodeURIComponent("/go-pro");
 
 // Single checkout entry point. Logged-in → straight to Stripe. Logged-out →
-// sent to create an account (with next=/go-pro), so after they sign up / sign in
-// they land back here and continue to checkout automatically.
+// sent to create an account (next=/go-pro), then returned here to continue.
+// Hardened: getSession() can stall (Supabase navigator.locks), so we race it
+// against a timeout and use hard navigation (window.location) so nothing hangs.
 export function GoProClient() {
-  const router = useRouter();
   const [status, setStatus] = React.useState<"loading" | "error">("loading");
   const [msg, setMsg] = React.useState("Setting up your secure checkout…");
 
   React.useEffect(() => {
-    let alive = true;
+    let done = false;
     (async () => {
+      let token: string | null = null;
       try {
         const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!alive) return;
-        if (!session) {
-          router.replace("/signup?next=" + encodeURIComponent("/go-pro"));
-          return;
-        }
-        setMsg("Redirecting to secure checkout…");
+        // getSession() can stall (Supabase navigator.locks) — race it against a
+        // timeout so we never hang; resolve straight to the access token.
+        token = await Promise.race<string | null>([
+          supabase.auth.getSession().then((r) => r?.data?.session?.access_token ?? null),
+          new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 4000)),
+        ]);
+      } catch {
+        token = null;
+      }
+      if (done) return;
+
+      if (!token) {
+        // Not (yet) authenticated → create an account, then come back to checkout.
+        window.location.href = SIGNUP;
+        return;
+      }
+
+      setMsg("Redirecting to secure checkout…");
+      try {
         const res = await fetch(getSupabaseUrl() + "/functions/v1/create-checkout-session", {
           method: "POST",
-          headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
           body: JSON.stringify({ tier: "plus" }),
         });
         const payload = await res.json().catch(() => ({}));
-        if (payload?.url) { window.location.href = payload.url; return; }
-        if (alive) { setStatus("error"); setMsg(payload?.error || "We couldn't start checkout. Please try again."); }
+        if (!done && payload?.url) {
+          window.location.href = payload.url;
+          return;
+        }
+        if (!done) {
+          setStatus("error");
+          setMsg(payload?.error || "We couldn't start checkout. Please try again.");
+        }
       } catch {
-        if (alive) { setStatus("error"); setMsg("We couldn't start checkout. Please try again."); }
+        if (!done) {
+          setStatus("error");
+          setMsg("We couldn't start checkout. Please try again.");
+        }
       }
     })();
-    return () => { alive = false; };
-  }, [router]);
+    return () => { done = true; };
+  }, []);
 
   return (
     <main className="dv-page">
