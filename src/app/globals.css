@@ -2851,7 +2851,7 @@ a {
 }
 
 .dv-lock--blur:hover {
-  filter: blur(3.5px);
+  filter: blur(2px);
 }
 
 /* Hover "unlock" affordance over blurred cells — a small open-padlock chip that
@@ -2868,14 +2868,18 @@ a {
   transition: opacity 0.14s ease, transform 0.14s ease;
   transform: scale(0.85);
 }
-.dv-lock__hint svg {
-  width: 13px;
-  height: 13px;
+/* The word "Unlock" in a small brand pill — clearer than an icon. */
+.dv-lock__pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
   color: #fff;
   background: #2563eb;
-  padding: 5px;
+  padding: 4px 9px;
   border-radius: 999px;
   box-shadow: 0 2px 7px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
 }
 .dv-lock:hover .dv-lock__hint {
   opacity: 1;

@@ -25,13 +25,17 @@ import { industryHeader, etfHeaderParts, pageSummary, BLUE_CHIP_MIN_MARKET_CAP }
 const PAGE_SIZE = 30;
 const VALID_VIEWS: ColumnView[] = ["overview", "payout", "growth", "returns", "ratings"];
 
-// Sub-categories for the REIT industry (mapped to real backend industry names).
-// "equity" = all REITs except mortgage; the rest match a specific industry.
+// Sub-categories for the REIT industry, each mapped to a real backend industry
+// name (verified against backend.tickers). Every entry yields a distinct list —
+// no overlapping "all minus X" catch-alls, which is why they used to look
+// identical on the market-cap-sorted first page.
 const REIT_SUBS: Record<string, { label: string; pattern?: string; exclude?: string }> = {
-  equity: { label: "Equity REITs", pattern: "REIT%", exclude: "REIT - Mortgage" },
   mortgage: { label: "Mortgage REITs", pattern: "REIT - Mortgage" },
-  industrial: { label: "Industrial REITs", pattern: "REIT - Industrial" },
+  diversified: { label: "Diversified REITs", pattern: "REIT - Diversified" },
   residential: { label: "Residential REITs", pattern: "REIT - Residential" },
+  retail: { label: "Retail REITs", pattern: "REIT - Retail" },
+  office: { label: "Office REITs", pattern: "REIT - Office" },
+  industrial: { label: "Industrial REITs", pattern: "REIT - Industrial" },
   healthcare: { label: "Healthcare REITs", pattern: "REIT - Healthcare%" },
 };
 
@@ -53,8 +57,8 @@ export async function IndustryView({
   const entry = INDUSTRY_SLUG_MAP[slug];
   if (!entry) notFound();
   const taxo = INDUSTRIES.find((i) => i.key === slug);
-  // REIT sub-category (equity / mortgage / industrial / residential / healthcare)
-  // refines the industry filter and the page label.
+  // REIT sub-category (mortgage / diversified / residential / retail / office /
+  // industrial / healthcare) refines the industry filter and the page label.
   const reitSub = slug === "reit" && sp.reit ? REIT_SUBS[sp.reit] : null;
   const label = reitSub ? reitSub.label : locale === "en" ? entry.label : taxo?.label[locale] ?? entry.label;
   const basePath = taxo ? industryUrl(locale, taxo) : `/industries/${slug}`;
