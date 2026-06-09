@@ -15,7 +15,7 @@ const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 const display = body;
 
 const NEXT = encodeURIComponent("/go-pro");
-const START = "/api/go-pro/start";
+const CHECKOUT = "/api/go-pro/checkout";
 
 const ICONS: Record<string, string> = {
   check: '<path d="M20 6 9 17l-5-5"/>',
@@ -285,32 +285,39 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
     }
   }, []);
 
-  // Logged in → server route reads the cookie session and redirects to Stripe.
-  function continuePay() {
+  // Logged in → server reads the cookie session and starts checkout.
+  async function continuePay() {
+    setFormErr("");
     setPhase("redirecting"); setMsg("Redirecting to secure payment…");
-    window.location.href = START;
+    try {
+      const res = await fetch(CHECKOUT, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (out.url) { window.location.href = out.url; return; }
+      setFormErr(out.error === "not_authenticated" ? "Your session expired — please sign in again." : (out.error || "Could not start checkout.")); setPhase("review");
+    } catch {
+      setFormErr("Could not start checkout. Please try again."); setPhase("review");
+    }
   }
 
-  // Logged out → create an ALREADY-CONFIRMED account (no email step), sign in to
-  // set the cookie, then hand off to the server route for checkout.
+  async function useAnotherAccount() {
+    try { await createClient().auth.signOut(); } catch { /* ignore */ }
+    window.location.href = "/go-pro";
+  }
+
+  // Logged out → create an ALREADY-CONFIRMED account and start checkout WITHOUT
+  // logging the buyer in (no cookie). They sign in themselves after paying.
   async function createAndPay() {
     setFormErr("");
     setPhase("redirecting"); setMsg("Creating your account…");
     try {
-      const res = await fetch("/api/go-pro/create-account", {
+      const res = await fetch(CHECKOUT, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (out.error === "account_exists") { setFormErr("That email already has an account — please sign in instead."); setPhase("account"); return; }
-      if (out.error) { setFormErr(out.error); setPhase("account"); return; }
-
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) { setFormErr(error.message); setPhase("account"); return; }
-
-      setMsg("Redirecting to secure payment…");
-      window.location.href = START;
+      const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (out.error === "account_exists") { setFormErr("That email already has an account — please sign in to upgrade."); setPhase("account"); return; }
+      if (out.url) { setMsg("Redirecting to secure payment…"); window.location.href = out.url; return; }
+      setFormErr(out.error || "Could not start checkout."); setPhase("account");
     } catch {
       setFormErr("Something went wrong. Please try again."); setPhase("account");
     }
@@ -362,7 +369,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
                     <Icon name="lock" size={16} color={T.bg} /> Continue to secure payment — {money(PLAN.price)}/yr
                   </button>
                   <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
-                    Not you? <a href={`/login?next=${NEXT}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>Use another account</a>
+                    Not you? <button onClick={useAnotherAccount} style={{ background: "transparent", border: "none", color: T.green, fontWeight: 700, cursor: "pointer", fontFamily: body, fontSize: 13, padding: 0 }}>Use another account</button>
                   </div>
                 </div>
               ) : (
