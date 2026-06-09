@@ -14,6 +14,7 @@ const PLAN_PRO = {
   name: "Pro", price: "$100", sub: "/ year", tagline: "Everything uncoverd, one flat price",
   points: [
     "A–F dividend rating on every stock", "All model portfolios — High-Yield, Growth & Protection",
+    "Portfolio Healthcheck & generator on your own holdings",
     "Best monthly payers, sector & dividend-capture lists", "Payout estimator & compounding calculator",
     "Dividend watchlist with alerts", "Upcoming increases, cuts, initiations & specials",
     "CSV downloads for spreadsheets", "Completely ad-free browsing",
@@ -41,6 +42,11 @@ const COMPARE = [
     { f: "Model portfolios (HY · Growth · Protection)", free: false, prem: true },
     { f: "Curated best-of & dividend-capture lists", free: false, prem: true },
     { f: "Upcoming increases, cuts & specials", free: false, prem: true },
+  ] },
+  { group: "Portfolio tools", rows: [
+    { f: "Portfolio Healthcheck on your own holdings", free: false, prem: true },
+    { f: "Portfolio generator (model portfolio builder)", free: false, prem: true },
+    { f: "Holdings, weights & dollar sizing", free: false, prem: true },
   ] },
   { group: "Tools & exports", rows: [
     { f: "Payout estimator & compounding calculator", free: false, prem: true },
