@@ -67,8 +67,9 @@ async function buildUniverse(country: string): Promise<GenInstrument[]> {
   const sleeveSymbols = [...ETF_SLEEVE.map((e) => e[0]), ...BOND_SLEEVE.map((b) => b[0])];
 
   const [pool, sleeveRows] = await Promise.all([
-    // Dividend-paying stocks in the chosen market; ratings decide the cut.
-    listStocks({ country: cc, minMarketCap: cc === "US" ? 2e9 : 1e9, minDividend: 0.01, limit: 500 }),
+    // EVERY dividend payer ≥$1B in the chosen market gets scanned and ranked;
+    // the composite rating (not market cap) then decides who makes the pool.
+    listStocks({ country: cc, minMarketCap: 1e9, minDividend: 0.01, limit: 1500 }),
     listStocks({ symbols: sleeveSymbols, excludeEtfs: false, limit: sleeveSymbols.length }),
   ]);
 
@@ -96,7 +97,7 @@ async function buildUniverse(country: string): Promise<GenInstrument[]> {
   const take = (r: (typeof cands)[number], rt?: ReturnType<typeof ratings.get>) => {
     const sec = r.sector!;
     const nameKey = (r.name ?? r.symbol).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24);
-    if (seen.has(r.symbol) || seenNames.has(nameKey) || (perSector[sec] ?? 0) >= 10) return;
+    if (seen.has(r.symbol) || seenNames.has(nameKey) || (perSector[sec] ?? 0) >= 16) return;
     perSector[sec] = (perSector[sec] ?? 0) + 1;
     seen.add(r.symbol);
     seenNames.add(nameKey);
@@ -104,7 +105,7 @@ async function buildUniverse(country: string): Promise<GenInstrument[]> {
   };
   for (const { r, rt } of ranked) {
     take(r, rt);
-    if (stocks.length >= 130) break;
+    if (stocks.length >= 200) break;
   }
   // Smaller markets may have few rated names — backfill by market cap so the
   // generator still has a workable pool (grades show as "—").
@@ -147,7 +148,7 @@ async function buildUniverse(country: string): Promise<GenInstrument[]> {
 
 // User-independent + heavy (500-row scan + ratings join) → cache 1h.
 // unstable_cache keys on the call args, so each country caches separately.
-const cachedUniverse = unstable_cache(buildUniverse, ["v2:genUniverse"], { revalidate: 3600 });
+const cachedUniverse = unstable_cache(buildUniverse, ["v3:genUniverse"], { revalidate: 3600 });
 
 export async function GET(req: Request) {
   try {
