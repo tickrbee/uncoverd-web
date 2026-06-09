@@ -173,10 +173,10 @@ export function JoinOffer() {
     return () => io.disconnect();
   }, []);
 
-  const Ctas = ({ inFinal = false }: { inFinal?: boolean }) => (
+  const Ctas = ({ inFinal = false, single = false }: { inFinal?: boolean; single?: boolean }) => (
     <div className="price-ctas">
-      <button onClick={startCheckout} disabled={busy} className="jbtn green">{busy ? "Redirecting…" : (inFinal ? "Get Pro — $100 / year" : "Start free, then go Pro →")}</button>
-      <Link href="/signup?next=%2Fjoin" className="jbtn ghost">{inFinal ? "Start with a free account" : "See a sample rating"}</Link>
+      <button onClick={startCheckout} disabled={busy} className="jbtn green">{busy ? "Redirecting…" : (single ? "Choose Pro →" : inFinal ? "Get Pro — $100 / year" : "Start free, then go Pro →")}</button>
+      {!single && <Link href="/signup?next=%2Fjoin" className="jbtn ghost">{inFinal ? "Start with a free account" : "See a sample rating"}</Link>}
     </div>
   );
 
@@ -189,13 +189,13 @@ export function JoinOffer() {
       <header className="hero">
         <div className="jwrap">
           <div className="eyebrow reveal"><span className="pulse" /> Independent ratings on 65,000+ stocks &amp; ETFs</div>
-          <h1 className="hero-title reveal">Pick better dividend stocks for <em>less than $2 a week</em></h1>
+          <h1 className="hero-title reveal">Enhance your portfolio for <em>less than $2 a week</em></h1>
           <p className="hero-sub reveal">Unlimited A–F ratings, a portfolio tool that tells you exactly how to cut risk and size positions, an idea finder, and the monthly top picks. Increase returns and reduce risk — with the tools, not guesswork.</p>
           <div className="price-card reveal">
             <div className="price-row"><span className="price-big">$1.92</span><span className="price-per">/ week</span></div>
             <p className="price-foot">That's just <b>$100 a year</b> — billed once, <span className="green">cancel anytime</span>.</p>
             <div className="price-coffee">☕ Less than a single coffee — for the most research per dollar in the market</div>
-            <Ctas />
+            <Ctas single />
             <p className="micro"><span className="mono">No tiers · no add-ons · no upsells</span> — one flat price, everything included.</p>
           </div>
           <div className="logos reveal">
