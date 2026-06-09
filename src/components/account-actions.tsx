@@ -49,26 +49,14 @@ export function AccountActions() {
     setBusy("logout");
     setError(null);
 
-    const supabase = createClient();
-    // Race signOut against a timeout so we never get stuck on "Signing out…"
-    // when the server call hangs. After 3s we fall back to a local-only
-    // signOut (scope: "local") that just clears the cookies/localStorage and
-    // ships the user to /login.
-    const signOutPromise = supabase.auth.signOut().catch((e) => ({ error: e as Error }));
-    const timeout = new Promise<{ timedOut: true }>((resolve) =>
-      setTimeout(() => resolve({ timedOut: true }), 3000),
-    );
-    const result = await Promise.race([signOutPromise, timeout]);
+    // Server-side sign-out reliably clears the session cookies — the browser
+    // supabase client can't always read/write them, so a client-only signOut
+    // could leave the user still logged in server-side. Then also clear any
+    // local client state, and hard-navigate so the header re-reads via the
+    // server (/api/auth/state).
+    try { await fetch("/api/auth/signout", { method: "POST" }); } catch { /* best-effort */ }
+    try { await createClient().auth.signOut({ scope: "local" }); } catch { /* best-effort */ }
 
-    if ("timedOut" in result) {
-      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-    } else if ("error" in result && result.error) {
-      // Network-level error — still try local scope, then redirect.
-      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-    }
-
-    // Hard navigation so the server component re-reads cookies and the header
-    // picks up the cleared session.
     window.location.assign("/login");
   }
 

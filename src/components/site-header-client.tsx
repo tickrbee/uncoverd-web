@@ -163,21 +163,26 @@ export function SiteHeaderClient({ initialUser }: { initialUser: User | null }) 
   }, [mobileOpen]);
 
   useEffect(() => {
+    let alive = true;
+    // Authoritative auth state from the server — it reads the same cookies as
+    // /account and middleware. The browser supabase client can fail to read the
+    // session cookies in this config, which left the header stuck on "Sign In"
+    // for users who are actually logged in. So we ask the server.
+    fetch("/api/auth/state", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (alive) setUser((d?.user ?? null) as User | null); })
+      .catch(() => { /* best-effort */ });
+    // React to live sign-in / sign-out within the SPA. We deliberately IGNORE
+    // INITIAL_SESSION — that's the unreliable client cookie read that reports
+    // null and would clobber the authoritative server value above.
     const supabase = createClient();
-    // We already seeded `user` from the server. Don't overwrite with a stale
-    // client-read session — only trust client reads when they differ AND the
-    // server seeded null (i.e. SSR ran before login finished).
-    if (!initialUser) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) setUser(session.user);
-      });
-    }
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) setUser(session.user);
+      else if (event === "SIGNED_OUT") setUser(null);
     });
-    return () => subscription.unsubscribe();
+    return () => { alive = false; subscription.unsubscribe(); };
   }, []);
 
   function openMenu(key: MenuKey) {
