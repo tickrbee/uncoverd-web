@@ -305,6 +305,9 @@ export function PortfolioGeneratorApp() {
         <p style={{ fontSize: 16, color: T.muted, margin: "0 auto", maxWidth: 620, lineHeight: 1.6 }}>
           Answer a few questions — or pin the stocks and ETFs you already love — and we'll build a diversified, top-rated portfolio sized to your amount.
         </p>
+        <a href="/tools/portfolio-generator/validation" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 12, fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.green, textDecoration: "none", letterSpacing: "0.04em" }}>
+          <Icon name="check" size={13} color={T.green} /> Does it work? See the live walk-forward track record →
+        </a>
       </div>
 
       {/* split layout */}

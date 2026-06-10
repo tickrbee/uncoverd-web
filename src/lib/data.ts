@@ -2265,6 +2265,27 @@ export async function latestNews(limit = 50): Promise<NewsRow[]> {
   return (data as NewsRow[]) ?? [];
 }
 
+// Ratings snapshot AS OF a given computed_date — powers the live walk-forward
+// validation of the generator (top-rated names on a past date, no lookahead).
+export async function topRatedAsOf(
+  computedDate: string,
+  limit = 120,
+): Promise<{ symbol: string; composite_total: number | null; composite_grade: string | null }[]> {
+  const sb = getBackendClient();
+  const { data, error } = await sb
+    .from("stock_ratings_daily")
+    .select("symbol,composite_total,composite_grade")
+    .eq("computed_date", computedDate)
+    .in("composite_grade", ["A+", "A", "A-"])
+    .order("composite_total", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("[data.topRatedAsOf]", error);
+    return [];
+  }
+  return (data as { symbol: string; composite_total: number | null; composite_grade: string | null }[]) ?? [];
+}
+
 export async function newsForSymbol(symbol: string, limit = 12): Promise<NewsRow[]> {
   const sb = getBackendClient();
   const { data, error } = await sb
