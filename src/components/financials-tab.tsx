@@ -27,6 +27,19 @@ function periodLabel(row: { date: string; fiscal_year: string | null; period?: s
   return `${row.date.slice(0, 4)} Q${Math.ceil((d.getMonth() + 1) / 3)}`;
 }
 
+// Tooltip variant: adds the actual period-end date so a fiscal label like
+// "FY2027 Q1" can never read as a typo ("…but we're in 2026").
+function tooltipLabel(row: { date: string; fiscal_year: string | null; period?: string | null }, period: Period): string {
+  const base = periodLabel(row, period);
+  if (period === "annual") return base;
+  try {
+    const ended = new Date(row.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return `${base} · ended ${ended}`;
+  } catch {
+    return base;
+  }
+}
+
 type Period = "annual" | "quarterly";
 
 export type FinancialsTabProps = {
@@ -313,7 +326,7 @@ function IncomeChart({
           </svg>
           {hoverIdx != null && data[hoverIdx] && (
             <div className="dv-fin-tooltip">
-              <strong>{periodLabel(data[hoverIdx], period)}</strong>
+              <strong>{tooltipLabel(data[hoverIdx], period)}</strong>
               <div>Revenue: <strong>{abbrev(revenues[hoverIdx])}</strong></div>
               <div>Net income: <strong>{abbrev(netIncomes[hoverIdx])}</strong></div>
               <div>Profit margin: <strong>{margins[hoverIdx].toFixed(2)}%</strong></div>
@@ -437,7 +450,7 @@ function BalanceSheetChart({
           </svg>
           {hoverIdx != null && data[hoverIdx] && (
             <div className="dv-fin-tooltip">
-              <strong>{periodLabel(data[hoverIdx], period)}</strong>
+              <strong>{tooltipLabel(data[hoverIdx], period)}</strong>
               <div>Total assets: <strong>{abbrev(assets[hoverIdx])}</strong></div>
               <div>Total liabilities: <strong>{abbrev(liabilities[hoverIdx])}</strong></div>
               <div>
@@ -583,7 +596,7 @@ function CashFlowChart({
           </svg>
           {hoverIdx != null && data[hoverIdx] && (
             <div className="dv-fin-tooltip">
-              <strong>{periodLabel(data[hoverIdx], period)}</strong>
+              <strong>{tooltipLabel(data[hoverIdx], period)}</strong>
               <div>Operating: <strong>{abbrev(operating[hoverIdx])}</strong></div>
               <div>Investing: <strong>{abbrev(investing[hoverIdx])}</strong></div>
               <div>Financing: <strong>{abbrev(financing[hoverIdx])}</strong></div>
