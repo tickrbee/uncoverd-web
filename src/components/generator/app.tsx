@@ -191,7 +191,8 @@ export function PortfolioGeneratorApp() {
     fetch("/api/portfolio/healthcheck", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ holdings }),
+      // ~10y window: enables real crisis replays + same-window legendary stats.
+      body: JSON.stringify({ holdings, days: 3650 }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d?.ok) setRealBy((prev) => ({ ...prev, [realKey]: d })); })

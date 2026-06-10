@@ -67,10 +67,13 @@ const COUNTRY_WHITELIST = new Set([
   "GLOBAL", "US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT",
   "SE", "DK", "NO", "FI", "BE", "AT", "PT", "IE", "JP",
 ]);
-// Sanctioned / untradeable listings never enter the pool.
+// Sanctioned / untradeable listings never enter the pool. ".IL" is the LSE
+// International Order Book (thin depositary quotes of foreign companies —
+// Aena surfaced as 0R4Y.IL instead of AENA.MC); the primary listing carries
+// the real liquidity and joins via its own market.
 const BLOCKED_COUNTRIES = new Set(["RU"]);
 const isBlocked = (r: { symbol: string; country: string | null }) =>
-  BLOCKED_COUNTRIES.has(r.country ?? "") || r.symbol.endsWith(".ME");
+  BLOCKED_COUNTRIES.has(r.country ?? "") || r.symbol.endsWith(".ME") || r.symbol.endsWith(".IL");
 
 async function buildUniverse(countryParam: string): Promise<GenInstrument[]> {
   const codes = countryParam

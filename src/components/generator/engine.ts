@@ -110,7 +110,14 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     const tk = exMatch[1].toUpperCase();
     if (byTk.has(tk) && !anchors.includes(tk)) exSet.add(tk);
   }
-  const eqPool = universe.filter((u) => u.cls === "eq" && !exSet.has(u.tk));
+  // Income objective: a dividend portfolio must actually pay one — floor the
+  // stock yield at 1.5% (anchors exempt) so 0.0%-yield tech can't fill an
+  // income book just because it's highly rated.
+  const yieldFloor = o.objective === "income" ? 1.5 : 0;
+  const eqPool = universe.filter(
+    (u) => u.cls === "eq" && !exSet.has(u.tk) &&
+      (u.kind !== "stock" || yieldFloor === 0 || ny(u.yield) >= yieldFloor || anchors.includes(u.tk))
+  );
   const ny = normRange(eqPool.map((u) => u.yield));
   const ner = normRange(eqPool.map((u) => u.er));
   const nq = normRange(eqPool.map((u) => u.q));
@@ -370,16 +377,18 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
   const contributed = amount + annual * years;
 
   const crises = [
-    { name: "2008 Financial Crisis", window: "Oct 2007 – Mar 2009", spy: -55.2, bondF: 0.45, base: 0.32, betaF: 0.3 },
-    { name: "2020 COVID Crash", window: "Feb – Mar 2020", spy: -33.9, bondF: 0.35, base: 0.3, betaF: 0.32 },
-    { name: "2022 Inflation Shock", window: "Jan – Oct 2022", spy: -25.4, bondF: 0.1, base: 0.45, betaF: 0.26 },
+    { id: "gfc2008", name: "2008 Financial Crisis", window: "Oct 2007 – Mar 2009", spy: -55.2, bondF: 0.45, base: 0.32, betaF: 0.3 },
+    { id: "covid2020", name: "2020 COVID Crash", window: "Feb – Mar 2020", spy: -33.9, bondF: 0.35, base: 0.3, betaF: 0.32 },
+    { id: "inflation2022", name: "2022 Inflation Shock", window: "Jan – Oct 2022", spy: -25.4, bondF: 0.1, base: 0.45, betaF: 0.26 },
     // "Liberation Day" tariff announcement: S&P peak (Feb 19) to trough (Apr 8).
-    { name: "2025 Tariff Shock", window: "Feb – Apr 2025 · Liberation Day", spy: -18.9, bondF: 0.25, base: 0.38, betaF: 0.3 },
+    { id: "tariff2025", name: "2025 Tariff Shock", window: "Feb – Apr 2025 · Liberation Day", spy: -18.9, bondF: 0.25, base: 0.38, betaF: 0.3 },
   ];
   const stress = crises.map((c) => {
     const cap = clamp(c.base + beta * c.betaF - bondW * c.bondF, 0.25, 1.05);
     const port = +(c.spy * cap).toFixed(1);
-    return { name: c.name, window: c.window, spy: c.spy, port, outperf: +(port - c.spy).toFixed(1) };
+    // real flips to true when applyReal() replaces the modelled number with
+    // the holdings-level replay from actual closes.
+    return { id: c.id, name: c.name, window: c.window, spy: c.spy, port, outperf: +(port - c.spy).toFixed(1), real: false };
   });
   const worst = Math.min(...stress.map((s) => s.port));
   const survived = Math.abs(worst) <= A0.ddCeil + 4;
@@ -409,6 +418,10 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
     ],
     classAlloc, sectorAlloc, proj, projMid: proj[Math.round(years / 2)], projEnd: proj[years],
     stress, survived, worst, riskContrib, maxRc, corr,
+    ddCeil: A0.ddCeil,
+    // Same-window measured stats for the legendary reference baskets (and
+    // "yours") — filled by applyReal() from the deep-history response.
+    legendaryReal: null as { id: string; ret: number; sharpe: number; maxDD: number; years: number }[] | null,
     // Real growth-of-100 backtest curve vs SPY — filled by applyReal().
     curve: null as { i: number; port: number; bench: number }[] | null,
     // True when the forward projection had to cap a hot measured return.
@@ -478,9 +491,34 @@ export function applyReal(
   const proj = simulatePaths(inputs.amount, inputs.monthlyDCA, inputs.years, erProj, vol);
   const totalReturn2 = (Math.pow(1 + erProj / 100, inputs.years) - 1) * 100;
 
+  // REAL crisis replays (holdings-level, from actual closes) replace the
+  // modelled numbers wherever the deep window covers them; 2008 predates the
+  // stored history and stays modelled (labeled as such in the UI).
+  let stress = m.stress;
+  let worst = m.worst;
+  let survived = m.survived;
+  if (Array.isArray(real?.crises) && real.crises.length) {
+    const byId = new Map<string, { port: number; spy: number }>(
+      real.crises.map((c: { id: string; port: number; spy: number }) => [c.id, c])
+    );
+    stress = m.stress.map((row) => {
+      const hit = byId.get(row.id);
+      return hit
+        ? { ...row, port: hit.port, spy: hit.spy, outperf: +(hit.port - hit.spy).toFixed(1), real: true }
+        : row;
+    });
+    worst = Math.min(...stress.map((s) => s.port));
+    survived = Math.abs(worst) <= m.ddCeil + 4;
+  }
+  const legendaryReal = Array.isArray(real?.legendary) && real.legendary.length ? real.legendary : m.legendaryReal;
+
   return {
     ...m,
     projCapped,
+    stress,
+    worst,
+    survived,
+    legendaryReal,
     vol: +(+vol).toFixed(1),
     er: +(+er).toFixed(1),
     yield: +(+yld).toFixed(2),
@@ -523,9 +561,25 @@ export const LEGENDARY = [
   { name: "Permanent Portfolio", desc: "Harry Browne's four-corner design.", chips: ["VTI 25", "TLT 25", "GLD 25", "SGOV 25"], er: 6.2, sharpe: 0.95, maxDD: -14.0 },
   { name: "Dalio All-Weather", desc: "Risk-parity, built for any regime.", chips: ["VTI 30", "TLT 40", "IEF 15", "GLD 8", "DBC 7"], er: 6.8, sharpe: 1.0, maxDD: -16.0 },
 ];
+// When deep history was measured, every card (including "yours") shows stats
+// computed over the SAME long window — a like-for-like comparison instead of
+// 1.5y-measured vs long-run textbook estimates.
+const LEGENDARY_IDS = ["buffett9010", "classic6040", "permanent", "allweather"];
 export function legendaryComparison(m: Metrics) {
-  const yours = { name: "Your Portfolio", desc: "The allocation generated for your goals and risk profile.", chips: null as string[] | null, er: m.er, sharpe: m.sharpe, maxDD: m.maxDD, yours: true };
-  return [yours, ...LEGENDARY.map((l) => ({ ...l, yours: false }))];
+  const lr = m.legendaryReal;
+  const find = (id: string) => lr?.find((x) => x.id === id) ?? null;
+  const youReal = find("yours");
+  const yours = {
+    name: "Your Portfolio", desc: "The allocation generated for your goals and risk profile.", chips: null as string[] | null,
+    er: youReal?.ret ?? m.er, sharpe: youReal?.sharpe ?? m.sharpe, maxDD: youReal?.maxDD ?? m.maxDD, yours: true, real: !!youReal,
+  };
+  return [yours, ...LEGENDARY.map((l, i) => {
+    const rl = find(LEGENDARY_IDS[i]);
+    return { ...l, er: rl?.ret ?? l.er, sharpe: rl?.sharpe ?? l.sharpe, maxDD: rl?.maxDD ?? l.maxDD, yours: false, real: !!rl };
+  })];
+}
+export function legendaryWindowYears(m: Metrics): number | null {
+  return m.legendaryReal?.find((x) => x.id === "yours")?.years ?? null;
 }
 
 export function thesisOf(result: GenResult, variant: Variant): string {

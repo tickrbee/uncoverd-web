@@ -6,7 +6,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Panel, Eyebrow, ScoreBar, gradeOf, scoreColor } from "@/components/healthcheck/theme";
-import { RISK_ALLOC, OBJ_W, thesisOf, rationaleOf, legendaryComparison, autoNotes, type GenResult, type Variant, type Holding, type Metrics } from "./engine";
+import { RISK_ALLOC, OBJ_W, thesisOf, rationaleOf, legendaryComparison, legendaryWindowYears, autoNotes, type GenResult, type Variant, type Holding, type Metrics } from "./engine";
 import { curSym, fmtCur, fmtCurShort } from "./currency";
 import { Donut, AllocBars, MonteCarlo } from "./charts";
 import { ThesisCard, RiskContribution, CorrelationMatrix, LegendaryComparison } from "./cards";
@@ -73,16 +73,44 @@ export function BacktestChart({ curve, er }: { curve: { i: number; port: number;
   const y = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
   const path = (key: "port" | "bench") => curve.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
   const last = curve[n - 1];
+  // Crosshair hover (same treatment as the compare price chart).
+  const [hov, setHov] = React.useState<number | null>(null);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const plotFrac = (W - padL - padR) / W;
+  const onMove = (e: React.MouseEvent) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    const f = (e.clientX - rect.left) / rect.width / plotFrac;
+    setHov(f >= 0 && f <= 1 ? Math.round(f * (n - 1)) : null);
+  };
+  const hp = hov != null ? curve[hov] : null;
   return (
     <Panel pad={20} style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
         <Eyebrow icon="line" style={{ marginBottom: 0 }}>Historical backtest · real daily closes</Eyebrow>
         <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
-          <span style={{ color: T.green, fontWeight: 700 }}>portfolio {last ? (last.port - 100 >= 0 ? "+" : "") + (last.port - 100).toFixed(1) + "%" : ""}</span>
-          {" · "}SPY {last ? (last.bench - 100 >= 0 ? "+" : "") + (last.bench - 100).toFixed(1) + "%" : ""}
-          {" · "}{er.toFixed(1)}%/yr annualized
+          {hp ? (
+            <>
+              <span style={{ color: T.green, fontWeight: 700 }}>portfolio {(hp.port - 100 >= 0 ? "+" : "") + (hp.port - 100).toFixed(1)}%</span>
+              {" · "}SPY {(hp.bench - 100 >= 0 ? "+" : "") + (hp.bench - 100).toFixed(1)}% at cursor
+            </>
+          ) : (
+            <>
+              <span style={{ color: T.green, fontWeight: 700 }}>portfolio {last ? (last.port - 100 >= 0 ? "+" : "") + (last.port - 100).toFixed(1) + "%" : ""}</span>
+              {" · "}SPY {last ? (last.bench - 100 >= 0 ? "+" : "") + (last.bench - 100).toFixed(1) + "%" : ""}
+              {" · "}{er.toFixed(1)}%/yr annualized
+            </>
+          )}
         </span>
       </div>
+      <div ref={wrapRef} style={{ position: "relative", cursor: "crosshair" }} onMouseMove={onMove} onMouseLeave={() => setHov(null)}>
+      {hov != null && hp && (
+        <>
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(x(hov) / W) * 100}%`, width: 1, background: T.line2, pointerEvents: "none" }} />
+          <span style={{ position: "absolute", left: `calc(${(x(hov) / W) * 100}% - 4px)`, top: y(hp.port) - 4, width: 8, height: 8, borderRadius: "50%", background: T.green, border: `1.5px solid ${T.bg}`, pointerEvents: "none" }} />
+          <span style={{ position: "absolute", left: `calc(${(x(hov) / W) * 100}% - 4px)`, top: y(hp.bench) - 4, width: 8, height: 8, borderRadius: "50%", background: T.faint, border: `1.5px solid ${T.bg}`, pointerEvents: "none" }} />
+        </>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={240} preserveAspectRatio="none" style={{ display: "block" }}>
         {[0, 1, 2, 3].map((i) => {
           const g = lo + ((hi - lo) * i) / 3;
@@ -96,6 +124,7 @@ export function BacktestChart({ curve, er }: { curve: { i: number; port: number;
         <path d={path("bench")} fill="none" stroke={T.faint} strokeWidth="1.6" strokeDasharray="5 4" style={{ vectorEffect: "non-scaling-stroke" }} />
         <path d={path("port")} fill="none" stroke={T.green} strokeWidth="2.4" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 5px ${T.green}44)`, vectorEffect: "non-scaling-stroke" }} />
       </svg>
+      </div>
       <div style={{ fontSize: 11.5, color: T.faint, marginTop: 8 }}>
         This exact basket at these weights, replayed over the overlapping daily price history (≈1.5y) against SPY — growth of 100, price-only. This is what &quot;Annualized&quot; in the stats is built on.
       </div>
@@ -241,7 +270,12 @@ export function StressTests({ metrics }: { metrics: Metrics }) {
         {metrics.stress.map((s) => (
           <div key={s.name} className="gen-stressRow" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr auto", gap: 12, alignItems: "center", background: T.bg, border: `1px solid ${T.line}`, borderRadius: 11, padding: "12px 15px" }}>
             <div>
-              <div style={{ fontFamily: display, fontSize: 13.5, fontWeight: 700, color: T.ink }}>{s.name}</div>
+              <div style={{ fontFamily: display, fontSize: 13.5, fontWeight: 700, color: T.ink, display: "flex", alignItems: "center", gap: 7 }}>
+                {s.name}
+                <span style={{ fontFamily: mono, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em", color: s.real ? T.green : T.faint, border: `1px solid ${s.real ? T.green + "55" : T.line2}`, borderRadius: 5, padding: "1.5px 6px" }}>
+                  {s.real ? "MEASURED" : "MODELLED"}
+                </span>
+              </div>
               <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, marginTop: 2 }}>{s.window}</div>
             </div>
             <div>
@@ -267,7 +301,9 @@ export function StressTests({ metrics }: { metrics: Metrics }) {
           : `Worst-case drawdown (${metrics.worst}%) breached the risk-profile ceiling. Consider a lower-risk variant.`}
       </div>
       <div style={{ marginTop: 8, fontSize: 11, color: T.faint }}>
-        Modelled from portfolio beta and bond share applied to each crisis — not a holdings-level backtest.
+        {metrics.stress.some((s) => s.real)
+          ? "MEASURED rows replay this exact basket through the crisis window using real daily closes (weights renormalised over holdings that traded then). 2008 predates the stored history and stays modelled from beta and bond share."
+          : "Modelled from portfolio beta and bond share applied to each crisis — not a holdings-level backtest."}
       </div>
     </Panel>
   );
@@ -508,7 +544,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
       {/* legendary comparison */}
       <div style={{ marginBottom: 20 }}>
         <LegendaryComparison rows={legendaryComparison(m)}
-          note={m.measured ? "Your figures are measured over the recent ~1.5y price window; the legendary rows are long-run estimates — different horizons, compare direction not decimals." : undefined} />
+          note={legendaryWindowYears(m)
+            ? `All cards — including yours — are measured over the same ~${legendaryWindowYears(m)}y window of real daily closes. Like for like.`
+            : m.measured ? "Your figures are measured over the recent price window; the legendary rows are long-run estimates — different horizons, compare direction not decimals." : undefined} />
       </div>
 
       {/* notes */}
