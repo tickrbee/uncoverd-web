@@ -55,7 +55,9 @@ export async function GET(req: NextRequest) {
   if (q.length < 1) return NextResponse.json({ results: [] });
   // Cap the query length so the underlying SQL stays cheap.
   const safeQ = q.slice(0, 60);
-  const rows = await searchStocks(safeQ, 8);
+  // Optional result count (pickers ask for more than the header's 8).
+  const limit = Math.min(20, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "8", 10) || 8));
+  const rows = await searchStocks(safeQ, limit);
   const results = rows.map((r) => ({
     symbol: r.symbol,
     name: r.name,

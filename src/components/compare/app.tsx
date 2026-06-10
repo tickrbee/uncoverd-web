@@ -186,7 +186,7 @@ function AddModal({ symbols, onClose }: { symbols: string[]; onClose: () => void
     const id = setTimeout(async () => {
       if (term.length < 1) { setResults([]); return; }
       try {
-        const r = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+        const r = await fetch(`/api/search?q=${encodeURIComponent(term)}&limit=20`);
         if (!r.ok) return;
         const d = await r.json();
         setResults(((d.results ?? []) as SearchHit[]).filter((x) => !symbols.includes(x.symbol)));
@@ -209,7 +209,7 @@ function AddModal({ symbols, onClose }: { symbols: string[]; onClose: () => void
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(4,8,15,0.72)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "9vh 16px 16px" }}>
       <div role="dialog" aria-modal="true" aria-label="Add tickers" onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 560, background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, boxShadow: "0 30px 80px -20px rgba(0,0,0,.8)", padding: "20px 22px" }}>
+        style={{ width: "100%", maxWidth: 560, maxHeight: "84vh", display: "flex", flexDirection: "column", background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, boxShadow: "0 30px 80px -20px rgba(0,0,0,.8)", padding: "20px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <span style={{ fontFamily: display, fontSize: 19, fontWeight: 800, color: T.ink }}>Add tickers</span>
           <button onClick={onClose} aria-label="Close" className="cmp-x" style={{ display: "flex", padding: 5, background: "transparent", border: "none", cursor: "pointer", color: T.faint, borderRadius: 7 }}>
@@ -229,7 +229,7 @@ function AddModal({ symbols, onClose }: { symbols: string[]; onClose: () => void
             );
           })}
         </div>
-        <div style={{ minHeight: 120, maxHeight: 320, overflowY: "auto", border: `1px solid ${T.line}`, borderRadius: 12 }}>
+        <div style={{ flex: "1 1 auto", minHeight: 120, overflowY: "auto", overscrollBehavior: "contain", border: `1px solid ${T.line}`, borderRadius: 12 }}>
           {shown.length === 0 && (
             <div style={{ padding: 26, fontSize: 13, color: T.faint, textAlign: "center" }}>{q.trim() ? "No matches." : "Type a ticker or name to search."}</div>
           )}
