@@ -316,7 +316,40 @@ export type OptimizeOptions = {
   riskFreeAnnual?: number; // decimal, default 0.045
   maxWeight?: number; // optional long-only per-asset cap (e.g. 0.35)
   minObservations?: number; // default 60 daily points
+  // Annualised decimal expected-return override (e.g. a Black–Litterman
+  // posterior). When provided, replaces the shrunk historical means.
+  mu?: number[];
 };
+
+// Re-exported estimation pieces for the Black–Litterman pipeline.
+export function covarianceFromReturns(returns: number[][]): number[][] {
+  return covMatrix(returns);
+}
+
+// Long-only risk parity (equal risk contribution) via multiplicative updates.
+export function riskParityWeights(returns: number[][]): number[] {
+  const n = returns.length;
+  if (n === 0) return [];
+  const S = covMatrix(returns);
+  let w = new Array(n).fill(1 / n);
+  for (let iter = 0; iter < 300; iter++) {
+    const Sw = matVec(S, w);
+    const port = Math.max(1e-12, dot(w, Sw));
+    const target = port / n;
+    let changed = 0;
+    const next = w.map((wi, i) => {
+      const rc = wi * Sw[i];
+      const adj = rc > 1e-14 ? Math.sqrt(target / rc) : 1.5;
+      const nw = Math.min(0.5, Math.max(1e-6, wi * adj));
+      changed += Math.abs(nw - wi);
+      return nw;
+    });
+    const sum = next.reduce((a, b) => a + b, 0);
+    w = next.map((x) => x / sum);
+    if (changed < 1e-7) break;
+  }
+  return w;
+}
 
 export function optimizePortfolio(
   symbols: string[],
@@ -341,7 +374,7 @@ export function optimizePortfolio(
     };
   }
 
-  const mu = expectedReturns(returns);
+  const mu = opts.mu && opts.mu.length === n ? opts.mu : expectedReturns(returns);
   const S = covMatrix(returns);
   const invS = invert(S);
   const cap = opts.maxWeight;

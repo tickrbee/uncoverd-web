@@ -241,6 +241,26 @@ export default async function StockPage({
     }
   }
 
+  // Cross-listing financials: statements are filed by the COMPANY and stored
+  // under the primary symbol only. A RICH secondary (NVDA.NE trades in CAD
+  // with full price history) keeps its own quote/chart but showed an empty
+  // Financials tab — borrow the primary's statements instead.
+  if (primarySymbol !== symbol && core.incomeAnnual.length === 0 && core.balanceAnnual.length === 0) {
+    const primaryCore = await getStockCore(primarySymbol).catch(() => null);
+    if (primaryCore?.stock) {
+      core = {
+        ...core,
+        incomeAnnual: primaryCore.incomeAnnual,
+        incomeQuarterly: primaryCore.incomeQuarterly,
+        balanceAnnual: primaryCore.balanceAnnual,
+        balanceQuarterly: primaryCore.balanceQuarterly,
+        cashFlowAnnualRows: primaryCore.cashFlowAnnualRows,
+        cashFlowQuarterlyRows: primaryCore.cashFlowQuarterlyRows,
+        ratios: core.ratios ?? primaryCore.ratios,
+      };
+    }
+  }
+
   const {
     stock,
     dividends,
