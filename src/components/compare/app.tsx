@@ -239,8 +239,9 @@ function TickerHead({ c, color, symbols, isWinner }: { c: CompareColumn; color: 
 }
 
 /* ---------- radar ---------- */
-function RadarChart({ cols, colors, size = 280 }: { cols: CompareColumn[]; colors: string[]; size?: number }) {
-  const cx = size / 2, cy = size / 2, R = size / 2 - 38;
+function RadarChart({ cols, colors, size = 300 }: { cols: CompareColumn[]; colors: string[]; size?: number }) {
+  // Generous label margin so "Momentum"/"Safety" never clip at the edges.
+  const cx = size / 2, cy = size / 2, R = size / 2 - 58;
   const N = CMP_DIMS.length;
   const angle = (i: number) => (Math.PI * 2 * i) / N - Math.PI / 2;
   const pt = (i: number, rad: number) => [cx + Math.cos(angle(i)) * R * rad, cy + Math.sin(angle(i)) * R * rad];
@@ -248,12 +249,12 @@ function RadarChart({ cols, colors, size = 280 }: { cols: CompareColumn[]; color
   const allDims = cols.map(dimsOf);
   const polyFor = (d: Dims) => CMP_DIMS.map((dim, i) => pt(i, d[dim.key] / 100).join(",")).join(" ");
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", margin: "0 auto" }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", margin: "0 auto", overflow: "visible" }}>
       {rings.map((rr, ri) => (
         <polygon key={ri} points={CMP_DIMS.map((_, i) => pt(i, rr).join(",")).join(" ")} fill="none" stroke={T.line} strokeWidth="1" opacity={ri === rings.length - 1 ? 0.9 : 0.5} />
       ))}
       {CMP_DIMS.map((d, i) => {
-        const [x, y] = pt(i, 1); const [lx, ly] = pt(i, 1.2);
+        const [x, y] = pt(i, 1); const [lx, ly] = pt(i, 1.22);
         return (
           <g key={d.key}>
             <line x1={cx} y1={cy} x2={x} y2={y} stroke={T.line} strokeWidth="1" opacity="0.5" />
@@ -269,7 +270,12 @@ function RadarChart({ cols, colors, size = 280 }: { cols: CompareColumn[]; color
       ))}
       {allDims.map((d, idx) => CMP_DIMS.map((dim, i) => {
         const [x, y] = pt(i, d[dim.key] / 100);
-        return <circle key={idx + dim.key} cx={x} cy={y} r="2.6" fill={colors[idx]} />;
+        // Native tooltip: hover a vertex to read the exact score.
+        return (
+          <circle key={idx + dim.key} cx={x} cy={y} r="3.4" fill={colors[idx]} style={{ cursor: "help" }}>
+            <title>{`${cols[idx].symbol} · ${dim.label}: ${Math.round(d[dim.key])}/100`}</title>
+          </circle>
+        );
       }))}
     </svg>
   );
@@ -443,6 +449,9 @@ function dateLabel(iso: string, long: boolean) {
 }
 
 function PriceChart({ cols, colors, series, rangeKey, height = 300 }: { cols: CompareColumn[]; colors: string[]; series: Map<string, { date: string; close: number }[]>; rangeKey: string; height?: number }) {
+  // Hover crosshair: fraction (0..1) across the plotted window, or null.
+  const [hover, setHover] = React.useState<number | null>(null);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
   const lines = cols.map((c) => sliceFor(series.get(c.symbol) ?? [], rangeKey));
   const longest = lines.reduce((a, b) => (b.length > a.length ? b : a), lines[0] ?? []);
   const n = longest?.length ?? 0;
@@ -462,8 +471,46 @@ function PriceChart({ cols, colors, series, rangeKey, height = 300 }: { cols: Co
   const long = rangeKey === "3Y" || rangeKey === "All" || rangeKey === "1Y";
   const k = 6;
   const xlabels = Array.from({ length: k + 1 }, (_, j) => longest[Math.round((j / k) * (n - 1))]).filter(Boolean);
+
+  // Plot-area fraction of the wrapper width (the right gutter holds y labels).
+  const plotFrac = (W - padL - padR) / W;
+  const onMove = (e: React.MouseEvent) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const fx = (e.clientX - rect.left) / rect.width / plotFrac;
+    setHover(fx >= 0 && fx <= 1 ? fx : null);
+  };
+  // Values at the hovered date: nearest point per ticker.
+  const hoverT = hover != null ? t0 + hover * (t1 - t0) : null;
+  const hoverRows = hoverT != null
+    ? cols.map((c, i) => {
+        const arr = lines[i];
+        if (!arr.length) return null;
+        let best = arr[0];
+        for (const p of arr) if (Math.abs(+new Date(p.date) - hoverT) < Math.abs(+new Date(best.date) - hoverT)) best = p;
+        return { symbol: c.symbol, color: colors[i], date: best.date, v: best.v };
+      }).filter(Boolean) as { symbol: string; color: string; date: string; v: number }[]
+    : [];
+  const hoverDate = hoverRows[0]?.date ?? "";
+
   return (
-    <div style={{ width: "100%", overflow: "hidden" }}>
+    <div ref={wrapRef} style={{ width: "100%", overflow: "hidden", position: "relative", cursor: "crosshair" }}
+      onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      {hover != null && (
+        <>
+          <div style={{ position: "absolute", top: 0, bottom: 22, left: `${hover * plotFrac * 100}%`, width: 1, background: T.line2, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: 8, left: hover < 0.55 ? `calc(${hover * plotFrac * 100}% + 12px)` : undefined, right: hover >= 0.55 ? `calc(${(1 - hover * plotFrac) * 100}% + 12px)` : undefined, background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 9, padding: "8px 11px", pointerEvents: "none", zIndex: 5, boxShadow: "0 8px 24px rgba(0,0,0,.45)" }}>
+            <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, marginBottom: 5 }}>{hoverDate}</div>
+            {hoverRows.map((r) => (
+              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: mono, fontSize: 11.5, marginTop: 2 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 2, background: r.color }} />
+                <span style={{ color: T.ink, fontWeight: 700, width: 44 }}>{r.symbol}</span>
+                <span style={{ color: r.v >= 100 ? T.green : T.red }}>{pct(r.v - 100)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} preserveAspectRatio="none" style={{ display: "block" }}>
         {gl.map((g, i) => (
           <g key={i}>
@@ -673,8 +720,9 @@ export function CompareApp({ columns, series }: { columns: CompareColumn[]; seri
         )}
       </div>
 
-      {/* sticky ticker header */}
-      <div style={{ position: "sticky", top: 0, zIndex: 40, background: T.bg + "f2", backdropFilter: "blur(8px)" }}>
+      {/* sticky ticker header — z-index BELOW the site header (30) so the
+          nav mega-menu always opens above the ticker cards. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: T.bg + "f2", backdropFilter: "blur(8px)" }}>
         <div style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 24px" }}>
           <div className="cmp-headGrid" style={{ display: "grid", gridTemplateColumns: headCols, gap: 12, alignItems: "stretch" }}>
             <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 6 }}>

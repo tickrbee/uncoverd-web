@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Pourquoi Applied Optoelectronics (AAOI) chute de 17 % sans mauvaise nouvelle'
 description: "Applied Optoelectronics a perdu ~17 % le 9 juin 2026 alors que l'actualité était plutôt positive. Prises de bénéfices après un x10 : la chute est-elle justifiée ?"
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - AAOI transceivers 800G
   - actions optique IA correction
 translationKey: 'aaoi-drop-2026-06-09'
+ticker: 'AAOI'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg'
 coverAlt: "Fibres optiques symbolisant l'activité transceivers d'AAOI"
 definition: "Un mouvement est « justifié » quand une forte variation sur une séance s'appuie sur des nouvelles réelles, propres à l'entreprise, et sur ses fondamentaux — pas seulement sur le sentiment."

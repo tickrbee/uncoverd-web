@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Por qué Nuvalent (NUVL) sube un 39 % — la compra de GSK por 10.600 M$'
 description: 'Nuvalent se disparó ~39 % el 9 de junio de 2026 tras el acuerdo de compra de GSK a 124 $ por acción en efectivo. Contrastamos la aritmética de la operación con los fundamentales.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - NUVL precio de compra
   - nuvalent justificada
 translationKey: 'nuvl-buyout-2026-06-09'
+ticker: 'NUVL'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/3825529/pexels-photo-3825529.jpeg'
 coverAlt: 'Material de laboratorio que simboliza el pipeline oncológico de Nuvalent'
 definition: 'Un movimiento está "justificado" cuando una gran variación en una sola sesión se apoya en noticias reales de la empresa y en sus fundamentales — no solo en el sentimiento.'

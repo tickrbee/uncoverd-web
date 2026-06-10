@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Warum CECO Environmental (CECO) 18,5 % auf ein Rekordhoch steigt'
 description: 'CECO Environmental sprang am 9. Juni 2026 um ~18,5 % nach einem starken Update zur Thermon-Übernahme. Wir wägen die Integrations-Story gegen die Fundamentaldaten ab.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - ceco gerechtfertigt
   - industrieaktien rallye
 translationKey: 'ceco-surge-2026-06-09'
+ticker: 'CECO'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg'
 coverAlt: 'Kurstafel mit CECOs Sprung auf ein Rekordhoch'
 definition: 'Ein Move ist „gerechtfertigt", wenn ein großer Tagesausschlag durch echte, unternehmensspezifische Nachrichten und die Fundamentaldaten gestützt wird — nicht nur durch Stimmung.'

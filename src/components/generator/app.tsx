@@ -226,15 +226,13 @@ export function PortfolioGeneratorApp() {
               <span style={{ display: "flex", width: 30, height: 30, borderRadius: 9, background: T.green + "18", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="zap" size={16} color={T.green} /></span>
               <span style={{ fontFamily: display, fontSize: 16, fontWeight: 800, color: T.ink, whiteSpace: "nowrap" }}>Build your portfolio</span>
             </div>
-            {pool ? (
-              <GenForm universe={pool} state={state} set={set} onGenerate={generate} onExtra={onExtra} dirty={dirty}
-                feasibility={state.target > 0 && result ? result.feasibility : null} />
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, color: T.muted, fontSize: 13.5, padding: "30px 0" }}>
-                {loadErr
-                  ? <>Could not load the instrument universe. Refresh to try again.</>
-                  : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={16} color={T.green} /></span> Loading the rated universe…</>}
-              </div>
+            {/* The form renders immediately — live market data hydrates in the
+                background and only the Generate button waits for it. */}
+            <GenForm universe={pool ?? []} state={state} set={set} onGenerate={generate} onExtra={onExtra} dirty={dirty}
+              ready={!!pool}
+              feasibility={state.target > 0 && result ? result.feasibility : null} />
+            {loadErr && !pool && (
+              <div style={{ color: T.red, fontSize: 12.5, marginTop: 12 }}>Could not load live market data — refresh to try again.</div>
             )}
           </Panel>
         </div>

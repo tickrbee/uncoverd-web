@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Perché Nuvalent (NUVL) balza del 39% — l''acquisizione GSK da 10,6 mld $'
 description: 'Nuvalent è balzata di circa il 39% il 9 giugno 2026 dopo l''accordo di acquisizione di GSK a 124 $ per azione in contanti. Confrontiamo l''aritmetica del deal con i fondamentali.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - NUVL prezzo acquisizione
   - nuvalent giustificato
 translationKey: 'nuvl-buyout-2026-06-09'
+ticker: 'NUVL'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/3825529/pexels-photo-3825529.jpeg'
 coverAlt: 'Vetreria da laboratorio che simboleggia la pipeline oncologica di Nuvalent'
 definition: 'Un movimento è "giustificato" quando una forte variazione in una sola seduta è sostenuta da notizie reali e specifiche della società e dai suoi fondamentali — non solo dal sentiment.'

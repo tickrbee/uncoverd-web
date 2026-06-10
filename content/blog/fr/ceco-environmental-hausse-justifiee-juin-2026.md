@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Pourquoi CECO Environmental (CECO) grimpe de 18,5 % à un record'
 description: "CECO Environmental a bondi d'environ 18,5 % le 9 juin 2026 après un point d'étape très positif sur l'acquisition de Thermon. Nous confrontons la story d'intégration aux fondamentaux."
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - ceco justifiée
   - actions industrielles rallye
 translationKey: 'ceco-surge-2026-06-09'
+ticker: 'CECO'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg'
 coverAlt: "Tableau de cotations montrant la hausse record de CECO Environmental"
 definition: "Un mouvement est « justifié » quand une forte variation sur une séance s'appuie sur des nouvelles réelles, propres à l'entreprise, et sur ses fondamentaux — pas seulement sur le sentiment."

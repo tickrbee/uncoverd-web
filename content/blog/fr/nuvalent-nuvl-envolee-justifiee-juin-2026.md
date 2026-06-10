@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Pourquoi Nuvalent (NUVL) bondit de 39 % — le rachat GSK à 10,6 Md$'
 description: "Nuvalent a bondi d'environ 39 % le 9 juin 2026 après l'accord de rachat par GSK à 124 $ par action en cash. Nous confrontons l'arithmétique du deal aux fondamentaux."
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - NUVL prix de rachat
   - nuvalent action justifiée
 translationKey: 'nuvl-buyout-2026-06-09'
+ticker: 'NUVL'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/3825529/pexels-photo-3825529.jpeg'
 coverAlt: 'Verrerie de laboratoire symbolisant le pipeline anticancéreux de Nuvalent'
 definition: "Un mouvement est « justifié » quand une forte variation sur une séance s'appuie sur des nouvelles réelles, propres à l'entreprise, et sur ses fondamentaux — pas seulement sur le sentiment."

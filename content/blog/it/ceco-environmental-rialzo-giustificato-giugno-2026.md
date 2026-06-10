@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Perché CECO Environmental (CECO) sale del 18,5% a un record'
 description: 'CECO Environmental è balzata di circa il 18,5% il 9 giugno 2026 dopo un aggiornamento molto positivo sull''acquisizione di Thermon. Confrontiamo la storia di integrazione con i fondamentali.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - ceco giustificato
   - azioni industriali rally
 translationKey: 'ceco-surge-2026-06-09'
+ticker: 'CECO'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg'
 coverAlt: 'Tabellone di borsa che mostra il rialzo record di CECO Environmental'
 definition: 'Un movimento è "giustificato" quando una forte variazione in una sola seduta è sostenuta da notizie reali e specifiche della società e dai suoi fondamentali — non solo dal sentiment.'

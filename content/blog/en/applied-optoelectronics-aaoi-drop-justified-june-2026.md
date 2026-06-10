@@ -1,4 +1,4 @@
----
+﻿---
 title: "Why Applied Optoelectronics (AAOI) Dropped 17% on No Bad News"
 description: "Applied Optoelectronics fell ~17% on June 9, 2026 with the news flow actually positive. We weigh the profit-taking against a 10x run and the fundamentals to ask if the drop is justified."
 date: "2026-06-09"
@@ -11,6 +11,8 @@ keywords:
   - AAOI 800G transceivers
   - AI optics stocks selloff
 translationKey: "aaoi-drop-2026-06-09"
+ticker: 'AAOI'
+exchange: 'NASDAQ'
 cover: "https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg"
 coverAlt: "Fiber-optic strands representing Applied Optoelectronics' transceiver business"
 definition: "A move is 'justified' when a big one-day price swing is backed by real, company-specific news and the company's fundamentals — not just sentiment."

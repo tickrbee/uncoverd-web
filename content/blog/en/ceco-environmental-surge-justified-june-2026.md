@@ -1,4 +1,4 @@
----
+﻿---
 title: "Why CECO Environmental (CECO) Surged 18.5% to a Record"
 description: "CECO Environmental jumped ~18.5% on June 9, 2026 after a bullish post-closing update on its Thermon acquisition. We weigh the integration story against the fundamentals."
 date: "2026-06-09"
@@ -11,6 +11,8 @@ keywords:
   - ceco environmental justified
   - industrial stocks rally
 translationKey: "ceco-surge-2026-06-09"
+ticker: 'CECO'
+exchange: 'NASDAQ'
 cover: "https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg"
 coverAlt: "Stock ticker board showing CECO Environmental's surge to a record high"
 definition: "A move is 'justified' when a big one-day price swing is backed by real, company-specific news and the company's fundamentals — not just sentiment."

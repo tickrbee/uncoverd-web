@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Warum Nuvalent (NUVL) 39 % springt — GSKs 10,6-Mrd.-$-Übernahme'
 description: 'Nuvalent stieg am 9. Juni 2026 um ~39 %, nachdem GSK die Übernahme für 124 $ je Aktie in bar vereinbart hat. Wir prüfen die Deal-Arithmetik gegen die Fundamentaldaten.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - NUVL übernahmepreis
   - nuvalent aktie gerechtfertigt
 translationKey: 'nuvl-buyout-2026-06-09'
+ticker: 'NUVL'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/3825529/pexels-photo-3825529.jpeg'
 coverAlt: 'Laborgläser als Symbol für Nuvalents Krebs-Pipeline'
 definition: 'Ein Move ist „gerechtfertigt", wenn ein großer Tagesausschlag durch echte, unternehmensspezifische Nachrichten und die Fundamentaldaten gestützt wird — nicht nur durch Stimmung.'

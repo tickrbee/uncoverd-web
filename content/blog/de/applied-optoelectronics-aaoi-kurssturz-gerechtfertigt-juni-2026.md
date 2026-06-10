@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Warum Applied Optoelectronics (AAOI) ohne schlechte News 17 % fällt'
 description: 'Applied Optoelectronics fiel am 9. Juni 2026 um ~17 % — bei eigentlich positiver Nachrichtenlage. Wir wägen Gewinnmitnahmen nach einem 10x-Lauf gegen die Fundamentaldaten ab.'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - AAOI 800G transceiver
   - KI optik aktien ausverkauf
 translationKey: 'aaoi-drop-2026-06-09'
+ticker: 'AAOI'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg'
 coverAlt: 'Glasfasern als Symbol für AAOIs Transceiver-Geschäft'
 definition: 'Ein Move ist „gerechtfertigt", wenn ein großer Tagesausschlag durch echte, unternehmensspezifische Nachrichten und die Fundamentaldaten gestützt wird — nicht nur durch Stimmung.'

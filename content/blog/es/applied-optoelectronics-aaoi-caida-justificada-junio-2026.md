@@ -1,4 +1,4 @@
----
+﻿---
 title: 'Por qué Applied Optoelectronics (AAOI) cae un 17 % sin malas noticias'
 description: 'Applied Optoelectronics perdió ~17 % el 9 de junio de 2026 con un flujo de noticias en realidad positivo. Toma de beneficios tras un x10: ¿está justificada la caída?'
 date: '2026-06-09'
@@ -11,6 +11,8 @@ keywords:
   - AAOI transceptores 800G
   - acciones optica IA correccion
 translationKey: 'aaoi-drop-2026-06-09'
+ticker: 'AAOI'
+exchange: 'NASDAQ'
 cover: 'https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg'
 coverAlt: 'Fibras ópticas que simbolizan el negocio de transceptores de AAOI'
 definition: 'Un movimiento está "justificado" cuando una gran variación en una sola sesión se apoya en noticias reales de la empresa y en sus fundamentales — no solo en el sentimiento.'

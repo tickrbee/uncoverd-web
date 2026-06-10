@@ -1,4 +1,4 @@
----
+﻿---
 title: "Why Nuvalent (NUVL) Jumped 39% — GSK's $10.6B Buyout"
 description: "Nuvalent soared ~39% on June 9, 2026 after GSK agreed to buy it for $124 per share in cash. We check the deal math against the fundamentals to ask if the move is justified."
 date: "2026-06-09"
@@ -11,6 +11,8 @@ keywords:
   - NUVL buyout price
   - nuvalent stock justified
 translationKey: "nuvl-buyout-2026-06-09"
+ticker: 'NUVL'
+exchange: 'NASDAQ'
 cover: "https://images.pexels.com/photos/3825529/pexels-photo-3825529.jpeg"
 coverAlt: "Laboratory glassware representing Nuvalent's cancer-drug pipeline"
 definition: "A move is 'justified' when a big one-day price swing is backed by real, company-specific news and the company's fundamentals — not just sentiment."

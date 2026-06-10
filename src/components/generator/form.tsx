@@ -184,7 +184,7 @@ function FormSection({ n, title, hint, children, first }: { n: string; title: st
   );
 }
 
-export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feasibility }: {
+export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feasibility, ready = true }: {
   universe: GenInstrument[];
   state: GenOptions;
   set: (patch: Partial<GenOptions>) => void;
@@ -192,6 +192,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
   onExtra: (inst: GenInstrument) => void;
   dirty: boolean;
   feasibility: Feasibility | null;
+  ready?: boolean;
 }) {
   const sym = curSym(state.currency);
   return (
@@ -364,11 +365,13 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         </div>
       </FormSection>
 
-      <button onClick={onGenerate} className="gen-btnPrimary gen-generate" style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, background: T.green, color: T.bg,
-        border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer",
+      <button onClick={ready ? onGenerate : undefined} disabled={!ready} className="gen-btnPrimary gen-generate" style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, background: ready ? T.green : T.raised, color: ready ? T.bg : T.muted,
+        border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: ready ? "pointer" : "default",
       }}>
-        <Icon name={dirty ? "zap" : "repeat"} size={18} /> {dirty ? "Generate my portfolio" : "Regenerate"} <Icon name="arrowRight" size={17} />
+        {ready
+          ? <><Icon name={dirty ? "zap" : "repeat"} size={18} /> {dirty ? "Generate my portfolio" : "Regenerate"} <Icon name="arrowRight" size={17} /></>
+          : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={17} /></span> Fetching live market data…</>}
       </button>
     </div>
   );

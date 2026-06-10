@@ -31,6 +31,10 @@ export type PostMeta = {
   factCheckedBy?: string;
   definition?: string; // short "Definition" callout near the top
   keyTakeaways?: string[]; // "Key takeaways" box
+  // Primary ticker the article is about (movers/analysis posts) — powers the
+  // live rating card + ticker-aware CTAs in the conversion rail.
+  ticker?: string;
+  exchange?: string;
 };
 
 export type Post = { meta: PostMeta; body: string };
@@ -77,6 +81,8 @@ export function getPost(locale: Locale, slug: string): Post | null {
     factCheckedBy: data.factCheckedBy ? String(data.factCheckedBy) : undefined,
     definition: data.definition ? String(data.definition) : undefined,
     keyTakeaways: Array.isArray(data.keyTakeaways) ? data.keyTakeaways.map(String) : undefined,
+    ticker: data.ticker ? String(data.ticker).toUpperCase() : undefined,
+    exchange: data.exchange ? String(data.exchange) : undefined,
   };
   return { meta, body: content };
 }

@@ -13,7 +13,11 @@ import {
 } from "@/lib/structured-data";
 import { HTML_LANG, localePrefix, localizedUrl, type Locale } from "@/lib/i18n";
 import { BLOG_STRINGS, formatPostDate } from "@/components/blog/blog-strings";
+import { ReadingProgress } from "@/components/blog/progress-bar";
 import { pexelsImage } from "@/lib/seo";
+import { getStock } from "@/lib/data";
+import { cachedGetStockRatings } from "@/lib/cached-data";
+import type { StockRating, StockRow } from "@/lib/types";
 import type { Post } from "@/lib/content";
 
 // Long-form helpers (card 15): heading anchors + table of contents + lazy imgs.
@@ -73,10 +77,46 @@ const MD_COMPONENTS: Components = {
   },
 };
 
-export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
+// Which tools this article should market, in order — aligned with the story.
+// Posts about a stock going DOWN sell risk control (Healthcheck); posts about
+// a stock going UP sell the top-rated list; everything else gets the mix.
+type ToolKey = "healthcheck" | "alternatives" | "compare" | "best";
+function toolsForPost(slug: string, hasTicker: boolean): ToolKey[] {
+  const s = slug.toLowerCase();
+  const down = /(drop|selloff|sell-off|plunge|crash|fall|kurssturz|absturz|chute|caida|caída|calo|crollo)/.test(s);
+  const up = /(surge|jump|buyout|rebound|rally|kurssprung|erholung|hausse|envolee|envolée|rebond|subida|rebote|balzo|rialzo|rimbalzo)/.test(s);
+  if (down) return hasTicker ? ["healthcheck", "alternatives", "compare"] : ["healthcheck", "best", "alternatives"];
+  if (up) return hasTicker ? ["best", "compare", "healthcheck"] : ["best", "healthcheck", "alternatives"];
+  return ["best", "healthcheck", "alternatives"];
+}
+
+const PILLARS: { key: keyof Pick<StockRating, "value_score" | "growth_score" | "profit_score" | "momentum_score" | "health_score">; label: Record<Locale, string> }[] = [
+  { key: "value_score", label: { en: "Value", fr: "Valorisation", de: "Bewertung", it: "Valutazione", es: "Valoración" } },
+  { key: "growth_score", label: { en: "Growth", fr: "Croissance", de: "Wachstum", it: "Crescita", es: "Crecimiento" } },
+  { key: "profit_score", label: { en: "Profitability", fr: "Rentabilité", de: "Profitabilität", it: "Redditività", es: "Rentabilidad" } },
+  { key: "health_score", label: { en: "Health", fr: "Santé financière", de: "Finanzkraft", it: "Salute finanziaria", es: "Salud financiera" } },
+  { key: "momentum_score", label: { en: "Momentum", fr: "Momentum", de: "Momentum", it: "Momentum", es: "Momentum" } },
+];
+
+export async function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
   const t = BLOG_STRINGS[locale];
   const prefix = localePrefix(locale);
   const url = localizedUrl(locale, `/blog/${post.meta.slug}`);
+
+  // Live rating + quote for the conversion rail (ticker-tagged posts only).
+  const ticker = post.meta.ticker;
+  let rating: StockRating | null = null;
+  let quote: StockRow | null = null;
+  if (ticker) {
+    try {
+      const [ratings, stock] = await Promise.all([
+        cachedGetStockRatings([ticker]),
+        getStock(ticker),
+      ]);
+      rating = ratings.get(ticker) ?? null;
+      quote = stock;
+    } catch { /* rail degrades gracefully */ }
+  }
 
   const article = articleJsonLd({
     url,
@@ -98,6 +138,56 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
   const h2s = extractH2s(post.body);
   const showToc = h2s.length >= 3;
 
+  const tools = toolsForPost(post.meta.slug, !!ticker);
+  const TOOL_LINKS: Record<ToolKey, { href: string; label: string; note: string }> = {
+    healthcheck: { href: "/tools/portfolio-healthcheck", label: t.toolHealthcheck, note: t.toolHealthcheckNote },
+    alternatives: { href: "/alternatives", label: t.toolAlternatives, note: t.toolAlternativesNote },
+    compare: { href: ticker ? `/compare?a=${ticker}` : "/compare", label: t.toolCompare, note: t.toolCompareNote },
+    best: { href: "/best-stocks", label: t.toolBest, note: t.toolBestNote },
+  };
+
+  const grade = rating?.composite_grade ?? null;
+  const price = quote?.price ?? null;
+  const change = quote?.change_percent ?? null;
+
+  const ratingCard = ticker && rating && grade ? (
+    <div className="dv-ratecard">
+      <div className="dv-ratecard__head">
+        <span className="dv-ratecard__grade">{grade}</span>
+        <div>
+          <div className="dv-ratecard__label">{t.ratingCardLabel}</div>
+          <div className="dv-ratecard__tk">
+            {ticker}
+            {price != null && <span className="dv-ratecard__px">${price.toFixed(2)}</span>}
+            {change != null && <span className={change >= 0 ? "dv-up" : "dv-down"}>{change >= 0 ? "+" : ""}{change.toFixed(2)}%</span>}
+          </div>
+        </div>
+      </div>
+      <div className="dv-ratecard__pillars">
+        {PILLARS.map((p) => {
+          const v = rating![p.key] ?? 0;
+          return (
+            <div key={p.key} className="dv-pillar">
+              <div className="dv-pillar__row">
+                <span>{p.label[locale]}</span>
+                <span className={v >= 4 ? "dv-up" : undefined}>{v}/5</span>
+              </div>
+              <div className="dv-pillar__bars">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span key={n} className={`dv-pillar__seg ${n <= (v ?? 0) ? (v! >= 4 ? "is-good" : "is-mid") : ""}`} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="dv-ratecard__locked" aria-hidden="true">
+        <span>{t.fairValueLabel}</span>
+      </div>
+      <Link href="/pricing" className="dv-ratecard__cta">{t.unlockRating}</Link>
+    </div>
+  ) : null;
+
   return (
     <>
       {locale !== "en" && <HtmlLang lang={HTML_LANG[locale]} />}
@@ -106,6 +196,7 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
       {faq && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(faq) }} />
       )}
+      <ReadingProgress />
       <SiteHeader />
       <main className="dv-page">
         <article id="top">
@@ -116,7 +207,18 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
               </Link>
             </p>
             <h1>{post.meta.title}</h1>
-            <p className="dv-byline">{dateLine}</p>
+            <p className="dv-byline">
+              {dateLine}
+              {ticker && (
+                <span className="dv-hero-ticker">
+                  {post.meta.exchange ? `${post.meta.exchange}: ` : ""}{ticker}
+                  {price != null && ` · $${price.toFixed(2)}`}
+                  {change != null && (
+                    <span className={change >= 0 ? "dv-up" : "dv-down"}> {change >= 0 ? "+" : ""}{change.toFixed(2)}%</span>
+                  )}
+                </span>
+              )}
+            </p>
           </header>
 
           {post.meta.cover && (
@@ -133,74 +235,114 @@ export function BlogPostView({ post, locale }: { post: Post; locale: Locale }) {
             </section>
           )}
 
-          {post.meta.definition && (
-            <section className="dv-section">
-              <div className="dv-definition">
-                <span className="dv-definition__label">{t.definitionLabel}</span>
-                <p>{post.meta.definition}</p>
+          <div className="dv-blog-grid">
+            <div className="dv-blog-main">
+              {post.meta.definition && (
+                <div className="dv-definition">
+                  <span className="dv-definition__label">{t.definitionLabel}</span>
+                  <p>{post.meta.definition}</p>
+                </div>
+              )}
+
+              {post.meta.keyTakeaways && post.meta.keyTakeaways.length > 0 && (
+                <div className="dv-takeaways">
+                  <h2 className="dv-takeaways__title">{t.keyTakeawaysHeading}</h2>
+                  <ul>
+                    {post.meta.keyTakeaways.map((k, i) => (
+                      <li key={i}>{k}</li>
+                    ))}
+                  </ul>
+                  <a href="/unlock" className="dv-takeaways__cta">
+                    {t.topPickCta}
+                  </a>
+                </div>
+              )}
+
+              <div className="dv-prose dv-blog-prose">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{post.body}</ReactMarkdown>
               </div>
-            </section>
-          )}
 
-          {post.meta.keyTakeaways && post.meta.keyTakeaways.length > 0 && (
-            <section className="dv-section">
-              <div className="dv-takeaways">
-                <h2 className="dv-takeaways__title">{t.keyTakeawaysHeading}</h2>
-                <ul>
-                  {post.meta.keyTakeaways.map((k, i) => (
-                    <li key={i}>{k}</li>
-                  ))}
-                </ul>
-                <a href="/unlock" className="dv-takeaways__cta">
-                  {t.topPickCta}
-                </a>
+              {/* Inline conversion gate: the deeper rating report is members-only. */}
+              {ticker && grade && (
+                <div className="dv-locked">
+                  <div className="dv-locked__teaser" aria-hidden="true">
+                    <h3>{t.lockedTitle} — {ticker}</h3>
+                    <p>{t.lockedBody}</p>
+                    <p>{t.lockedBody}</p>
+                  </div>
+                  <div className="dv-locked__overlay">
+                    <h3>{t.lockedTitle}</h3>
+                    <p>{t.lockedBody}</p>
+                    <Link href="/pricing" className="dv-locked__cta">{t.lockedCta}</Link>
+                  </div>
+                </div>
+              )}
+
+              {/* End-of-article conversion block. */}
+              <div className="dv-endcta">
+                <div className="dv-endcta__kicker">{t.endCtaKicker}</div>
+                <h2>{t.endCtaTitle}</h2>
+                <p>{t.endCtaBody}</p>
+                <div className="dv-endcta__actions">
+                  <Link href="/pricing" className="dv-endcta__primary">{t.endCtaBtn}</Link>
+                  <Link href="/pricing" className="dv-endcta__secondary">{t.endCtaSecondary}</Link>
+                </div>
               </div>
-            </section>
-          )}
 
-          {showToc && (
-            <section className="dv-section">
-              <nav className="dv-toc" aria-label={TOC_LABEL[locale]}>
-                <p className="dv-toc__title">{TOC_LABEL[locale]}</p>
-                <ul>
-                  {h2s.map((h) => (
-                    <li key={h.slug}>
-                      <a href={`#${h.slug}`}>{h.text}</a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </section>
-          )}
+              {post.meta.faqs && post.meta.faqs.length > 0 && (
+                <section>
+                  <h2 className="dv-section__title">{t.faqHeading}</h2>
+                  <div className="dv-faq-list">
+                    {post.meta.faqs.map((qa, i) => (
+                      <details key={i} className="dv-faq-item">
+                        <summary>{qa.q}</summary>
+                        <p>{qa.a}</p>
+                      </details>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-          <section className="dv-section">
-            <div className="dv-prose dv-blog-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{post.body}</ReactMarkdown>
+              <p style={{ marginTop: "1.5rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+                <Link href={`${prefix}/blog`} className="dv-action-link">
+                  {t.backToBlog}
+                </Link>
+                {showToc && <a href="#top" className="dv-action-link">{BACK_TOP_LABEL[locale]}</a>}
+              </p>
             </div>
-          </section>
 
-          {post.meta.faqs && post.meta.faqs.length > 0 && (
-            <section className="dv-section">
-              <h2 className="dv-section__title">{t.faqHeading}</h2>
-              <div className="dv-faq-list">
-                {post.meta.faqs.map((qa, i) => (
-                  <details key={i} className="dv-faq-item">
-                    <summary>{qa.q}</summary>
-                    <p>{qa.a}</p>
-                  </details>
-                ))}
+            {/* Sticky conversion rail */}
+            <aside className="dv-blog-rail">
+              {ratingCard}
+              {showToc && (
+                <nav className="dv-rail-card" aria-label={TOC_LABEL[locale]}>
+                  <p className="dv-rail-card__title">{TOC_LABEL[locale]}</p>
+                  <ul className="dv-rail-toc">
+                    {h2s.map((h) => (
+                      <li key={h.slug}>
+                        <a href={`#${h.slug}`}>{h.text}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+              <div className="dv-rail-card">
+                <p className="dv-rail-card__title">{t.putToWork}</p>
+                <div className="dv-rail-tools">
+                  {tools.map((k) => (
+                    <Link key={k} href={TOOL_LINKS[k].href} className="dv-rail-tool">
+                      <span className="dv-rail-tool__label">{TOOL_LINKS[k].label}</span>
+                      <span className="dv-rail-tool__note">{TOOL_LINKS[k].note}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </section>
-          )}
-
-          <p style={{ marginTop: "1.5rem", display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-            <Link href={`${prefix}/blog`} className="dv-action-link">
-              {t.backToBlog}
-            </Link>
-            {showToc && <a href="#top" className="dv-action-link">{BACK_TOP_LABEL[locale]}</a>}
-          </p>
+            </aside>
+          </div>
         </article>
       </main>
+      {/* Sticky mobile CTA */}
+      <Link href="/pricing" className="dv-mobilecta">{t.mobileCta}</Link>
       <SiteFooter />
     </>
   );
