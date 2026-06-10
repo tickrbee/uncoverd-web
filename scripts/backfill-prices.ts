@@ -81,6 +81,15 @@ const fromIso = (() => {
 const toIso = new Date().toISOString().slice(0, 10);
 
 async function loadSymbols(): Promise<string[]> {
+  // BACKFILL_SYMBOLS: explicit comma-separated list (or @file path) — used to
+  // deep-backfill a scoped set (e.g. the portfolio-generator universe + SPY)
+  // without touching the 65k-symbol universe.
+  const explicit = process.env.BACKFILL_SYMBOLS;
+  if (explicit) {
+    const raw = explicit.startsWith("@") ? fs.readFileSync(explicit.slice(1), "utf8") : explicit;
+    const syms = raw.split(/[\s,;]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+    return [...new Set(syms)];
+  }
   const out: string[] = [];
   let offset = 0;
   for (;;) {

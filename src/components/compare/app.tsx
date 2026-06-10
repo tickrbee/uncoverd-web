@@ -321,7 +321,8 @@ function RadarChart({ cols, colors, size = 300 }: { cols: CompareColumn[]; color
         <div style={{ position: "absolute", left: clamp(tip.x + 10, 0, size - 130), top: Math.max(0, tip.y - 38), zIndex: 5, pointerEvents: "none", background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 8, padding: "6px 9px", boxShadow: "0 8px 24px rgba(0,0,0,.5)", whiteSpace: "nowrap" }}>
           <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: tip.color }}>{tip.tk}</span>
           <span style={{ fontFamily: mono, fontSize: 11.5, color: T.muted }}> · {tip.dim}: </span>
-          <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.ink }}>{tip.v}/100</span>
+          {/* Same 5-point scale as the uncoverd rating pillars. */}
+          <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.ink }}>{(tip.v / 20).toFixed(1)}/5</span>
         </div>
       )}
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", margin: "0 auto", overflow: "visible" }}>
@@ -423,6 +424,10 @@ function Verdict({ cols, colors, sections }: { cols: CompareColumn[]; colors: st
                 <span style={{ fontFamily: mono, fontSize: 12, color: T.muted, fontWeight: 600 }}>{c.symbol}</span>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 11, color: T.faint, lineHeight: 1.5, textAlign: "center" }}>
+            Stocks: the five uncoverd rating pillars (out of 5) + Income from yield.
+            ETFs aren&apos;t pillar-rated — their dims are estimated from yield, cost, breadth and returns. Hover a dot for the value.
           </div>
         </div>
       </div>
