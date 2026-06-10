@@ -167,13 +167,62 @@ export function PortfolioGeneratorApp() {
   const onPin = (tk: string) => { if (!state.anchors.includes(tk)) set({ anchors: [...state.anchors, tk] }); };
   const onRemove = (tk: string) => setExclude((e) => (e.includes(tk) ? e : [...e, tk]));
 
+  // ---- v4 COMPOSE: the engine picks the candidates; the server runs
+  // Black–Litterman (equilibrium prior from USD caps + rating views) over the
+  // real covariance and returns OPTIMIZED weights per scheme. Cached per
+  // candidate set.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [composeBy, setComposeBy] = React.useState<Record<string, any>>({});
+  const composeKey = result
+    ? result.variants[0].holdings.filter((h) => h.cls !== "cash").map((h) => h.tk).sort().join(",")
+    : "";
+  React.useEffect(() => {
+    if (!generated || !result || !composeKey || composeBy[composeKey]) return;
+    const symbols = composeKey.split(",").filter(Boolean);
+    if (symbols.length < 4) return;
+    let alive = true;
+    fetch("/api/portfolio/compose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols, horizonYears: result.inputs.years }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.ok) setComposeBy((prev) => ({ ...prev, [composeKey]: d })); })
+      .catch(() => { /* heuristic weights stay */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generated, composeKey]);
+
+  // Apply the optimizer's weights to the matching variants (the others keep
+  // the engine heuristics, clearly unlabeled as optimized).
+  const composedResult = React.useMemo(() => {
+    if (!result) return null;
+    const cp = composeBy[composeKey];
+    if (!cp?.weights) return result;
+    return {
+      ...result,
+      variants: result.variants.map((v) => {
+        const wMap = cp.weights[v.id] as Record<string, number> | undefined;
+        if (!wMap) return v;
+        const cashW = v.holdings.find((h) => h.cls === "cash")?.w ?? 0;
+        const droppedW = v.holdings.filter((h) => h.cls !== "cash" && wMap[h.tk] == null).reduce((a, h) => a + h.w, 0);
+        const scale = Math.max(0, 1 - cashW - droppedW);
+        const holdings = v.holdings
+          .map((h) => (h.cls === "cash" || wMap[h.tk] == null ? h : { ...h, w: wMap[h.tk] * scale }))
+          .filter((h) => h.cls === "cash" || h.w > 0.004)
+          .sort((a, b) => (a.cls === "cash" ? 1 : b.cls === "cash" ? -1 : b.w - a.w));
+        return { ...v, holdings, optimized: true, costBps: cp.implementationBps?.[v.id] };
+      }),
+    };
+  }, [result, composeBy, composeKey]);
+
   // ---- REAL metrics: measure the selected variant against actual price
   // history via the weighted healthcheck API, then overlay the modelled
   // estimates. Cached per (variant + holdings) so switching back is instant.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [realBy, setRealBy] = React.useState<Record<string, any>>({});
   const [realLoading, setRealLoading] = React.useState(false);
-  const curVariant = result?.variants.find((v) => v.id === selected) ?? result?.variants[0];
+  const curVariant = composedResult?.variants.find((v) => v.id === selected) ?? composedResult?.variants[0];
   const realKey = curVariant
     ? curVariant.id + ":" + curVariant.holdings.filter((h) => h.cls !== "cash").map((h) => h.tk + Math.round(h.w * 1000)).join(",")
     : "";
@@ -203,17 +252,17 @@ export function PortfolioGeneratorApp() {
   }, [generated, realKey]);
 
   // The result the views render: selected variant's metrics get the real
-  // overlay once measured.
+  // overlay once measured (on top of the optimized weights when composed).
   const displayResult = React.useMemo(() => {
-    if (!result) return null;
+    if (!composedResult) return null;
     const real = realBy[realKey];
-    if (!real) return result;
-    const ctx = { years: result.inputs.years, amount: result.inputs.amount, monthlyDCA: result.inputs.monthlyDCA };
+    if (!real) return composedResult;
+    const ctx = { years: composedResult.inputs.years, amount: composedResult.inputs.amount, monthlyDCA: composedResult.inputs.monthlyDCA };
     return {
-      ...result,
-      variants: result.variants.map((v) => (v.id === (curVariant?.id ?? selected) ? { ...v, metrics: applyReal(v.metrics, real, ctx) } : v)),
+      ...composedResult,
+      variants: composedResult.variants.map((v) => (v.id === (curVariant?.id ?? selected) ? { ...v, metrics: applyReal(v.metrics, real, ctx) } : v)),
     };
-  }, [result, realBy, realKey, curVariant?.id, selected]);
+  }, [composedResult, realBy, realKey, curVariant?.id, selected]);
 
   return (
     <div className="gen-root" style={{ background: T.bg, minHeight: "100vh", color: T.ink, fontFamily: body }}>

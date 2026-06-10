@@ -422,6 +422,8 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
     // Same-window measured stats for the legendary reference baskets (and
     // "yours") — filled by applyReal() from the deep-history response.
     legendaryReal: null as { id: string; ret: number; sharpe: number; maxDD: number; years: number }[] | null,
+    // Factor exposures (0..100, port vs benchmark) — filled by applyReal().
+    factorsReal: null as { factor: string; port: number; bench: number }[] | null,
     // Real growth-of-100 backtest curve vs SPY — filled by applyReal().
     curve: null as { i: number; port: number; bench: number }[] | null,
     // True when the forward projection had to cap a hot measured return.
@@ -511,6 +513,7 @@ export function applyReal(
     survived = Math.abs(worst) <= m.ddCeil + 4;
   }
   const legendaryReal = Array.isArray(real?.legendary) && real.legendary.length ? real.legendary : m.legendaryReal;
+  const factorsReal = Array.isArray(real?.factors) && real.factors.length ? real.factors : m.factorsReal;
 
   return {
     ...m,
@@ -519,6 +522,7 @@ export function applyReal(
     worst,
     survived,
     legendaryReal,
+    factorsReal,
     vol: +(+vol).toFixed(1),
     er: +(+er).toFixed(1),
     yield: +(+yld).toFixed(2),
@@ -551,7 +555,13 @@ export function applyReal(
   };
 }
 
-export type Variant = { id: string; label: string; rec: boolean; blurb: string; holdings: Holding[]; metrics: Metrics; tag: { a: string; b: string; color: string } };
+export type Variant = {
+  id: string; label: string; rec: boolean; blurb: string; holdings: Holding[]; metrics: Metrics; tag: { a: string; b: string; color: string };
+  // Set when the weights came from the server-side Black–Litterman optimizer.
+  optimized?: boolean;
+  // Estimated round-trip implementation cost of these weights (bps).
+  costBps?: number;
+};
 export type GenResult = { inputs: Required<GenOptions> & { years: number }; variants: Variant[]; recommended: string; feasibility: Feasibility | null };
 
 // Reference figures for famous allocations (long-run public estimates).

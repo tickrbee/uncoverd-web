@@ -132,6 +132,30 @@ export function BacktestChart({ curve, er }: { curve: { i: number; port: number;
   );
 }
 
+/* ---------- factor exposures (real, vs S&P 500) ---------- */
+export function FactorPanel({ factors }: { factors: { factor: string; port: number; bench: number }[] }) {
+  return (
+    <Panel pad={20} style={{ marginBottom: 20 }}>
+      <Eyebrow icon="layers">Factor exposure · vs S&P 500</Eyebrow>
+      <div style={{ display: "grid", gap: 11 }}>
+        {factors.map((f) => (
+          <div key={f.factor}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
+              <span>{f.factor}</span>
+              <span><span style={{ color: T.green, fontWeight: 700 }}>{Math.round(f.port)}</span> <span style={{ color: T.faint }}>vs {Math.round(f.bench)}</span></span>
+            </div>
+            <div style={{ position: "relative", height: 7, background: T.raised, borderRadius: 4 }}>
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(100, Math.max(0, f.port))}%`, background: T.green, borderRadius: 4, opacity: 0.85 }} />
+              <div style={{ position: "absolute", left: `${Math.min(100, Math.max(0, f.bench))}%`, top: -2, bottom: -2, width: 2, background: T.faint, borderRadius: 1 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, fontSize: 11, color: T.faint }}>Weighted from the holdings&apos; rating pillars and market stats; the grey tick marks the S&amp;P 500 baseline.</div>
+    </Panel>
+  );
+}
+
 /* ---------- AI analysis (LLM layer, premium) ---------- */
 function AiAnalysis({ result, variant, auto = false }: { result: GenResult; variant: Variant; auto?: boolean }) {
   const [answer, setAnswer] = React.useState("");
@@ -421,7 +445,17 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
           <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 9 }}>Your generated portfolio</div>
           <h2 style={{ fontFamily: display, fontSize: 28, fontWeight: 800, color: T.ink, margin: 0, letterSpacing: "-0.02em" }}>{name}</h2>
           <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>{variant.label} optimization · {holdings.length} holdings · sized to {fmtCur(result.inputs.amount, sym)}</div>
-          <div style={{ marginTop: 10 }}><MeasuredBadge measured={!!m.measured} loading={realLoading} /></div>
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <MeasuredBadge measured={!!m.measured} loading={realLoading} />
+            {variant.optimized && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", color: "#7aa7ff", background: "#7aa7ff14", border: "1px solid #7aa7ff44", borderRadius: 7, padding: "4px 9px" }}>
+                <Icon name="zap" size={11} color="#7aa7ff" /> BLACK–LITTERMAN OPTIMIZED
+              </span>
+            )}
+            {variant.optimized && variant.costBps != null && (
+              <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>est. cost to implement ~{variant.costBps} bps</span>
+            )}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ textAlign: "right" }}>
@@ -522,6 +556,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
 
       {/* risk contribution — full width */}
       <div style={{ marginBottom: 20 }}><RiskContribution metrics={m} /></div>
+
+      {/* factor exposures (real) */}
+      {m.factorsReal && m.factorsReal.length > 0 && <FactorPanel factors={m.factorsReal} />}
 
       {/* sectors + scores */}
       <div className="gen-twoCol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
