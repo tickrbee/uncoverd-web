@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/i18n";
+﻿import type { Locale } from "@/lib/i18n";
 
 // Localized chrome for the blog (titles, labels). Article bodies themselves
 // are authored per-language in content/blog/<locale>/.
@@ -44,6 +44,10 @@ type Strings = {
   bannerBestTitle: string;
   bannerBestBody: string;
   bannerBestCta: string;
+  // {sector} is substituted with the localized sector label.
+  bannerSectorTitle: string;
+  bannerSectorBody: string;
+  bannerBadge: string;
   bannerHealthTitle: string;
   bannerHealthBody: string;
   bannerHealthCta: string;
@@ -94,6 +98,9 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     bannerBestTitle: "The 10 top-rated dividend stocks to own this month",
     bannerBestBody: "Our model re-ranks every payer daily. See who sits on top right now.",
     bannerBestCta: "See the list →",
+    bannerSectorTitle: "The best {sector} dividend stocks to own right now",
+    bannerSectorBody: "Every {sector} payer ranked A–F by our model — see who leads.",
+    bannerBadge: "PREMIUM LIST",
     bannerHealthTitle: "Is your portfolio built for a day like this?",
     bannerHealthBody: "Run the Portfolio Healthcheck — risk, concentration and diversification in one score.",
     bannerHealthCta: "Check my portfolio →",
@@ -142,6 +149,9 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     bannerBestTitle: "Les 10 actions à dividende les mieux notées du mois",
     bannerBestBody: "Notre modèle reclasse chaque payeur quotidiennement. Voyez qui est en tête en ce moment.",
     bannerBestCta: "Voir la liste →",
+    bannerSectorTitle: "Les meilleures actions à dividende {sector} à détenir maintenant",
+    bannerSectorBody: "Chaque payeur {sector} noté A–F par notre modèle — voyez qui mène.",
+    bannerBadge: "LISTE PREMIUM",
     bannerHealthTitle: "Votre portefeuille est-il prêt pour une journée comme celle-ci ?",
     bannerHealthBody: "Lancez le bilan de portefeuille — risque, concentration et diversification en un seul score.",
     bannerHealthCta: "Analyser mon portefeuille →",
@@ -190,6 +200,9 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     bannerBestTitle: "Die 10 bestbewerteten Dividendenaktien des Monats",
     bannerBestBody: "Unser Modell stuft jeden Zahler täglich neu ein. Sehen Sie, wer gerade vorne liegt.",
     bannerBestCta: "Liste ansehen →",
+    bannerSectorTitle: "Die besten {sector}-Dividendenaktien, die man jetzt halten sollte",
+    bannerSectorBody: "Jeder {sector}-Zahler von unserem Modell mit A–F bewertet — sehen Sie, wer führt.",
+    bannerBadge: "PREMIUM-LISTE",
     bannerHealthTitle: "Ist Ihr Portfolio für so einen Tag gebaut?",
     bannerHealthBody: "Portfolio-Check starten — Risiko, Konzentration und Diversifikation in einem Score.",
     bannerHealthCta: "Portfolio prüfen →",
@@ -238,6 +251,9 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     bannerBestTitle: "Le 10 azioni a dividendo meglio valutate del mese",
     bannerBestBody: "Il nostro modello riclassifica ogni titolo ogni giorno. Guarda chi è in cima adesso.",
     bannerBestCta: "Vedi la lista →",
+    bannerSectorTitle: "Le migliori azioni a dividendo {sector} da possedere adesso",
+    bannerSectorBody: "Ogni titolo {sector} valutato A–F dal nostro modello — guarda chi è in testa.",
+    bannerBadge: "LISTA PREMIUM",
     bannerHealthTitle: "Il tuo portafoglio è pronto per una giornata così?",
     bannerHealthBody: "Avvia il check del portafoglio — rischio, concentrazione e diversificazione in un solo punteggio.",
     bannerHealthCta: "Analizza il mio portafoglio →",
@@ -286,6 +302,9 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     bannerBestTitle: "Las 10 acciones de dividendo mejor valoradas del mes",
     bannerBestBody: "Nuestro modelo reclasifica cada valor a diario. Mira quién está arriba ahora mismo.",
     bannerBestCta: "Ver la lista →",
+    bannerSectorTitle: "Las mejores acciones de dividendo de {sector} para tener ahora",
+    bannerSectorBody: "Cada valor de {sector} calificado A–F por nuestro modelo — mira quién lidera.",
+    bannerBadge: "LISTA PREMIUM",
     bannerHealthTitle: "¿Está tu cartera preparada para un día como este?",
     bannerHealthBody: "Haz el chequeo de cartera — riesgo, concentración y diversificación en una sola puntuación.",
     bannerHealthCta: "Analizar mi cartera →",

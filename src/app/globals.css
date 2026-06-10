@@ -3015,6 +3015,29 @@ a {
 .dv-inline-promo:hover { border-color: #2fe3a0; transform: translateY(-1px); }
 .dv-inline-promo__title { display: block; font-weight: 700; color: var(--text-primary); font-size: 1rem; }
 .dv-inline-promo__body { display: block; color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
+/* premium-list banners pop harder: badge + glow + bigger title */
+.dv-inline-promo--list {
+  border: 1.5px solid rgba(47, 227, 160, 0.55);
+  box-shadow: 0 0 0 1px rgba(47, 227, 160, 0.12), 0 14px 34px -14px rgba(47, 227, 160, 0.35);
+  padding: 1.15rem 1.3rem;
+}
+.dv-inline-promo--list:hover {
+  box-shadow: 0 0 0 1px rgba(47, 227, 160, 0.3), 0 18px 40px -14px rgba(47, 227, 160, 0.5);
+  transform: translateY(-2px);
+}
+.dv-inline-promo--list .dv-inline-promo__title { font-size: 1.12rem; letter-spacing: -0.01em; }
+.dv-inline-promo__badge {
+  display: inline-block;
+  margin-bottom: 5px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #e0b34e;
+  background: rgba(224, 179, 78, 0.12);
+  border: 1px solid rgba(224, 179, 78, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
 .dv-inline-promo__cta {
   flex-shrink: 0;
   background: #2fe3a0;

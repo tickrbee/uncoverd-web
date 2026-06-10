@@ -16,6 +16,7 @@ import { BLOG_STRINGS, formatPostDate } from "@/components/blog/blog-strings";
 import { ReadingProgress } from "@/components/blog/progress-bar";
 import { pexelsImage } from "@/lib/seo";
 import { getStock } from "@/lib/data";
+import { SECTORS } from "@/lib/i18n-taxonomy";
 import { cachedGetStockRatings } from "@/lib/cached-data";
 import type { StockRating, StockRow } from "@/lib/types";
 import type { Post } from "@/lib/content";
@@ -173,25 +174,32 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
   const price = quote?.price ?? null;
   const change = quote?.change_percent ?? null;
 
-  // Mid-article promo banners: split the body at H2s and inject up to two
-  // banners between sections. Banner 1 always markets the email-gated
-  // top-stocks list; banner 2 routes by story direction (down → Healthcheck,
-  // otherwise → Generator). Premium funnels, not just "Get Pro".
+  // Mid-article promo banners: premium LISTS, matched to the stock's sector
+  // ("next NVIDIA"-style tech list on a tech post, industrials list on CECO…).
+  // Tools only appear on DROP posts (Healthcheck = risk control); everything
+  // else markets the rated lists, which are the premium content.
   const slugLower = post.meta.slug.toLowerCase();
   const isDown = /(drop|selloff|sell-off|plunge|crash|fall|kurssturz|absturz|chute|caida|caída|calo|crollo)/.test(slugLower);
   const chunks = splitAtH2(post.body);
-  // Banner 1: Healthcheck. Banner 2: Generator (down-posts lead with risk
-  // control either way). The top-10 list lives in the rail + takeaways CTA
-  // (→ /best-stocks: reveals for Pro, captures signups from free readers).
-  const banners: { title: string; bodyTxt: string; cta: string; href: string }[] = isDown
-    ? [
-        { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" },
-        { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
-      ]
-    : [
-        { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
-        { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" },
-      ];
+  const sectorEntry = quote?.sector ? SECTORS.find((s) => s.db === quote.sector) ?? null : null;
+  const sectorLabel = sectorEntry ? sectorEntry.label[locale] : null;
+  type Banner = { title: string; bodyTxt: string; cta: string; href: string; badge?: string };
+  const sectorBanner: Banner | null = sectorEntry && sectorLabel
+    ? {
+        title: t.bannerSectorTitle.replace("{sector}", sectorLabel),
+        bodyTxt: t.bannerSectorBody.replace("{sector}", sectorLabel),
+        cta: t.bannerBestCta,
+        href: `/picks/best/${sectorEntry.key}`,
+        badge: t.bannerBadge,
+      }
+    : null;
+  const top10Banner: Banner = { title: t.bannerBestTitle, bodyTxt: t.bannerBestBody, cta: t.bannerBestCta, href: "/best-stocks", badge: t.bannerBadge };
+  const healthBanner: Banner = { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" };
+  const banners: Banner[] = isDown
+    ? [sectorBanner ?? top10Banner, healthBanner]
+    : sectorBanner
+      ? [sectorBanner, top10Banner]
+      : [top10Banner];
   // Positions: roughly 1/3 and 2/3 through the sections (needs 3+ chunks).
   const bannerAt = new Map<number, number>();
   if (chunks.length >= 3) {
@@ -199,7 +207,7 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
     let p2 = Math.max(p1 + 1, Math.floor((2 * chunks.length) / 3));
     if (p2 >= chunks.length) p2 = chunks.length - 1;
     bannerAt.set(p1, 0);
-    if (p2 !== p1) bannerAt.set(p2, 1);
+    if (p2 !== p1 && banners.length > 1) bannerAt.set(p2, 1);
   } else if (chunks.length === 2) {
     bannerAt.set(1, 0);
   }
@@ -343,9 +351,11 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
                 <div key={i} className="dv-blog-chunk">
                   {bannerAt.has(i) && (() => {
                     const b = banners[bannerAt.get(i)!];
+                    if (!b) return null;
                     return (
-                      <Link href={b.href} className="dv-inline-promo">
+                      <Link href={b.href} className={`dv-inline-promo${b.badge ? " dv-inline-promo--list" : ""}`}>
                         <span className="dv-inline-promo__text">
+                          {b.badge && <span className="dv-inline-promo__badge">{b.badge}</span>}
                           <span className="dv-inline-promo__title">{b.title}</span>
                           <span className="dv-inline-promo__body">{b.bodyTxt}</span>
                         </span>
