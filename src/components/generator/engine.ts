@@ -136,6 +136,12 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
       if (wantsEurope) b += EUROPE.has(u.country) ? 0.8 : -0.6;
       if (wantsAsia) b += ASIA.has(u.country) ? 0.8 : -0.6;
       if (wantsUs) b += u.country === "US" ? 0.8 : -0.6;
+      // No market chosen and no geography in the goal → default the book to
+      // familiar core markets (US + Europe) instead of whatever ranks top
+      // globally; exotic names still qualify, they just don't dominate.
+      if (!wantsEurope && !wantsAsia && !wantsUs && o.country === "GLOBAL") {
+        b += u.country === "US" || EUROPE.has(u.country) ? 0.45 : -0.45;
+      }
     }
     // "Some startups for upside": tilt a slice toward higher-vol growth names.
     if (wantsUpside && u.kind === "stock") b += clamp((u.vol - 18) * 0.02, 0, 0.4) + Math.max(0, u.beta - 1) * 0.15;
