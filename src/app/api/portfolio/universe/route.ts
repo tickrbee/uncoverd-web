@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { listStocks, getStockRatings, yieldFromStock } from "@/lib/data";
+import { listStocks, getStockRatings, yieldFromStock, fxRatesToUSD } from "@/lib/data";
 import { stockToGenInstrument } from "@/lib/gen-instrument";
 import type { GenInstrument } from "@/components/generator/types";
 
@@ -78,25 +78,29 @@ async function buildUniverse(countryParam: string): Promise<GenInstrument[]> {
     .map((c) => c.trim().toUpperCase())
     .filter((c) => COUNTRY_WHITELIST.has(c))
     .slice(0, 4);
-  const ccList = codes.length === 0 || codes.includes("GLOBAL") ? ["GLOBAL"] : codes;
-  const isGlobal = ccList[0] === "GLOBAL";
+  const isGlobal = codes.length === 0 || codes.includes("GLOBAL");
+  // CRITICAL: mkt_cap/price are stored in LOCAL currency (an Indonesian small
+  // cap reads as "4.5 trillion" and outranks Apple). A raw country=ALL fetch
+  // sorted by mkt_cap floods the pool with high-denomination currencies, so
+  // GLOBAL fetches the major developed markets individually and everything is
+  // converted to USD before floors, liquidity screens and ranking.
+  const ccList = isGlobal ? ["US", "EU", "GB", "CH", "CA", "JP", "AU"] : codes;
   const sleeveSymbols = [...ETF_SLEEVE.map((e) => e[0]), ...BOND_SLEEVE.map((b) => b[0])];
 
-  // EVERY dividend payer above the cap floor in the chosen market(s) gets
-  // scanned and ranked; the composite rating decides who makes the pool.
-  const [pools, sleeveRows] = await Promise.all([
+  const [pools, sleeveRows, fx] = await Promise.all([
     Promise.all(
       ccList.map((cc) =>
-        listStocks({
-          country: cc === "GLOBAL" ? "ALL" : cc,
-          minMarketCap: cc === "GLOBAL" ? 5e9 : 1e9,
-          minDividend: 0.01,
-          limit: isGlobal ? 1500 : 800,
-        }).catch(() => [])
+        listStocks({ country: cc, minMarketCap: 250e6, minDividend: 0.01, limit: 600 }).catch(() => [])
       )
     ),
     listStocks({ symbols: sleeveSymbols, excludeEtfs: false, limit: sleeveSymbols.length }),
+    fxRatesToUSD().catch(() => new Map<string, number>()),
   ]);
+  const toUsd = (v: number | null | undefined, currency: string | null) => {
+    if (v == null) return 0;
+    if (!currency || currency === "USD") return v;
+    return v * (fx.get(currency) ?? 0);
+  };
   const seenPool = new Set<string>();
   const pool = pools.flat().filter((r) => (seenPool.has(r.symbol) ? false : (seenPool.add(r.symbol), true)));
 
@@ -105,9 +109,24 @@ async function buildUniverse(countryParam: string): Promise<GenInstrument[]> {
   // For the US, also require a clean primary-exchange listing; foreign markets
   // use suffixed symbols (SAP.DE, …) so those filters don't apply.
   const usOnly = ccList.length === 1 && ccList[0] === "US";
-  const cands = pool.filter(
-    (r) => r.sector && !isBlocked(r) && (!usOnly || (isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "")))
-  );
+  // USD floors: market-cap gate + LIQUIDITY screen (dollar daily volume — a
+  // retail position must be tradeable without moving the market). avg_volume
+  // is null for ~all rows, so fall back to the latest day's volume.
+  const minUsdCap = isGlobal ? 5e9 : 1e9;
+  const minDollarAdv = isGlobal ? 3e6 : 750_000;
+  const cands = pool
+    .filter((r) => {
+      if (!r.sector || isBlocked(r)) return false;
+      const usdCap = toUsd(r.market_cap, r.currency);
+      const usdAdv = ((r.avg_volume ?? r.volume ?? 0) as number) * toUsd(r.price, r.currency);
+      if (usdCap < minUsdCap || usdAdv < minDollarAdv) return false;
+      if (usOnly && !(isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? ""))) return false;
+      // Normalize the cap to USD so downstream size logic (vol estimate)
+      // doesn't misread foreign small caps as mega caps.
+      r.market_cap = usdCap;
+      return true;
+    })
+    .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0));
   // Ratings lookup CHUNKED: a single .in() with 1500 symbols exceeds the
   // query limit and fails silently — which left GLOBAL with zero rated names.
   const ratings = new Map<string, Awaited<ReturnType<typeof getStockRatings>> extends Map<string, infer V> ? V : never>();
