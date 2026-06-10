@@ -12,7 +12,7 @@ import { RISK_ALLOC, OBJ_W, thesisOf, legendaryComparison, type GenResult, type 
 import { curSym, fmtCur, fmtCurShort } from "./currency";
 import { Donut, AllocBars, MonteCarlo } from "./charts";
 import { ThesisCard, RiskContribution, CorrelationMatrix, LegendaryComparison } from "./cards";
-import { FrontierGrid, StatGrid, StressTests, Rationale, GradePill, MeasuredBadge } from "./results";
+import { FrontierGrid, StatGrid, StressTests, Rationale, GradePill, MeasuredBadge, BacktestChart } from "./results";
 import { genTypeColor, genTypeLabel } from "./form";
 
 /* blur a ticker/name so free users can't read the actual picks */
@@ -232,6 +232,9 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
           ))}
         </div>
       </Panel>
+
+      {/* REAL backtest (free hook) */}
+      {m.curve && m.curve.length > 10 && <BacktestChart curve={m.curve} er={m.er} />}
 
       {/* sector exposure (free) */}
       <Panel pad={20} style={{ marginBottom: 20 }}>

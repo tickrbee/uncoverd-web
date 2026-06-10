@@ -67,6 +67,13 @@ function overallScore(d: Dims): number {
   CMP_DIMS.forEach(({ key }) => { num += d[key] * DIM_W[key]; den += DIM_W[key]; });
   return Math.round(num / den);
 }
+// The verdict shows the REAL uncoverd rating (composite grade from the DB),
+// not the radar average — the radar dims include yield, which unfairly tanked
+// low-yield quality names (AAPL reading as "C"). Dims average is only the
+// fallback when a column has no rating.
+const realScore = (c: CompareColumn): number =>
+  (c.grade ? GRADE_SCORE[c.grade] : undefined) ?? overallScore(dimsOf(c));
+const realGrade = (c: CompareColumn): string => c.grade ?? gradeOf(realScore(c));
 
 /* ---------- metric rows ---------- */
 type Row = {
@@ -355,7 +362,7 @@ function Verdict({ cols, colors, sections }: { cols: CompareColumn[]; colors: st
     const { wins, total } = tallyWins(cols, sections);
     return {
       total,
-      list: cols.map((c, i) => ({ c, color: colors[i], score: overallScore(dimsOf(c)), wins: wins[c.symbol] })).sort((a, b) => b.score - a.score),
+      list: cols.map((c, i) => ({ c, color: colors[i], score: realScore(c), grade: realGrade(c), wins: wins[c.symbol] })).sort((a, b) => b.score - a.score),
     };
   }, [cols, colors, sections]);
   const champ = ranked.list[0];
@@ -388,8 +395,8 @@ function Verdict({ cols, colors, sections }: { cols: CompareColumn[]; colors: st
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 4, width: 64, justifyContent: "flex-end" }}>
-                  <span style={{ fontFamily: display, fontSize: 21, fontWeight: 800, color: scoreColor(r.score) }}>{r.score}</span>
-                  <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: T.muted }}>{gradeOf(r.score)}</span>
+                  <span style={{ fontFamily: display, fontSize: 21, fontWeight: 800, color: scoreColor(r.score) }}>{r.grade}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: T.muted }}>{r.score}</span>
                 </div>
               </div>
             ))}
@@ -752,7 +759,7 @@ export function CompareApp({ columns, series }: { columns: CompareColumn[]; seri
   const cleanSeries = useCleanSeries(series);
   const sections = SECTIONS.filter((s) => !s.when || s.when(cols));
   const champTk = React.useMemo(
-    () => [...cols].sort((a, b) => overallScore(dimsOf(b)) - overallScore(dimsOf(a)))[0]?.symbol,
+    () => [...cols].sort((a, b) => realScore(b) - realScore(a))[0]?.symbol,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [columns]
   );
@@ -813,9 +820,9 @@ export function CompareApp({ columns, series }: { columns: CompareColumn[]; seri
         )}
       </div>
 
-      {/* sticky ticker header — z-index BELOW the site header (30) so the
-          nav mega-menu always opens above the ticker cards. */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: T.bg + "f2", backdropFilter: "blur(8px)" }}>
+      {/* sticky ticker header — docks BELOW the 60px site header (so cards
+          never slide underneath the nav) and stays under its z-index (30). */}
+      <div style={{ position: "sticky", top: 61, zIndex: 20, background: T.bg + "f2", backdropFilter: "blur(8px)" }}>
         <div style={{ maxWidth: 1320, margin: "0 auto", padding: "16px 24px" }}>
           <div className="cmp-headGrid" style={{ display: "grid", gridTemplateColumns: headCols, gap: 12, alignItems: "stretch" }}>
             <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 6 }}>

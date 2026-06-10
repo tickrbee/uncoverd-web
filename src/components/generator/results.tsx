@@ -62,8 +62,49 @@ export function openInHealthcheck(holdings: Holding[], name: string, amount: num
   window.location.href = "/tools/portfolio-healthcheck";
 }
 
+/* ---------- REAL historical backtest (growth of 100 vs SPY) ---------- */
+export function BacktestChart({ curve, er }: { curve: { i: number; port: number; bench: number }[]; er: number }) {
+  const W = 1000, H = 240, padL = 4, padR = 56, padT = 12, padB = 10;
+  const all = curve.flatMap((p) => [p.port, p.bench]);
+  let lo = Math.min(...all), hi = Math.max(...all);
+  const padY = (hi - lo) * 0.07 || 4; lo -= padY; hi += padY;
+  const n = curve.length;
+  const x = (i: number) => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
+  const y = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+  const path = (key: "port" | "bench") => curve.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+  const last = curve[n - 1];
+  return (
+    <Panel pad={20} style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+        <Eyebrow icon="line" style={{ marginBottom: 0 }}>Historical backtest · real daily closes</Eyebrow>
+        <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+          <span style={{ color: T.green, fontWeight: 700 }}>portfolio {last ? (last.port - 100 >= 0 ? "+" : "") + (last.port - 100).toFixed(1) + "%" : ""}</span>
+          {" · "}SPY {last ? (last.bench - 100 >= 0 ? "+" : "") + (last.bench - 100).toFixed(1) + "%" : ""}
+          {" · "}{er.toFixed(1)}%/yr annualized
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={240} preserveAspectRatio="none" style={{ display: "block" }}>
+        {[0, 1, 2, 3].map((i) => {
+          const g = lo + ((hi - lo) * i) / 3;
+          return (
+            <g key={i}>
+              <line x1={padL} y1={y(g)} x2={W - padR} y2={y(g)} stroke={T.line} strokeWidth="1" opacity={Math.abs(g - 100) < 1 ? 0.9 : 0.4} strokeDasharray={Math.abs(g - 100) < 1 ? "0" : "3 5"} />
+              <text x={W - padR + 8} y={y(g)} fill={T.faint} fontSize="13" fontFamily={mono} dominantBaseline="middle">{g.toFixed(0)}</text>
+            </g>
+          );
+        })}
+        <path d={path("bench")} fill="none" stroke={T.faint} strokeWidth="1.6" strokeDasharray="5 4" style={{ vectorEffect: "non-scaling-stroke" }} />
+        <path d={path("port")} fill="none" stroke={T.green} strokeWidth="2.4" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 5px ${T.green}44)`, vectorEffect: "non-scaling-stroke" }} />
+      </svg>
+      <div style={{ fontSize: 11.5, color: T.faint, marginTop: 8 }}>
+        This exact basket at these weights, replayed over the overlapping daily price history (≈1.5y) against SPY — growth of 100, price-only. This is what &quot;Annualized&quot; in the stats is built on.
+      </div>
+    </Panel>
+  );
+}
+
 /* ---------- AI analysis (LLM layer, premium) ---------- */
-function AiAnalysis({ result, variant }: { result: GenResult; variant: Variant }) {
+function AiAnalysis({ result, variant, auto = false }: { result: GenResult; variant: Variant; auto?: boolean }) {
   const [answer, setAnswer] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -104,6 +145,17 @@ function AiAnalysis({ result, variant }: { result: GenResult; variant: Variant }
     }
     setBusy(false);
   }
+
+  // Auto-run once the variant is measured (premium UX: no extra click).
+  const ranFor = React.useRef("");
+  React.useEffect(() => {
+    if (!auto || busy) return;
+    const key = variant.id + variant.holdings.map((h) => h.tk).join(",");
+    if (ranFor.current === key) return;
+    ranFor.current = key;
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, variant.id]);
 
   return (
     <Panel pad={20}>
@@ -421,6 +473,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
         )}
       </Panel>
 
+      {/* REAL backtest — this exact basket replayed against SPY */}
+      {m.curve && m.curve.length > 10 && <BacktestChart curve={m.curve} er={m.er} />}
+
       {/* stress tests */}
       <div style={{ marginBottom: 20 }}><StressTests metrics={m} /></div>
 
@@ -439,14 +494,17 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
         </Panel>
       </div>
 
-      {/* AI analysis (LLM) */}
-      <div style={{ marginBottom: 20 }}><AiAnalysis result={result} variant={variant} /></div>
+      {/* AI analysis (LLM) — auto-runs once the variant is measured */}
+      <div style={{ marginBottom: 20 }}><AiAnalysis result={result} variant={variant} auto={!!m.measured} /></div>
 
       {/* per-holding rationale */}
       <div style={{ marginBottom: 20 }}><Rationale holdings={holdings} /></div>
 
       {/* legendary comparison */}
-      <div style={{ marginBottom: 20 }}><LegendaryComparison rows={legendaryComparison(m)} /></div>
+      <div style={{ marginBottom: 20 }}>
+        <LegendaryComparison rows={legendaryComparison(m)}
+          note={m.measured ? "Your figures are measured over the recent ~1.5y price window; the legendary rows are long-run estimates — different horizons, compare direction not decimals." : undefined} />
+      </div>
 
       {/* notes */}
       {notes.length > 0 && (

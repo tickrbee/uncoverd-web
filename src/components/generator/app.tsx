@@ -53,7 +53,7 @@ const CSS = `
 `;
 
 const DEFAULT_STATE: GenOptions = {
-  amount: 10000, currency: "USD", country: "US", seed: 0, risk: "balanced", objective: "balanced", horizon: "medium",
+  amount: 10000, currency: "USD", country: "GLOBAL", seed: 0, risk: "balanced", objective: "balanced", horizon: "medium",
   sectors: [], anchors: [], count: 10, goal: "", target: 0, monthlyDCA: 0,
 };
 

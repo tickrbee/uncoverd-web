@@ -101,6 +101,15 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   const eqSlots = Math.max(3, count - cashSlots - bondSlots);
 
   const exSet = new Set((exclude || []).filter((tk) => !anchors.includes(tk)));
+  // Honor plain-language exclusions in the goal text: "no XLK", "without
+  // TSLA", "avoid KO" (+ FR/DE/IT/ES equivalents). Only symbols that exist in
+  // the universe count, so ordinary words never get excluded by accident.
+  const exRe = /\b(?:no|not|without|exclude|avoid|except|sans|ohne|keine?|senza|sin)\s+\$?([A-Za-z.]{1,6})\b/gi;
+  let exMatch: RegExpExecArray | null;
+  while ((exMatch = exRe.exec(goal || ""))) {
+    const tk = exMatch[1].toUpperCase();
+    if (byTk.has(tk) && !anchors.includes(tk)) exSet.add(tk);
+  }
   const eqPool = universe.filter((u) => u.cls === "eq" && !exSet.has(u.tk));
   const ny = normRange(eqPool.map((u) => u.yield));
   const ner = normRange(eqPool.map((u) => u.er));
@@ -378,6 +387,8 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
     ],
     classAlloc, sectorAlloc, proj, projMid: proj[Math.round(years / 2)], projEnd: proj[years],
     stress, survived, worst, riskContrib, maxRc, corr,
+    // Real growth-of-100 backtest curve vs SPY — filled by applyReal().
+    curve: null as { i: number; port: number; bench: number }[] | null,
     // Flipped to true by applyReal() once price-history metrics replace the
     // model estimates.
     measured: false,
@@ -456,6 +467,7 @@ export function applyReal(
     proj,
     projMid: proj[Math.round(inputs.years / 2)],
     projEnd: proj[proj.length - 1],
+    curve: (b?.curve as { i: number; port: number; bench: number }[] | undefined) ?? null,
     stats: [
       { k: "Total Return", v: "+" + totalReturn.toFixed(0) + "%", sub: "over " + inputs.years + "y", pos: totalReturn > 0 },
       { k: "Annualized", v: (er > 0 ? "+" : "") + (+er).toFixed(1) + "%", sub: "real, ~1.5y closes", pos: er > 0 },

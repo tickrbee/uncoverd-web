@@ -110,7 +110,7 @@ export function CorrelationMatrix({ corr, divR, measured = false }: { corr: { tk
 }
 
 /* ---------- legendary portfolio comparison ---------- */
-export function LegendaryComparison({ rows }: { rows: { name: string; desc: string; chips: string[] | null; er: number; sharpe: number; maxDD: number; yours?: boolean }[] }) {
+export function LegendaryComparison({ rows, note }: { rows: { name: string; desc: string; chips: string[] | null; er: number; sharpe: number; maxDD: number; yours?: boolean }[]; note?: string }) {
   return (
     <Panel pad={20}>
       <Eyebrow icon="crown">Legendary portfolio comparison</Eyebrow>
@@ -136,6 +136,7 @@ export function LegendaryComparison({ rows }: { rows: { name: string; desc: stri
           </div>
         ))}
       </div>
+      {note && <div style={{ marginTop: 12, fontSize: 11.5, color: T.faint }}>{note}</div>}
     </Panel>
   );
 }

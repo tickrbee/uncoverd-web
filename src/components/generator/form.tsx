@@ -164,6 +164,7 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
 
 /* market focus picker — designed popup (not a native select) */
 const MARKETS: [string, string, string][] = [
+  ["GLOBAL", "🌍", "No preference · Global"],
   ["US", "🇺🇸", "United States"],
   ["EU", "🇪🇺", "European Union"],
   ["CA", "🇨🇦", "Canada"],
@@ -191,7 +192,7 @@ function MarketPicker({ value, onChange }: { value: string; onChange: (code: str
       <button onClick={() => setOpen((o) => !o)} className="gen-input" aria-haspopup="listbox" aria-expanded={open}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: T.bg, border: `1px solid ${open ? T.green : T.line2}`, borderRadius: 11, padding: "11px 13px", color: T.ink, fontFamily: body, fontSize: 13.5, cursor: "pointer", boxShadow: open ? `0 0 0 3px ${T.green}22` : "none" }}>
         <span style={{ fontSize: 16, lineHeight: 1 }}>{cur[1]}</span>
-        <span style={{ flex: 1, textAlign: "left", fontWeight: 600 }}>{cur[2]}{cur[0] === "US" ? "  ·  default" : ""}</span>
+        <span style={{ flex: 1, textAlign: "left", fontWeight: 600 }}>{cur[2]}{cur[0] === "GLOBAL" ? "  ·  default" : ""}</span>
         <Icon name="chevron" size={14} color={T.faint} style={{ transform: open ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform .15s" }} />
       </button>
       {open && (

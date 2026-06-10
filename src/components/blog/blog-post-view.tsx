@@ -180,12 +180,18 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
   const slugLower = post.meta.slug.toLowerCase();
   const isDown = /(drop|selloff|sell-off|plunge|crash|fall|kurssturz|absturz|chute|caida|caída|calo|crollo)/.test(slugLower);
   const chunks = splitAtH2(post.body);
-  const banners: { title: string; bodyTxt: string; cta: string; href: string }[] = [
-    { title: t.bannerBestTitle, bodyTxt: t.bannerBestBody, cta: t.bannerBestCta, href: "/unlock" },
-    isDown
-      ? { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" }
-      : { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
-  ];
+  // Banner 1: Healthcheck. Banner 2: Generator (down-posts lead with risk
+  // control either way). The top-10 list lives in the rail + takeaways CTA
+  // (→ /best-stocks: reveals for Pro, captures signups from free readers).
+  const banners: { title: string; bodyTxt: string; cta: string; href: string }[] = isDown
+    ? [
+        { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" },
+        { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
+      ]
+    : [
+        { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
+        { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" },
+      ];
   // Positions: roughly 1/3 and 2/3 through the sections (needs 3+ chunks).
   const bannerAt = new Map<number, number>();
   if (chunks.length >= 3) {
@@ -259,7 +265,7 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
       <div className="dv-ratecard__locked" aria-hidden="true">
         <span>{t.bannerBestBody}</span>
       </div>
-      <Link href="/unlock" className="dv-ratecard__cta">{t.bannerBestCta}</Link>
+      <Link href="/best-stocks" className="dv-ratecard__cta">{t.bannerBestCta}</Link>
     </div>
   );
 
@@ -327,7 +333,7 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
                       <li key={i}>{k}</li>
                     ))}
                   </ul>
-                  <a href="/unlock" className="dv-takeaways__cta">
+                  <a href="/best-stocks" className="dv-takeaways__cta">
                     {t.topPickCta}
                   </a>
                 </div>

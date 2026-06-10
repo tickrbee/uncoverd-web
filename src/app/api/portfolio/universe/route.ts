@@ -60,17 +60,23 @@ const BOND_SLEEVE: [string, string, number, number, number, number][] = [
   ["TIP", "iShares TIPS Bond", 3.8, 0.1, 7, 4.2],
 ];
 
-// "EU" = the whole EU bloc (listStocks maps it to EU_COUNTRY_CODES).
-const COUNTRY_WHITELIST = new Set(["US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
+// "EU" = the whole EU bloc; "GLOBAL" = no market preference (everything,
+// higher cap floor so the default stays liquid).
+const COUNTRY_WHITELIST = new Set(["GLOBAL", "US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
 
 async function buildUniverse(country: string): Promise<GenInstrument[]> {
-  const cc = COUNTRY_WHITELIST.has(country) ? country : "US";
+  const cc = COUNTRY_WHITELIST.has(country) ? country : "GLOBAL";
   const sleeveSymbols = [...ETF_SLEEVE.map((e) => e[0]), ...BOND_SLEEVE.map((b) => b[0])];
 
   const [pool, sleeveRows] = await Promise.all([
-    // EVERY dividend payer ≥$1B in the chosen market gets scanned and ranked;
-    // the composite rating (not market cap) then decides who makes the pool.
-    listStocks({ country: cc, minMarketCap: 1e9, minDividend: 0.01, limit: 1500 }),
+    // EVERY dividend payer above the cap floor in the chosen market gets
+    // scanned and ranked; the composite rating decides who makes the pool.
+    listStocks({
+      country: cc === "GLOBAL" ? "ALL" : cc,
+      minMarketCap: cc === "GLOBAL" ? 5e9 : 1e9,
+      minDividend: 0.01,
+      limit: 1500,
+    }),
     listStocks({ symbols: sleeveSymbols, excludeEtfs: false, limit: sleeveSymbols.length }),
   ]);
 
@@ -81,7 +87,14 @@ async function buildUniverse(country: string): Promise<GenInstrument[]> {
   const cands = pool.filter(
     (r) => r.sector && (cc !== "US" || (isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "")))
   );
-  const ratings = await getStockRatings(cands.map((r) => r.symbol)).catch(() => new Map());
+  // Ratings lookup CHUNKED: a single .in() with 1500 symbols exceeds the
+  // query limit and fails silently — which left GLOBAL with zero rated names.
+  const ratings = new Map<string, Awaited<ReturnType<typeof getStockRatings>> extends Map<string, infer V> ? V : never>();
+  const symsAll = cands.map((r) => r.symbol);
+  for (let i = 0; i < symsAll.length; i += 250) {
+    const part = await getStockRatings(symsAll.slice(i, i + 250)).catch(() => new Map());
+    for (const [k, v] of part) ratings.set(k, v);
+  }
 
   // Top-rated names per sector (A/B grades only) so every sector chip has depth.
   const ranked = cands
