@@ -154,18 +154,26 @@ const compareUrl = (symbols: string[]) =>
   symbols.length ? "/compare?" + symbols.map((s, i) => `${SLOTS[i]}=${encodeURIComponent(s)}`).join("&") : "/compare";
 const detailHref = (c: CompareColumn) => (c.kind === "etf" ? `/etfs/symbol/${c.symbol}` : `/stocks/${c.symbol}`);
 
-/* ---------- add picker (full-DB search) ---------- */
-function AddPicker({ symbols }: { symbols: string[] }) {
+/* ---------- add picker: "Add holdings"-style modal (full-DB search,
+   type filter chips, multi-select up to the 4-ticker cap) ---------- */
+type SearchHit = { symbol: string; name: string | null; is_etf: boolean | null; is_fund: boolean | null };
+
+function AddModal({ symbols, onClose }: { symbols: string[]; onClose: () => void }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
-  const [results, setResults] = React.useState<{ symbol: string; name: string | null; is_etf: boolean | null; is_fund: boolean | null }[]>([]);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [results, setResults] = React.useState<SearchHit[]>([]);
+  const [kind, setKind] = React.useState<"all" | "stock" | "etf">("all");
+  const [picked, setPicked] = React.useState<string[]>([]);
+  const max = Math.max(0, 4 - symbols.length);
+
   React.useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
   React.useEffect(() => {
     const term = q.trim();
     const id = setTimeout(async () => {
@@ -174,38 +182,88 @@ function AddPicker({ symbols }: { symbols: string[] }) {
         const r = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
         if (!r.ok) return;
         const d = await r.json();
-        setResults(((d.results ?? []) as any[]).filter((x) => !symbols.includes(x.symbol)).slice(0, 8));
+        setResults(((d.results ?? []) as SearchHit[]).filter((x) => !symbols.includes(x.symbol)));
       } catch { /* best-effort */ }
     }, 200);
     return () => clearTimeout(id);
   }, [q, symbols]);
 
+  const shown = results.filter((s) => {
+    const isEtf = !!(s.is_etf || s.is_fund);
+    return kind === "all" || (kind === "etf") === isEtf;
+  });
+  const toggle = (sym: string) =>
+    setPicked((p) => (p.includes(sym) ? p.filter((x) => x !== sym) : p.length < max ? [...p, sym] : p));
+  const done = () => {
+    if (picked.length) router.push(compareUrl([...symbols, ...picked]));
+    onClose();
+  };
+
   return (
-    <div ref={ref} style={{ position: "relative", height: "100%" }}>
-      <button onClick={() => setOpen((o) => !o)} className="cmp-add" style={{ width: "100%", height: "100%", minHeight: 92, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", border: `1.5px dashed ${T.line2}`, borderRadius: 14, cursor: "pointer", color: T.muted }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(4,8,15,0.72)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "9vh 16px 16px" }}>
+      <div role="dialog" aria-modal="true" aria-label="Add tickers" onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 560, background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, boxShadow: "0 30px 80px -20px rgba(0,0,0,.8)", padding: "20px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <span style={{ fontFamily: display, fontSize: 19, fontWeight: 800, color: T.ink }}>Add tickers</span>
+          <button onClick={onClose} aria-label="Close" className="cmp-x" style={{ display: "flex", padding: 5, background: "transparent", border: "none", cursor: "pointer", color: T.faint, borderRadius: 7 }}>
+            <Icon name="x" size={17} />
+          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 12, padding: "11px 13px", marginBottom: 12 }}>
+          <Icon name="search" size={16} color={T.faint} />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the database — ticker or company name"
+            style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", color: T.ink, fontFamily: body, fontSize: 14 }} />
+        </div>
+        <div style={{ display: "flex", gap: 7, marginBottom: 12 }}>
+          {([["all", "All"], ["stock", "Stocks"], ["etf", "ETFs & funds"]] as const).map(([id, label]) => {
+            const on = kind === id;
+            return (
+              <button key={id} onClick={() => setKind(id)} style={{ background: on ? T.green : T.raised, color: on ? T.bg : T.muted, border: `1px solid ${on ? T.green : T.line}`, borderRadius: 18, padding: "6px 13px", cursor: "pointer", fontFamily: body, fontSize: 12.5, fontWeight: 600 }}>{label}</button>
+            );
+          })}
+        </div>
+        <div style={{ minHeight: 120, maxHeight: 320, overflowY: "auto", border: `1px solid ${T.line}`, borderRadius: 12 }}>
+          {shown.length === 0 && (
+            <div style={{ padding: 26, fontSize: 13, color: T.faint, textAlign: "center" }}>{q.trim() ? "No matches." : "Type a ticker or name to search."}</div>
+          )}
+          {shown.map((s) => {
+            const isEtf = !!(s.is_etf || s.is_fund);
+            const on = picked.includes(s.symbol);
+            const full = !on && picked.length >= max;
+            return (
+              <button key={s.symbol} onClick={() => toggle(s.symbol)} disabled={full} className="cmp-row"
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "10px 14px", background: on ? T.green + "10" : "transparent", border: "none", borderBottom: `1px solid ${T.line}`, cursor: full ? "default" : "pointer", textAlign: "left", opacity: full ? 0.45 : 1 }}>
+                <span style={{ display: "flex", width: 18, height: 18, borderRadius: 5, alignItems: "center", justifyContent: "center", border: `1.5px solid ${on ? T.green : T.line2}`, background: on ? T.green : "transparent", flexShrink: 0 }}>
+                  {on && <Icon name="check" size={12} color={T.bg} />}
+                </span>
+                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.ink, width: 58 }}>{s.symbol}</span>
+                <span style={{ fontSize: 12.5, color: T.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                <span style={{ fontFamily: mono, fontSize: 8.5, color: isEtf ? T.blue : T.green, border: `1px solid ${isEtf ? T.blue : T.green}55`, borderRadius: 4, padding: "1px 5px" }}>{isEtf ? "ETF" : "STOCK"}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+          <span style={{ fontSize: 12.5, color: T.muted }}>{picked.length} selected · max {max}</span>
+          <button onClick={done} disabled={picked.length === 0}
+            style={{ background: picked.length ? T.green : T.raised, color: picked.length ? T.bg : T.muted, border: "none", borderRadius: 11, padding: "11px 24px", cursor: picked.length ? "pointer" : "default", fontFamily: body, fontSize: 14, fontWeight: 700 }}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddPicker({ symbols }: { symbols: string[] }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{ height: "100%" }}>
+      <button onClick={() => setOpen(true)} className="cmp-add" style={{ width: "100%", height: "100%", minHeight: 92, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", border: `1.5px dashed ${T.line2}`, borderRadius: 14, cursor: "pointer", color: T.muted }}>
         <span style={{ display: "flex", width: 32, height: 32, borderRadius: 9, background: T.green + "16", alignItems: "center", justifyContent: "center" }}><Icon name="plus" size={17} color={T.green} /></span>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>Add ticker</span>
       </button>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 30, background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 13, boxShadow: "0 20px 50px -12px rgba(0,0,0,.7)", overflow: "hidden", minWidth: 240 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${T.line}` }}>
-            <Icon name="search" size={15} color={T.faint} />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search any stock or ETF"
-              style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", color: T.ink, fontFamily: body, fontSize: 13.5 }} />
-          </div>
-          <div style={{ maxHeight: 280, overflowY: "auto" }}>
-            {results.length === 0 && <div style={{ padding: 16, fontSize: 12.5, color: T.faint, textAlign: "center" }}>{q.trim() ? "No matches" : "Type to search the full database"}</div>}
-            {results.map((s) => (
-              <button key={s.symbol} onClick={() => { setOpen(false); setQ(""); router.push(compareUrl([...symbols, s.symbol])); }} className="cmp-row"
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "9px 13px", background: "transparent", border: "none", borderBottom: `1px solid ${T.line}`, cursor: "pointer", textAlign: "left" }}>
-                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.ink, width: 56 }}>{s.symbol}</span>
-                <span style={{ fontSize: 12.5, color: T.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                <span style={{ fontFamily: mono, fontSize: 8.5, color: s.is_etf || s.is_fund ? T.blue : T.green, border: `1px solid ${s.is_etf || s.is_fund ? T.blue : T.green}55`, borderRadius: 4, padding: "1px 5px" }}>{s.is_etf || s.is_fund ? "ETF" : "STOCK"}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {open && <AddModal symbols={symbols} onClose={() => setOpen(false)} />}
     </div>
   );
 }

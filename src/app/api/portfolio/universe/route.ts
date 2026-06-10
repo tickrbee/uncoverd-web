@@ -60,7 +60,8 @@ const BOND_SLEEVE: [string, string, number, number, number, number][] = [
   ["TIP", "iShares TIPS Bond", 3.8, 0.1, 7, 4.2],
 ];
 
-const COUNTRY_WHITELIST = new Set(["US", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
+// "EU" = the whole EU bloc (listStocks maps it to EU_COUNTRY_CODES).
+const COUNTRY_WHITELIST = new Set(["US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
 
 async function buildUniverse(country: string): Promise<GenInstrument[]> {
   const cc = COUNTRY_WHITELIST.has(country) ? country : "US";

@@ -162,6 +162,57 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
   );
 }
 
+/* market focus picker — designed popup (not a native select) */
+const MARKETS: [string, string, string][] = [
+  ["US", "🇺🇸", "United States"],
+  ["EU", "🇪🇺", "European Union"],
+  ["CA", "🇨🇦", "Canada"],
+  ["GB", "🇬🇧", "United Kingdom"],
+  ["DE", "🇩🇪", "Germany"],
+  ["FR", "🇫🇷", "France"],
+  ["NL", "🇳🇱", "Netherlands"],
+  ["CH", "🇨🇭", "Switzerland"],
+  ["ES", "🇪🇸", "Spain"],
+  ["IT", "🇮🇹", "Italy"],
+  ["AU", "🇦🇺", "Australia"],
+];
+
+function MarketPicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const cur = MARKETS.find((m) => m[0] === value) ?? MARKETS[0];
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} className="gen-input" aria-haspopup="listbox" aria-expanded={open}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: T.bg, border: `1px solid ${open ? T.green : T.line2}`, borderRadius: 11, padding: "11px 13px", color: T.ink, fontFamily: body, fontSize: 13.5, cursor: "pointer", boxShadow: open ? `0 0 0 3px ${T.green}22` : "none" }}>
+        <span style={{ fontSize: 16, lineHeight: 1 }}>{cur[1]}</span>
+        <span style={{ flex: 1, textAlign: "left", fontWeight: 600 }}>{cur[2]}{cur[0] === "US" ? "  ·  default" : ""}</span>
+        <Icon name="chevron" size={14} color={T.faint} style={{ transform: open ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform .15s" }} />
+      </button>
+      {open && (
+        <div role="listbox" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 70, background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 13, boxShadow: "0 22px 54px -12px rgba(0,0,0,.7)", padding: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          {MARKETS.map(([code, flag, label]) => {
+            const on = code === value;
+            return (
+              <button key={code} role="option" aria-selected={on} onClick={() => { onChange(code); setOpen(false); }} className="gen-segBtn"
+                style={{ display: "flex", alignItems: "center", gap: 9, background: on ? T.green + "16" : "transparent", border: `1px solid ${on ? T.green : T.line}`, borderRadius: 10, padding: "9px 11px", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: 15, lineHeight: 1 }}>{flag}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: on ? T.green : T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+                {on && <Icon name="check" size={13} color={T.green} style={{ marginLeft: "auto", flexShrink: 0 }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 11 }}>
@@ -315,13 +366,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         {/* market focus */}
         <div>
           <FieldLabel hint="stocks from this market; core ETFs stay global">Market focus</FieldLabel>
-          <select value={state.country} onChange={(e) => set({ country: e.target.value })} aria-label="Market focus"
-            className="gen-input"
-            style={{ width: "100%", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px 12px", color: T.ink, fontFamily: body, fontSize: 13.5, outline: "none", cursor: "pointer" }}>
-            {([["US", "United States (default)"], ["CA", "Canada"], ["GB", "United Kingdom"], ["DE", "Germany"], ["FR", "France"], ["NL", "Netherlands"], ["CH", "Switzerland"], ["ES", "Spain"], ["IT", "Italy"], ["AU", "Australia"]] as const).map(([code, label]) => (
-              <option key={code} value={code} style={{ background: T.panel2, color: T.ink }}>{label}</option>
-            ))}
-          </select>
+          <MarketPicker value={state.country} onChange={(code) => set({ country: code })} />
         </div>
 
         {/* sectors */}
