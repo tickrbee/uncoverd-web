@@ -11,6 +11,13 @@ export type ParsedGoal = {
   nameAvoid: string[]; // lowercase company-name keywords
   yieldFloorPct: number | null;
   riskHint: string | null;
+  // "only stocks / no funds" — drops the bond + broad-ETF sleeves entirely.
+  stocksOnly: boolean;
+  // "small caps", "blue chips" … boosts/penalizes by USD market cap.
+  capPreference: "small" | "mid" | "large" | null;
+  // LLM-SELECTED tickers, chosen from the screened candidate dossiers the
+  // client sends along — guaranteed members of the build (like anchors).
+  picks: string[];
   summary: string;
 };
 
@@ -23,6 +30,9 @@ export type GenInstrument = {
   // ISO country of the listing (stocks) — lets the engine honor geographic
   // goal language ("primarily European stocks").
   country?: string;
+  // USD market cap (stocks; FX-normalized server-side) — powers cap-size
+  // goal preferences ("only small caps").
+  capUsd?: number;
   yield: number;
   beta: number;
   vol: number; // est. annual volatility %

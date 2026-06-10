@@ -88,12 +88,24 @@ function weightItems(items: Candidate[], total: number, rawFn: (it: Candidate, c
 
 function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   const byTk = new Map(universe.map((u) => [u.tk, u]));
-  const { risk, objective, sectors, count, anchors, horizon, exclude, goal } = o;
+  const { objective, sectors, count, horizon, exclude, goal } = o;
+  // The parsed goal can OVERRIDE structure, not just screening: an explicit
+  // "high upside" goal means aggressive allocation even if the form sits at
+  // Balanced, and "only stocks/small caps" means no bond or broad-ETF sleeve.
+  const pg = o.parsed ?? null;
+  const risk = (pg?.riskHint === "conservative" || pg?.riskHint === "aggressive" || pg?.riskHint === "balanced"
+    ? (pg.riskHint as Required<GenOptions>["risk"])
+    : o.risk);
+  const stocksOnly = !!pg?.stocksOnly;
+  // LLM-SELECTED stocks join the user's pins as guaranteed members (they were
+  // chosen from screened candidate dossiers, so byTk always knows them).
+  const anchors = [...new Set([...o.anchors, ...(pg?.picks ?? []).filter((tk) => byTk.has(tk))])];
   const A0 = RISK_ALLOC[risk] || RISK_ALLOC.balanced;
   const ow = OBJ_W[objective] || OBJ_W.balanced;
   const tilt = HORIZON_TILT[horizon] ?? 0;
-  const eqA = clamp(A0.eq + tilt, 0.35, 0.97);
-  const bondA = clamp(A0.bond - tilt * 0.7, 0, 0.5);
+  let eqA = clamp(A0.eq + tilt, 0.35, 0.97);
+  let bondA = clamp(A0.bond - tilt * 0.7, 0, 0.5);
+  if (stocksOnly) { eqA = 0.96; bondA = 0; }
   const cashA = Math.max(0.005, 1 - eqA - bondA);
 
   const cashSlots = cashA > 0.012 ? 1 : 0;
@@ -111,7 +123,6 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     if (byTk.has(tk) && !anchors.includes(tk)) exSet.add(tk);
   }
   // LLM-parsed goal constraints (machine-enforced, not regex-guessed).
-  const pg = o.parsed ?? null;
   if (pg) {
     for (const tk of pg.exclusions) if (!anchors.includes(tk)) exSet.add(tk);
   }
@@ -126,6 +137,8 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   const yieldFloor = Math.max(o.objective === "income" ? 1.5 : 0, pg?.yieldFloorPct ?? 0);
   const eqPool = universe.filter(
     (u) => u.cls === "eq" && !exSet.has(u.tk) &&
+      // "only stocks/small caps" → no ETF wrappers (anchors stay welcome).
+      !(stocksOnly && u.kind !== "stock" && !anchors.includes(u.tk)) &&
       !(nameAvoidRe && u.kind === "stock" && nameAvoidRe.test(u.name)) &&
       !(u.kind === "stock" && sectorsAvoid.has(u.sector) && !anchors.includes(u.tk)) &&
       (u.kind !== "stock" || yieldFloor === 0 || ny(u.yield) >= yieldFloor || anchors.includes(u.tk))
@@ -165,6 +178,13 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     }
     // "Some startups for upside": tilt a slice toward higher-vol growth names.
     if (wantsUpside && u.kind === "stock") b += clamp((u.vol - 18) * 0.02, 0, 0.4) + Math.max(0, u.beta - 1) * 0.15;
+    // Cap-size preference from the parsed goal ("only small caps…").
+    if (pg?.capPreference && u.kind === "stock" && u.capUsd) {
+      const cap = u.capUsd;
+      if (pg.capPreference === "small") b += cap < 5e9 ? 1.0 : cap > 50e9 ? -0.9 : 0;
+      if (pg.capPreference === "mid") b += cap >= 5e9 && cap <= 50e9 ? 0.8 : -0.4;
+      if (pg.capPreference === "large") b += cap > 50e9 ? 0.7 : cap < 5e9 ? -0.5 : 0;
+    }
     return b;
   };
   const scoreOf = (u: GenInstrument) => {
@@ -192,7 +212,7 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   const eqPicks: Candidate[] = [...eqAnchors];
   const sortedEq = scored.filter((u) => !anchorTk.has(u.tk)).sort((a, b) => b.score - a.score);
   for (const u of sortedEq) { if (eqPicks.length >= eqSlots) break; eqPicks.push({ ...u, isAnchor: false }); }
-  if (!eqPicks.some((u) => u.kind === "broad")) {
+  if (!stocksOnly && !eqPicks.some((u) => u.kind === "broad")) {
     const broad = sortedEq.find((u) => u.kind === "broad");
     if (broad) {
       const idx = eqPicks.map((u, i) => ({ u, i })).filter((x) => !x.u.isAnchor).sort((a, b) => a.u.score - b.u.score)[0];
@@ -458,6 +478,9 @@ export function applyReal(
   m: Metrics,
   real: any,
   inputs: { years: number; amount: number; monthlyDCA: number },
+  // The CURRENT holdings (post-optimizer). Without them, risk contribution
+  // would render the engine's original candidate list — ghost rows.
+  holdings?: { tk: string; w: number; cls: string }[],
 ): Metrics {
   const p = real?.portfolio ?? {};
   const r = real?.risk ?? {};
@@ -482,15 +505,21 @@ export function applyReal(
     };
   }
 
-  // Per-holding REAL vols → honest risk-contribution bars.
+  // Per-holding REAL vols → honest risk-contribution bars, built from the
+  // CURRENT (post-optimizer) holdings rather than the engine's original list.
   let riskContrib = m.riskContrib;
   let maxRc = m.maxRc;
   if (Array.isArray(real?.holdings) && real.holdings.length) {
     const volBy = new Map<string, number | null>(real.holdings.map((h: any) => [h.symbol, h.annualVol ?? null]));
+    const colorBy = new Map(m.riskContrib.map((x) => [x.tk, x.color]));
+    const PALETTE = ["#2fe3a0", "#7aa7ff", "#f0a839", "#ff5d73", "#9b8cff", "#53c8e8", "#e8843a", "#7bd9a8"];
+    const base = holdings && holdings.length
+      ? holdings.map((h, i) => ({ tk: h.tk, color: colorBy.get(h.tk) ?? PALETTE[i % PALETTE.length], w: h.w, isCash: h.cls === "cash" }))
+      : m.riskContrib.map((x) => ({ tk: x.tk, color: x.color, w: x.w, isCash: x.tk === "CASH" }));
     if ([...volBy.values()].some((v) => v != null)) {
-      const raw = m.riskContrib.map((x) => x.w * (volBy.get(x.tk) ?? vol));
+      const raw = base.map((x) => x.w * (x.isCash ? 0.6 : volBy.get(x.tk) ?? vol));
       const tot = raw.reduce((a, c) => a + c, 0) || 1;
-      riskContrib = m.riskContrib
+      riskContrib = base
         .map((x, i) => ({ tk: x.tk, color: x.color, w: x.w, rc: raw[i] / tot, delta: (raw[i] / tot - x.w) * 100 }))
         .sort((a, b) => b.rc - a.rc);
       maxRc = Math.max(...riskContrib.map((x) => x.rc), 0.01);
@@ -614,7 +643,12 @@ export function thesisOf(result: GenResult, variant: Variant): string {
   const core = variant.holdings.filter((h) => h.cls === "eq").slice(0, 2).map((h) => h.tk).join(", ");
   const ballast = variant.holdings.filter((h) => h.cls === "bond").slice(0, 1).map((h) => h.tk)[0];
   const objClause = objective === "income" ? "prioritising durable dividend income" : objective === "growth" ? "reaching for capital appreciation" : "balancing income and growth";
-  return `This ${RISK_ALLOC[risk].label} ${OBJ_W[objective].label} portfolio targets ${objLabel === "balanced" ? "balanced growth" : objLabel} over a ${years}-year horizon at a ${riskLabel} risk tolerance. The ${variant.label} optimisation anchors the book in broad market exposure (${core})${ballast ? ` with ${ballast} as ballast` : ""}, ${objClause}${topSecs.length ? ` with tilts toward ${topSecs.join(" and ")}` : ""}. It aims for a ~${m.er.toFixed(1)}% annual return at ${m.vol.toFixed(1)}% volatility, managing downside through diversification across ${variant.holdings.length} holdings and ${m.sectorCount} sectors.`;
+  // "Balanced Balanced" reads like a stutter — collapse when risk === objective.
+  const label = RISK_ALLOC[risk].label === OBJ_W[objective].label ? RISK_ALLOC[risk].label : `${RISK_ALLOC[risk].label} ${OBJ_W[objective].label}`;
+  const anchorClause = variant.holdings.some((h) => h.cls === "eq" && h.etf)
+    ? `anchors the book in broad market exposure (${core})`
+    : `builds the book around its highest-conviction names (${core})`;
+  return `This ${label} portfolio targets ${objLabel === "balanced" ? "balanced growth" : objLabel} over a ${years}-year horizon at a ${riskLabel} risk tolerance. The ${variant.label} optimisation ${anchorClause}${ballast ? ` with ${ballast} as ballast` : ""}, ${objClause}${topSecs.length ? ` with tilts toward ${topSecs.join(" and ")}` : ""}. It aims for a ~${m.er.toFixed(1)}% annual return at ${m.vol.toFixed(1)}% volatility, managing downside through diversification across ${variant.holdings.length} holdings and ${m.sectorCount} sectors.`;
 }
 
 export type Feasibility = { reqCAGR: number; grade: string; color: string; note: string };

@@ -115,7 +115,9 @@ async function buildUniverse(countryParam: string): Promise<GenInstrument[]> {
   // USD floors: market-cap gate + LIQUIDITY screen (dollar daily volume — a
   // retail position must be tradeable without moving the market). avg_volume
   // is null for ~all rows, so fall back to the latest day's volume.
-  const minUsdCap = isGlobal ? 5e9 : 1e9;
+  // $1B floor everywhere: small caps must be REACHABLE (goal: "only small
+  // caps") — the dollar-ADV liquidity screen is what keeps out the junk.
+  const minUsdCap = 1e9;
   const minDollarAdv = isGlobal ? 3e6 : 750_000;
   const cands = pool
     .filter((r) => {
