@@ -40,6 +40,16 @@ type Strings = {
   endCtaBtn: string;
   endCtaSecondary: string;
   mobileCta: string;
+  // Inline mid-article promo banners (rotate: best list / healthcheck / generator).
+  bannerBestTitle: string;
+  bannerBestBody: string;
+  bannerBestCta: string;
+  bannerHealthTitle: string;
+  bannerHealthBody: string;
+  bannerHealthCta: string;
+  bannerGenTitle: string;
+  bannerGenBody: string;
+  bannerGenCta: string;
 };
 
 export const BLOG_STRINGS: Record<Locale, Strings> = {
@@ -81,6 +91,15 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     endCtaBtn: "Get Pro — $100/yr",
     endCtaSecondary: "See what's included",
     mobileCta: "Unlock every rating — $100/yr",
+    bannerBestTitle: "The 10 top-rated dividend stocks to own this month",
+    bannerBestBody: "Our model re-ranks every payer daily. See who sits on top right now.",
+    bannerBestCta: "See the list →",
+    bannerHealthTitle: "Is your portfolio built for a day like this?",
+    bannerHealthBody: "Run the Portfolio Healthcheck — risk, concentration and diversification in one score.",
+    bannerHealthCta: "Check my portfolio →",
+    bannerGenTitle: "Let the model build your next portfolio",
+    bannerGenBody: "Top-rated holdings, measured risk, six optimizations — sized to your amount.",
+    bannerGenCta: "Generate a portfolio →",
   },
   fr: {
     blogTitle: "Blog Dividendes",
@@ -120,6 +139,15 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     endCtaBtn: "Passer Pro — 100 $/an",
     endCtaSecondary: "Voir ce qui est inclus",
     mobileCta: "Débloquez toutes les notes — 100 $/an",
+    bannerBestTitle: "Les 10 actions à dividende les mieux notées du mois",
+    bannerBestBody: "Notre modèle reclasse chaque payeur quotidiennement. Voyez qui est en tête en ce moment.",
+    bannerBestCta: "Voir la liste →",
+    bannerHealthTitle: "Votre portefeuille est-il prêt pour une journée comme celle-ci ?",
+    bannerHealthBody: "Lancez le bilan de portefeuille — risque, concentration et diversification en un seul score.",
+    bannerHealthCta: "Analyser mon portefeuille →",
+    bannerGenTitle: "Laissez le modèle construire votre prochain portefeuille",
+    bannerGenBody: "Titres bien notés, risque mesuré, six optimisations — à la taille de votre montant.",
+    bannerGenCta: "Générer un portefeuille →",
   },
   de: {
     blogTitle: "Dividenden-Blog",
@@ -159,6 +187,15 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     endCtaBtn: "Pro holen — 100 $/Jahr",
     endCtaSecondary: "Alles Inklusive ansehen",
     mobileCta: "Alle Bewertungen freischalten — 100 $/Jahr",
+    bannerBestTitle: "Die 10 bestbewerteten Dividendenaktien des Monats",
+    bannerBestBody: "Unser Modell stuft jeden Zahler täglich neu ein. Sehen Sie, wer gerade vorne liegt.",
+    bannerBestCta: "Liste ansehen →",
+    bannerHealthTitle: "Ist Ihr Portfolio für so einen Tag gebaut?",
+    bannerHealthBody: "Portfolio-Check starten — Risiko, Konzentration und Diversifikation in einem Score.",
+    bannerHealthCta: "Portfolio prüfen →",
+    bannerGenTitle: "Lassen Sie das Modell Ihr nächstes Portfolio bauen",
+    bannerGenBody: "Bestbewertete Positionen, gemessenes Risiko, sechs Optimierungen — passend zu Ihrem Betrag.",
+    bannerGenCta: "Portfolio generieren →",
   },
   it: {
     blogTitle: "Blog Dividendi",
@@ -198,6 +235,15 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     endCtaBtn: "Passa a Pro — 100 $/anno",
     endCtaSecondary: "Vedi cosa è incluso",
     mobileCta: "Sblocca tutte le valutazioni — 100 $/anno",
+    bannerBestTitle: "Le 10 azioni a dividendo meglio valutate del mese",
+    bannerBestBody: "Il nostro modello riclassifica ogni titolo ogni giorno. Guarda chi è in cima adesso.",
+    bannerBestCta: "Vedi la lista →",
+    bannerHealthTitle: "Il tuo portafoglio è pronto per una giornata così?",
+    bannerHealthBody: "Avvia il check del portafoglio — rischio, concentrazione e diversificazione in un solo punteggio.",
+    bannerHealthCta: "Analizza il mio portafoglio →",
+    bannerGenTitle: "Lascia che il modello costruisca il tuo prossimo portafoglio",
+    bannerGenBody: "Titoli ben valutati, rischio misurato, sei ottimizzazioni — sulla misura del tuo importo.",
+    bannerGenCta: "Genera un portafoglio →",
   },
   es: {
     blogTitle: "Blog de Dividendos",
@@ -237,6 +283,15 @@ export const BLOG_STRINGS: Record<Locale, Strings> = {
     endCtaBtn: "Hazte Pro — 100 $/año",
     endCtaSecondary: "Ver qué incluye",
     mobileCta: "Desbloquea todas las calificaciones — 100 $/año",
+    bannerBestTitle: "Las 10 acciones de dividendo mejor valoradas del mes",
+    bannerBestBody: "Nuestro modelo reclasifica cada valor a diario. Mira quién está arriba ahora mismo.",
+    bannerBestCta: "Ver la lista →",
+    bannerHealthTitle: "¿Está tu cartera preparada para un día como este?",
+    bannerHealthBody: "Haz el chequeo de cartera — riesgo, concentración y diversificación en una sola puntuación.",
+    bannerHealthCta: "Analizar mi cartera →",
+    bannerGenTitle: "Deja que el modelo construya tu próxima cartera",
+    bannerGenBody: "Valores bien calificados, riesgo medido, seis optimizaciones — al tamaño de tu importe.",
+    bannerGenCta: "Generar una cartera →",
   },
 };
 

@@ -248,8 +248,18 @@ function RadarChart({ cols, colors, size = 300 }: { cols: CompareColumn[]; color
   const rings = [0.25, 0.5, 0.75, 1];
   const allDims = cols.map(dimsOf);
   const polyFor = (d: Dims) => CMP_DIMS.map((dim, i) => pt(i, d[dim.key] / 100).join(",")).join(" ");
+  // Instant hover tooltip on vertices (native <title> was too slow to notice).
+  const [tip, setTip] = React.useState<{ x: number; y: number; tk: string; color: string; dim: string; v: number } | null>(null);
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", margin: "0 auto", overflow: "visible" }}>
+    <div style={{ position: "relative", width: size, margin: "0 auto" }}>
+      {tip && (
+        <div style={{ position: "absolute", left: clamp(tip.x + 10, 0, size - 130), top: Math.max(0, tip.y - 38), zIndex: 5, pointerEvents: "none", background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 8, padding: "6px 9px", boxShadow: "0 8px 24px rgba(0,0,0,.5)", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: tip.color }}>{tip.tk}</span>
+          <span style={{ fontFamily: mono, fontSize: 11.5, color: T.muted }}> · {tip.dim}: </span>
+          <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.ink }}>{tip.v}/100</span>
+        </div>
+      )}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block", margin: "0 auto", overflow: "visible" }}>
       {rings.map((rr, ri) => (
         <polygon key={ri} points={CMP_DIMS.map((_, i) => pt(i, rr).join(",")).join(" ")} fill="none" stroke={T.line} strokeWidth="1" opacity={ri === rings.length - 1 ? 0.9 : 0.5} />
       ))}
@@ -270,14 +280,14 @@ function RadarChart({ cols, colors, size = 300 }: { cols: CompareColumn[]; color
       ))}
       {allDims.map((d, idx) => CMP_DIMS.map((dim, i) => {
         const [x, y] = pt(i, d[dim.key] / 100);
-        // Native tooltip: hover a vertex to read the exact score.
         return (
-          <circle key={idx + dim.key} cx={x} cy={y} r="3.4" fill={colors[idx]} style={{ cursor: "help" }}>
-            <title>{`${cols[idx].symbol} · ${dim.label}: ${Math.round(d[dim.key])}/100`}</title>
-          </circle>
+          <circle key={idx + dim.key} cx={x} cy={y} r="4" fill={colors[idx]} stroke={T.bg} strokeWidth="1.2" style={{ cursor: "pointer" }}
+            onMouseEnter={() => setTip({ x, y, tk: cols[idx].symbol, color: colors[idx], dim: dim.label, v: Math.round(d[dim.key]) })}
+            onMouseLeave={() => setTip(null)} />
         );
       }))}
-    </svg>
+      </svg>
+    </div>
   );
 }
 
@@ -499,6 +509,9 @@ function PriceChart({ cols, colors, series, rangeKey, height = 300 }: { cols: Co
       {hover != null && (
         <>
           <div style={{ position: "absolute", top: 0, bottom: 22, left: `${hover * plotFrac * 100}%`, width: 1, background: T.line2, pointerEvents: "none" }} />
+          {hoverRows.map((r) => (
+            <span key={r.symbol} style={{ position: "absolute", left: `calc(${(x(r.date) / W) * 100}% - 4px)`, top: y(r.v) - 4, width: 8, height: 8, borderRadius: "50%", background: r.color, border: `1.5px solid ${T.bg}`, pointerEvents: "none", zIndex: 4 }} />
+          ))}
           <div style={{ position: "absolute", top: 8, left: hover < 0.55 ? `calc(${hover * plotFrac * 100}% + 12px)` : undefined, right: hover >= 0.55 ? `calc(${(1 - hover * plotFrac) * 100}% + 12px)` : undefined, background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 9, padding: "8px 11px", pointerEvents: "none", zIndex: 5, boxShadow: "0 8px 24px rgba(0,0,0,.45)" }}>
             <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, marginBottom: 5 }}>{hoverDate}</div>
             {hoverRows.map((r) => (
@@ -690,13 +703,35 @@ export function CompareApp({ columns, series }: { columns: CompareColumn[]; seri
   const headSlots = symbols.length < 4 ? cols.length + 1 : cols.length;
   const headCols = `minmax(150px, 1.1fr) repeat(${headSlots}, minmax(0, 1fr))`;
 
-  if (cols.length < 2) {
+  if (cols.length === 0) {
     return (
       <div className="cmp-root" style={{ background: T.bg, color: T.ink, fontFamily: body, padding: "60px 24px", textAlign: "center" }}>
         <style>{CSS}</style>
-        <h1 style={{ fontFamily: display, fontSize: 28, fontWeight: 800 }}>Not enough valid tickers</h1>
-        <p style={{ color: T.muted }}>{missing.length ? `Not found: ${missing.map((m) => m.symbol).join(", ")}. ` : ""}Pick at least two to compare.</p>
+        <h1 style={{ fontFamily: display, fontSize: 28, fontWeight: 800 }}>No valid tickers</h1>
+        <p style={{ color: T.muted }}>{missing.length ? `Not found: ${missing.map((m) => m.symbol).join(", ")}. ` : ""}Pick two to compare.</p>
         <a href="/compare" style={{ color: T.green, fontWeight: 700 }}>Start over</a>
+      </div>
+    );
+  }
+
+  // One valid ticker: not an error — show its card and invite the second pick.
+  if (cols.length === 1) {
+    const c = cols[0];
+    return (
+      <div className="cmp-root" style={{ background: T.bg, minHeight: "60vh", color: T.ink, fontFamily: body }}>
+        <style>{CSS}</style>
+        <div style={{ maxWidth: 1320, margin: "0 auto", padding: "34px 24px 60px" }}>
+          <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: T.green, marginBottom: 12 }}>Compare · side by side</div>
+          <h1 style={{ fontFamily: display, fontSize: 34, fontWeight: 800, color: T.ink, margin: "0 0 8px", letterSpacing: "-0.03em" }}>{c.symbol} vs …</h1>
+          <p style={{ fontSize: 15, color: T.muted, margin: "0 0 24px", maxWidth: 560, lineHeight: 1.55 }}>
+            Add a second ticker to unlock the verdict, the radar and the head-to-head table.
+            {missing.length > 0 && <span style={{ color: T.amber }}> (Not found: {missing.map((m) => m.symbol).join(", ")})</span>}
+          </p>
+          <div className="cmp-headGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 280px))", gap: 12, alignItems: "stretch" }}>
+            <TickerHead c={c} color={COL_SEQ[0]} symbols={symbols} isWinner={false} />
+            <AddPicker symbols={symbols} />
+          </div>
+        </div>
       </div>
     );
   }

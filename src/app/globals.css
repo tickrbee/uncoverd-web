@@ -2996,6 +2996,43 @@ a {
   border-radius: 11px; padding: 0.8rem 1.4rem; text-decoration: none; font-weight: 600;
 }
 
+/* mid-article promo banners */
+.dv-inline-promo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(47, 227, 160, 0.35);
+  border-radius: 14px;
+  text-decoration: none;
+  background:
+    radial-gradient(90% 130% at 100% -10%, rgba(47, 227, 160, 0.1), transparent 55%),
+    linear-gradient(120deg, #11202f, #0d1722);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.dv-inline-promo:hover { border-color: #2fe3a0; transform: translateY(-1px); }
+.dv-inline-promo__title { display: block; font-weight: 700; color: var(--text-primary); font-size: 1rem; }
+.dv-inline-promo__body { display: block; color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
+.dv-inline-promo__cta {
+  flex-shrink: 0;
+  background: #2fe3a0;
+  color: #07140e;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .dv-inline-promo { flex-direction: column; align-items: flex-start; }
+}
+.dv-ratecard__live { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.dv-ratecard__ghosts { display: grid; gap: 6px; margin-bottom: 0.4rem; }
+.dv-ratecard__ghost { display: flex; justify-content: space-between; font-size: 0.85rem; }
+.dv-ratecard__ghostname { filter: blur(5px); color: var(--text-secondary); user-select: none; }
+
 /* hero ticker chip + sticky mobile CTA */
 .dv-hero-ticker { margin-left: 0.9rem; font-weight: 700; }
 .dv-mobilecta {

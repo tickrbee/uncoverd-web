@@ -57,6 +57,9 @@ function extractH2s(md: string): { text: string; slug: string }[] {
 
 const TOC_LABEL: Record<Locale, string> = { en: "On this page", fr: "Sur cette page", de: "Auf dieser Seite", it: "In questa pagina", es: "En esta página" };
 const BACK_TOP_LABEL: Record<Locale, string> = { en: "↑ Back to top", fr: "↑ Haut de page", de: "↑ Nach oben", it: "↑ Torna su", es: "↑ Volver arriba" };
+// The rail card is LIVE (today's rating) while article text is frozen at
+// publication — label it so the difference reads as a feature, not a bug.
+const LIVE_LABEL: Record<Locale, string> = { en: "Live rating", fr: "Note en direct", de: "Live-Bewertung", it: "Valutazione live", es: "Calificación en vivo" };
 
 const MD_COMPONENTS: Components = {
   h2: ({ children }) => <h2 id={slugify(nodeText(children))}>{children}</h2>,
@@ -76,6 +79,26 @@ const MD_COMPONENTS: Components = {
     );
   },
 };
+
+// Split the markdown at H2 boundaries so promo banners can be injected
+// BETWEEN sections (each chunk renders through its own ReactMarkdown).
+function splitAtH2(md: string): string[] {
+  const lines = md.split("\n");
+  const chunks: string[] = [];
+  let cur: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    if (/^```/.test(line.trim())) inFence = !inFence;
+    if (!inFence && /^##\s+/.test(line) && cur.length) {
+      chunks.push(cur.join("\n"));
+      cur = [line];
+    } else {
+      cur.push(line);
+    }
+  }
+  if (cur.length) chunks.push(cur.join("\n"));
+  return chunks;
+}
 
 // Which tools this article should market, in order — aligned with the story.
 // Posts about a stock going DOWN sell risk control (Healthcheck); posts about
@@ -150,12 +173,40 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
   const price = quote?.price ?? null;
   const change = quote?.change_percent ?? null;
 
+  // Mid-article promo banners: split the body at H2s and inject up to two
+  // banners between sections. Banner 1 always markets the email-gated
+  // top-stocks list; banner 2 routes by story direction (down → Healthcheck,
+  // otherwise → Generator). Premium funnels, not just "Get Pro".
+  const slugLower = post.meta.slug.toLowerCase();
+  const isDown = /(drop|selloff|sell-off|plunge|crash|fall|kurssturz|absturz|chute|caida|caída|calo|crollo)/.test(slugLower);
+  const chunks = splitAtH2(post.body);
+  const banners: { title: string; bodyTxt: string; cta: string; href: string }[] = [
+    { title: t.bannerBestTitle, bodyTxt: t.bannerBestBody, cta: t.bannerBestCta, href: "/unlock" },
+    isDown
+      ? { title: t.bannerHealthTitle, bodyTxt: t.bannerHealthBody, cta: t.bannerHealthCta, href: "/tools/portfolio-healthcheck" }
+      : { title: t.bannerGenTitle, bodyTxt: t.bannerGenBody, cta: t.bannerGenCta, href: "/tools/portfolio-generator" },
+  ];
+  // Positions: roughly 1/3 and 2/3 through the sections (needs 3+ chunks).
+  const bannerAt = new Map<number, number>();
+  if (chunks.length >= 3) {
+    const p1 = Math.max(1, Math.floor(chunks.length / 3));
+    let p2 = Math.max(p1 + 1, Math.floor((2 * chunks.length) / 3));
+    if (p2 >= chunks.length) p2 = chunks.length - 1;
+    bannerAt.set(p1, 0);
+    if (p2 !== p1) bannerAt.set(p2, 1);
+  } else if (chunks.length === 2) {
+    bannerAt.set(1, 0);
+  }
+
   const ratingCard = ticker && rating && grade ? (
     <div className="dv-ratecard">
       <div className="dv-ratecard__head">
         <span className="dv-ratecard__grade">{grade}</span>
         <div>
-          <div className="dv-ratecard__label">{t.ratingCardLabel}</div>
+          <div className="dv-ratecard__label">
+            {t.ratingCardLabel}
+            {rating.computed_date && <span className="dv-ratecard__live"> · {LIVE_LABEL[locale]} {formatPostDate(rating.computed_date, locale)}</span>}
+          </div>
           <div className="dv-ratecard__tk">
             {ticker}
             {price != null && <span className="dv-ratecard__px">${price.toFixed(2)}</span>}
@@ -186,7 +237,31 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
       </div>
       <Link href="/pricing" className="dv-ratecard__cta">{t.unlockRating}</Link>
     </div>
-  ) : null;
+  ) : (
+    // Ticker-less posts (guides, IPO pieces…) still get a premium rail card:
+    // the email-gated top-stocks list teaser.
+    <div className="dv-ratecard">
+      <div className="dv-ratecard__head">
+        <span className="dv-ratecard__grade">10</span>
+        <div>
+          <div className="dv-ratecard__label">{t.putToWork}</div>
+          <div className="dv-ratecard__tk">{t.toolBest}</div>
+        </div>
+      </div>
+      <div className="dv-ratecard__ghosts" aria-hidden="true">
+        {[92, 90, 87].map((s, i) => (
+          <div key={i} className="dv-ratecard__ghost">
+            <span className="dv-ratecard__ghostname">████████</span>
+            <span className="dv-up">{s}</span>
+          </div>
+        ))}
+      </div>
+      <div className="dv-ratecard__locked" aria-hidden="true">
+        <span>{t.bannerBestBody}</span>
+      </div>
+      <Link href="/unlock" className="dv-ratecard__cta">{t.bannerBestCta}</Link>
+    </div>
+  );
 
   return (
     <>
@@ -258,9 +333,25 @@ export async function BlogPostView({ post, locale }: { post: Post; locale: Local
                 </div>
               )}
 
-              <div className="dv-prose dv-blog-prose">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{post.body}</ReactMarkdown>
-              </div>
+              {chunks.map((chunk, i) => (
+                <div key={i} className="dv-blog-chunk">
+                  {bannerAt.has(i) && (() => {
+                    const b = banners[bannerAt.get(i)!];
+                    return (
+                      <Link href={b.href} className="dv-inline-promo">
+                        <span className="dv-inline-promo__text">
+                          <span className="dv-inline-promo__title">{b.title}</span>
+                          <span className="dv-inline-promo__body">{b.bodyTxt}</span>
+                        </span>
+                        <span className="dv-inline-promo__cta">{b.cta}</span>
+                      </Link>
+                    );
+                  })()}
+                  <div className="dv-prose dv-blog-prose">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{chunk}</ReactMarkdown>
+                  </div>
+                </div>
+              ))}
 
               {/* Inline conversion gate: the deeper rating report is members-only. */}
               {ticker && grade && (
