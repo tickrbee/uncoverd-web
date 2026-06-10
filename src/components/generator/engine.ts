@@ -110,12 +110,24 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     const tk = exMatch[1].toUpperCase();
     if (byTk.has(tk) && !anchors.includes(tk)) exSet.add(tk);
   }
+  // LLM-parsed goal constraints (machine-enforced, not regex-guessed).
+  const pg = o.parsed ?? null;
+  if (pg) {
+    for (const tk of pg.exclusions) if (!anchors.includes(tk)) exSet.add(tk);
+  }
+  const nameAvoidRe = pg && pg.nameAvoid.length
+    ? new RegExp(pg.nameAvoid.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "i")
+    : null;
+  const sectorsAvoid = new Set(pg?.sectorsAvoid ?? []);
+
   // Income objective: a dividend portfolio must actually pay one — floor the
   // stock yield at 1.5% (anchors exempt) so 0.0%-yield tech can't fill an
-  // income book just because it's highly rated.
-  const yieldFloor = o.objective === "income" ? 1.5 : 0;
+  // income book just because it's highly rated. The parsed goal can raise it.
+  const yieldFloor = Math.max(o.objective === "income" ? 1.5 : 0, pg?.yieldFloorPct ?? 0);
   const eqPool = universe.filter(
     (u) => u.cls === "eq" && !exSet.has(u.tk) &&
+      !(nameAvoidRe && u.kind === "stock" && nameAvoidRe.test(u.name)) &&
+      !(u.kind === "stock" && sectorsAvoid.has(u.sector) && !anchors.includes(u.tk)) &&
       (u.kind !== "stock" || yieldFloor === 0 || ny(u.yield) >= yieldFloor || anchors.includes(u.tk))
   );
   const ny = normRange(eqPool.map((u) => u.yield));
@@ -127,15 +139,16 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   // asked for, non-matching stocks get penalized so they can't dominate.
   const EUROPE = new Set(["DE", "FR", "NL", "CH", "GB", "ES", "IT", "SE", "DK", "NO", "FI", "BE", "AT", "PT", "IE", "LU", "PL", "GR", "CZ", "HU"]);
   const ASIA = new Set(["JP", "KR", "TW", "HK", "SG", "CN", "IN", "ID", "MY", "TH", "PH", "VN"]);
-  const wantsEurope = /(europe|european|europä|europe[oa]|européen)/.test(g);
-  const wantsAsia = /(asia|asian|japan|japon)/.test(g);
-  const wantsUs = /(america|american|usa|u\.s\.|us stocks|wall street)/.test(g);
+  const wantsEurope = /(europe|european|europä|europe[oa]|européen)/.test(g) || !!pg?.geographies.includes("EUROPE");
+  const wantsAsia = /(asia|asian|japan|japon)/.test(g) || !!pg?.geographies.includes("ASIA");
+  const wantsUs = /(america|american|usa|u\.s\.|us stocks|wall street)/.test(g) || !!pg?.geographies.includes("US");
   const wantsUpside = /(start.?up|startup|upside|venture|moonshot|disruptive)/.test(g);
   const goalBonus = (u: GenInstrument) => {
     let b = 0;
     if (/(dividend|income|yield|cash.?flow)/.test(g)) b += ny(u.yield) * 0.6 + (u.kind === "div" ? 0.3 : 0);
     if (/(tax|taxable|efficien)/.test(g)) b += u.etf ? 0.22 : -0.12;
     if (/(tech|a\.?i\.?|innovation|semi|software)/.test(g) && u.sector === "Technology") b += 0.55;
+    if (pg?.sectorsBoost.includes(u.sector)) b += 0.5;
     if (/(international|global|ex.?us|emerging|overseas|abroad)/.test(g) && /VXUS|VWO|VEA|SCHY/.test(u.tk)) b += 0.7;
     if (/(retire|retirement|long.?term|nest egg|decades?)/.test(g) && (u.kind === "broad" || u.q >= 85)) b += 0.22;
     if (/(safe|preserv|capital preservation|ballast|low.?risk|protect|secure)/.test(g)) b += 0.45 - u.vol * 0.016;

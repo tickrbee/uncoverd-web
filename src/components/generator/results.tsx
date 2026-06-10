@@ -156,6 +156,70 @@ export function FactorPanel({ factors }: { factors: { factor: string; port: numb
   );
 }
 
+/* ---------- AI audit (tool-using: queries ratings + news per pick) ---------- */
+export function AuditCard({ result, variant }: { result: GenResult; variant: Variant }) {
+  const [audit, setAudit] = React.useState<{ summary: string; flags: { symbol: string; severity: string; note: string }[] } | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const ranFor = React.useRef("");
+  const key = variant.id + variant.holdings.map((h) => h.tk + Math.round(h.w * 1000)).join(",");
+
+  React.useEffect(() => {
+    if (busy || ranFor.current === key) return;
+    ranFor.current = key;
+    let alive = true;
+    (async () => {
+      // Audit + fetch are one operation; sync set flips the spinner instantly.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBusy(true);
+      setErr("");
+      try {
+        const supabase = createClient();
+        const holdings = variant.holdings.filter((h) => h.cls !== "cash").map((h) => ({ symbol: h.tk, weight: +(h.w * 100).toFixed(1) }));
+        const { data, error } = await supabase.functions.invoke("portfolio-audit", { body: { holdings, goal: result.inputs.goal } });
+        if (!alive) return;
+        if (error || data?.error) setErr("Audit unavailable right now.");
+        else setAudit({ summary: data?.summary ?? "", flags: data?.flags ?? [] });
+      } catch {
+        if (alive) setErr("Audit unavailable right now.");
+      } finally {
+        if (alive) setBusy(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return (
+    <Panel pad={20} style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: audit || err || busy ? 12 : 0 }}>
+        <Eyebrow icon="shield" style={{ marginBottom: 0 }}>AI audit · live ratings &amp; news</Eyebrow>
+        {busy && <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: mono, fontSize: 10.5, color: T.faint }}><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={13} /></span> AUDITING EVERY PICK…</span>}
+      </div>
+      {err && <div style={{ fontSize: 12.5, color: T.faint }}>{err}</div>}
+      {audit && (
+        <>
+          <p style={{ margin: "0 0 12px", fontSize: 13.5, color: T.ink, lineHeight: 1.65 }}>{audit.summary}</p>
+          {audit.flags.length > 0 && (
+            <div style={{ display: "grid", gap: 7 }}>
+              {audit.flags.map((f, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: T.bg, border: `1px solid ${f.severity === "warn" ? T.amber + "55" : T.line}`, borderRadius: 9, padding: "8px 12px" }}>
+                  <Icon name={f.severity === "warn" ? "alert" : "info"} size={13} color={f.severity === "warn" ? T.amber : T.faint} />
+                  <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.ink, width: 64, flexShrink: 0 }}>{f.symbol}</span>
+                  <span style={{ fontSize: 12.5, color: T.muted }}>{f.note}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: 10, fontSize: 11, color: T.faint }}>
+            Audited against the live database: each pick&apos;s current rating, momentum/health pillars, sector and the last 6 days of company news — checked for fit with your stated goal.
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
 /* ---------- AI analysis (LLM layer, premium) ---------- */
 function AiAnalysis({ result, variant, auto = false }: { result: GenResult; variant: Variant; auto?: boolean }) {
   const [answer, setAnswer] = React.useState("");
@@ -455,6 +519,11 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
             {variant.optimized && variant.costBps != null && (
               <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>est. cost to implement ~{variant.costBps} bps</span>
             )}
+            {result.inputs.parsed?.summary && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: T.amber, background: T.amber + "12", border: `1px solid ${T.amber}44`, borderRadius: 7, padding: "4px 9px" }}>
+                <Icon name="sparkles" size={11} color={T.amber} /> AI READ: {result.inputs.parsed.summary.toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -571,6 +640,9 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
           {m.subscores.map((s) => <ScoreBar key={s.k} label={s.k} s={s.s} note={s.note} />)}
         </Panel>
       </div>
+
+      {/* AI audit — tool-using: checks every pick against live ratings + news */}
+      {m.measured && <AuditCard result={result} variant={variant} />}
 
       {/* AI analysis (LLM) — auto-runs once the variant is measured */}
       <div style={{ marginBottom: 20 }}><AiAnalysis result={result} variant={variant} auto={!!m.measured} /></div>

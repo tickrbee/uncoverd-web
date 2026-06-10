@@ -8,7 +8,7 @@ import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Panel } from "@/components/healthcheck/theme";
 import { generatePortfolio, applyReal } from "./engine";
-import type { GenInstrument, GenOptions } from "./types";
+import type { GenInstrument, GenOptions, ParsedGoal } from "./types";
 import { GenForm } from "./form";
 import { ResultsView } from "./results";
 import { FreeResultsView, PremiumBanner } from "./free";
@@ -54,7 +54,7 @@ const CSS = `
 
 const DEFAULT_STATE: GenOptions = {
   amount: 10000, currency: "USD", country: "GLOBAL", seed: 0, risk: "balanced", objective: "balanced", horizon: "medium",
-  sectors: [], anchors: [], count: 10, goal: "", target: 0, monthlyDCA: 0,
+  sectors: [], anchors: [], count: 10, goal: "", target: 0, monthlyDCA: 0, parsed: null,
 };
 
 function EmptyState() {
@@ -166,6 +166,36 @@ export function PortfolioGeneratorApp() {
 
   const onPin = (tk: string) => { if (!state.anchors.includes(tk)) set({ anchors: [...state.anchors, tk] }); };
   const onRemove = (tk: string) => setExclude((e) => (e.includes(tk) ? e : [...e, tk]));
+
+  // ---- LLM goal parser: turn the free-text goal into machine-enforced
+  // constraints (exclusions, geographies, sector avoid/boost, yield floor).
+  // The build regenerates automatically when the parse lands.
+  const parsedCache = React.useRef<Map<string, ParsedGoal | null>>(new Map());
+  /* eslint-disable react-hooks/set-state-in-effect */
+  React.useEffect(() => {
+    const goal = state.goal.trim();
+    if (!generated || goal.length < 12) return;
+    if (parsedCache.current.has(goal)) {
+      const hit = parsedCache.current.get(goal) ?? null;
+      if (hit && state.parsed !== hit) setState((s) => (s.goal.trim() === goal ? { ...s, parsed: hit } : s));
+      return;
+    }
+    let alive = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.functions.invoke("goal-parser", { body: { goal } });
+        const parsed = (data?.parsed ?? null) as ParsedGoal | null;
+        parsedCache.current.set(goal, parsed);
+        if (alive && parsed) setState((s) => (s.goal.trim() === goal ? { ...s, parsed } : s));
+      } catch {
+        parsedCache.current.set(goal, null);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generated, state.goal]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ---- v4 COMPOSE: the engine picks the candidates; the server runs
   // Black–Litterman (equilibrium prior from USD caps + rating views) over the

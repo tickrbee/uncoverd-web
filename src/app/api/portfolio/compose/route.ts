@@ -1,7 +1,29 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { getStock, historicalPrices, getStockRatings, fxRatesToUSD } from "@/lib/data";
 import { covarianceFromReturns, riskParityWeights, optimizePortfolio } from "@/lib/portfolio-optimizer";
 import { blPosterior, ratingView, type BlView } from "@/lib/black-litterman";
+
+// Street consensus price target (FMP) — the SECOND Black–Litterman view
+// source, independent of our ratings. Silently skipped when no key is set.
+const priceTargetOf = unstable_cache(
+  async (symbol: string): Promise<number | null> => {
+    const key = process.env.FMP_API_KEY;
+    if (!key) return null;
+    try {
+      const r = await fetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${encodeURIComponent(symbol)}&apikey=${key}`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      const row = Array.isArray(d) ? d[0] : d;
+      const t = row?.targetConsensus ?? row?.targetMedian ?? null;
+      return typeof t === "number" && t > 0 ? t : null;
+    } catch {
+      return null;
+    }
+  },
+  ["v1:priceTargetConsensus"],
+  { revalidate: 86400 },
+);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,12 +118,26 @@ export async function POST(req: Request) {
   const capsUsd = used.map((r) => toUsd(r.stock!.market_cap, r.stock!.currency));
   const costBps = used.map((r) => costBpsOf(((r.stock!.avg_volume ?? r.stock!.volume ?? 0) as number) * toUsd(r.stock!.price, r.stock!.currency)));
 
-  // Views: the uncoverd composite rating, per stock (ETFs ride the prior).
+  // Views, two independent sources per stock (ETFs ride the prior):
+  //  1. the uncoverd composite rating;
+  //  2. street consensus price-target upside (12m), centred on the market's
+  //     ~7% baseline so only the EXCESS expectation tilts.
   const views: BlView[] = [];
+  const stocksOnly = used.filter((r) => !(r.stock!.is_etf || r.stock!.is_fund));
+  const targets = new Map(
+    await Promise.all(stocksOnly.map(async (r) => [r.symbol, await priceTargetOf(r.symbol)] as const))
+  );
   used.forEach((r, i) => {
     if (r.stock!.is_etf || r.stock!.is_fund) return;
     const v = ratingView(ratings.get(r.symbol)?.composite_grade);
     if (v) views.push({ index: i, q: v.q, confidence: v.confidence, source: "rating" });
+    const target = targets.get(r.symbol);
+    const px = r.stock!.price;
+    if (target != null && px != null && px > 0) {
+      const upside = target / px - 1;
+      const q = Math.max(-0.05, Math.min(0.05, upside - 0.07));
+      views.push({ index: i, q, confidence: 0.35, source: "analyst" });
+    }
   });
 
   const S = covarianceFromReturns(returns);

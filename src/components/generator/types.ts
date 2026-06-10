@@ -1,6 +1,19 @@
 // Shared types between the universe API route (server) and the generator
 // engine/UI (client). Keep this file free of runtime imports.
 
+// Structured constraints the LLM goal-parser extracts from the free-text
+// goal — machine-enforceable, unlike regex guessing.
+export type ParsedGoal = {
+  exclusions: string[];
+  geographies: string[]; // "US" | "EUROPE" | "ASIA"
+  sectorsAvoid: string[];
+  sectorsBoost: string[];
+  nameAvoid: string[]; // lowercase company-name keywords
+  yieldFloorPct: number | null;
+  riskHint: string | null;
+  summary: string;
+};
+
 export type GenInstrument = {
   tk: string;
   name: string;
@@ -44,4 +57,6 @@ export type GenOptions = {
   target: number;
   monthlyDCA: number;
   exclude?: string[];
+  // Filled by the goal-parser edge function when the goal text is non-trivial.
+  parsed?: ParsedGoal | null;
 };
