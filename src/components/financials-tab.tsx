@@ -17,8 +17,12 @@ function abbrev(v: number | null | undefined): string {
   return n.toFixed(0);
 }
 
-function periodLabel(row: { date: string; fiscal_year: string | null }, period: Period): string {
+function periodLabel(row: { date: string; fiscal_year: string | null; period?: string | null }, period: Period): string {
   if (period === "annual") return (row.fiscal_year || row.date).slice(0, 4);
+  // Use the COMPANY'S fiscal quarter as filed (NVDA's quarter ending Apr 2026
+  // is fiscal Q1 FY2027, not "calendar Q2 2026"). Calendar fallback only when
+  // the filing fields are missing.
+  if (row.period && row.fiscal_year) return `FY${row.fiscal_year.slice(0, 4)} ${row.period}`;
   const d = new Date(row.date);
   return `${row.date.slice(0, 4)} Q${Math.ceil((d.getMonth() + 1) / 3)}`;
 }

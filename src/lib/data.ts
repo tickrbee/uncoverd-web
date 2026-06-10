@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import { unstable_cache } from "next/cache";
 import { getAdminClient, getBackendClient } from "@/lib/supabase/admin";
 import type { StockRow, StockRating, DividendEvent, PayoutChangeEvent, StockExtras } from "@/lib/types";
@@ -159,6 +159,7 @@ export type HistoricalPriceRow = {
 export type IncomeStatementRow = {
   symbol: string;
   fiscal_year: string | null;
+  period: string | null;
   date: string;
   revenue: number | null;
   gross_profit: number | null;
@@ -173,6 +174,7 @@ export type IncomeStatementRow = {
 export type BalanceSheetRow = {
   symbol: string;
   fiscal_year: string | null;
+  period: string | null;
   date: string;
   total_debt: number | null;
   short_term_debt: number | null;
@@ -191,6 +193,7 @@ export type BalanceSheetRow = {
 export type CashFlowRow = {
   symbol: string;
   fiscal_year: string | null;
+  period: string | null;
   date: string;
   free_cash_flow: number | null;
   operating_cash_flow: number | null;
@@ -2304,7 +2307,7 @@ export async function incomeStatementAnnual(symbol: string, years = 6): Promise<
   const sb = getBackendClient();
   const { data, error } = await sb
     .from("income_statement_annual")
-    .select("symbol,fiscal_year,date,revenue,gross_profit,operating_income,ebitda,net_income,eps,eps_diluted,reported_currency")
+    .select("symbol,fiscal_year,period,date,revenue,gross_profit,operating_income,ebitda,net_income,eps,eps_diluted,reported_currency")
     .eq("symbol", symbol)
     .order("date", { ascending: false })
     .limit(years);
@@ -2319,7 +2322,7 @@ export async function incomeStatementQuarterly(symbol: string, quarters = 8): Pr
   const sb = getBackendClient();
   const { data, error } = await sb
     .from("income_statement_quarterly")
-    .select("symbol,fiscal_year,date,revenue,gross_profit,operating_income,ebitda,net_income,eps,eps_diluted,reported_currency")
+    .select("symbol,fiscal_year,period,date,revenue,gross_profit,operating_income,ebitda,net_income,eps,eps_diluted,reported_currency")
     .eq("symbol", symbol)
     .order("date", { ascending: false })
     .limit(quarters);
@@ -2335,7 +2338,7 @@ export async function balanceSheetQuarterly(symbol: string, quarters = 8): Promi
   const { data, error } = await sb
     .from("balance_sheet_quarterly")
     .select(
-      "symbol,fiscal_year,date,total_debt,short_term_debt,long_term_debt,net_debt,cash_and_cash_equivalents,cash_and_short_term_investments,total_assets,total_liabilities,total_current_assets,total_current_liabilities,total_stockholders_equity,reported_currency"
+      "symbol,fiscal_year,period,date,total_debt,short_term_debt,long_term_debt,net_debt,cash_and_cash_equivalents,cash_and_short_term_investments,total_assets,total_liabilities,total_current_assets,total_current_liabilities,total_stockholders_equity,reported_currency"
     )
     .eq("symbol", symbol)
     .order("date", { ascending: false })
@@ -2352,7 +2355,7 @@ export async function cashFlowQuarterly(symbol: string, quarters = 8): Promise<C
   const { data, error } = await sb
     .from("cash_flow_quarterly")
     .select(
-      "symbol,fiscal_year,date,free_cash_flow,operating_cash_flow,capital_expenditure,common_dividends_paid,net_dividends_paid,net_cash_provided_by_operating_activities,net_cash_provided_by_investing_activities,net_cash_provided_by_financing_activities,reported_currency"
+      "symbol,fiscal_year,period,date,free_cash_flow,operating_cash_flow,capital_expenditure,common_dividends_paid,net_dividends_paid,net_cash_provided_by_operating_activities,net_cash_provided_by_investing_activities,net_cash_provided_by_financing_activities,reported_currency"
     )
     .eq("symbol", symbol)
     .order("date", { ascending: false })
@@ -2369,7 +2372,7 @@ export async function balanceSheetAnnual(symbol: string, years = 6): Promise<Bal
   const { data, error } = await sb
     .from("balance_sheet_annual")
     .select(
-      "symbol,fiscal_year,date,total_debt,short_term_debt,long_term_debt,net_debt,cash_and_cash_equivalents,cash_and_short_term_investments,total_assets,total_liabilities,total_current_assets,total_current_liabilities,total_stockholders_equity,reported_currency"
+      "symbol,fiscal_year,period,date,total_debt,short_term_debt,long_term_debt,net_debt,cash_and_cash_equivalents,cash_and_short_term_investments,total_assets,total_liabilities,total_current_assets,total_current_liabilities,total_stockholders_equity,reported_currency"
     )
     .eq("symbol", symbol)
     .order("date", { ascending: false })
@@ -2386,7 +2389,7 @@ export async function cashFlowAnnual(symbol: string, years = 6): Promise<CashFlo
   const { data, error } = await sb
     .from("cash_flow_annual")
     .select(
-      "symbol,fiscal_year,date,free_cash_flow,operating_cash_flow,capital_expenditure,common_dividends_paid,net_dividends_paid,net_cash_provided_by_operating_activities,net_cash_provided_by_investing_activities,net_cash_provided_by_financing_activities,reported_currency"
+      "symbol,fiscal_year,period,date,free_cash_flow,operating_cash_flow,capital_expenditure,common_dividends_paid,net_dividends_paid,net_cash_provided_by_operating_activities,net_cash_provided_by_investing_activities,net_cash_provided_by_financing_activities,reported_currency"
     )
     .eq("symbol", symbol)
     .order("date", { ascending: false })
