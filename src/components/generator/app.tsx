@@ -141,10 +141,14 @@ export function PortfolioGeneratorApp() {
     [pool, state, exclude]
   );
 
-  const generate = () => {
+  // Generate is ALWAYS clickable — if the universe is still loading, the
+  // click queues and fires the moment data lands (no dead button).
+  const [pendingGen, setPendingGen] = React.useState(false);
+  const generate = React.useCallback(() => {
+    if (!pool) { setPendingGen(true); return; }
     // Regenerate with unchanged inputs = "show me another build": bump the
     // seed so the engine's deterministic jitter produces a fresh mix.
-    if (!dirty) setState((s) => ({ ...s, seed: s.seed + 1 }));
+    if (!dirty && generated) setState((s) => ({ ...s, seed: s.seed + 1 }));
     setExclude([]);
     setSelected("maxSharpe");
     setGenerated(true);
@@ -152,7 +156,13 @@ export function PortfolioGeneratorApp() {
     setTimeout(() => {
       if (resultsRef.current && window.innerWidth < 1000) resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
-  };
+  }, [pool, dirty, generated]);
+  // Queued click fires as soon as the universe lands — intentional state set.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  React.useEffect(() => {
+    if (pool && pendingGen) { setPendingGen(false); generate(); }
+  }, [pool, pendingGen, generate]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const onPin = (tk: string) => { if (!state.anchors.includes(tk)) set({ anchors: [...state.anchors, tk] }); };
   const onRemove = (tk: string) => setExclude((e) => (e.includes(tk) ? e : [...e, tk]));
@@ -229,7 +239,7 @@ export function PortfolioGeneratorApp() {
             {/* The form renders immediately — live market data hydrates in the
                 background and only the Generate button waits for it. */}
             <GenForm universe={pool ?? []} state={state} set={set} onGenerate={generate} onExtra={onExtra} dirty={dirty}
-              ready={!!pool}
+              ready={!pendingGen}
               feasibility={state.target > 0 && result ? result.feasibility : null} />
             {loadErr && !pool && (
               <div style={{ color: T.red, fontSize: 12.5, marginTop: 12 }}>Could not load live market data — refresh to try again.</div>

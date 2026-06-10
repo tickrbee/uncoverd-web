@@ -231,6 +231,11 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
             </div>
           ))}
         </div>
+        {m.projCapped && (
+          <div style={{ marginTop: 10, fontSize: 11.5, color: T.amber, textAlign: "center" }}>
+            Forward paths use a capped 15%/yr expected return — the measured {m.er.toFixed(0)}%/yr came from a hot ~1.5y window and won&apos;t compound for {m.years} years.
+          </div>
+        )}
       </Panel>
 
       {/* REAL backtest (free hook) */}

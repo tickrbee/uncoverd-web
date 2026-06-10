@@ -48,6 +48,7 @@ export function stockToGenInstrument(r: StockRow, rt?: StockRating | null): GenI
   return {
     tk: r.symbol, name: r.name ?? r.symbol, cls: "eq", kind: "stock",
     sector: r.sector ?? "Diversified",
+    country: r.country ?? undefined,
     yield: +yld.toFixed(2), beta: +beta.toFixed(2), vol: +vol.toFixed(1), er: +er.toFixed(1),
     q, rate: grade ?? "—", etf: false, type: "stock",
   };

@@ -61,31 +61,52 @@ const BOND_SLEEVE: [string, string, number, number, number, number][] = [
 ];
 
 // "EU" = the whole EU bloc; "GLOBAL" = no market preference (everything,
-// higher cap floor so the default stays liquid).
-const COUNTRY_WHITELIST = new Set(["GLOBAL", "US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT"]);
+// higher cap floor so the default stays liquid). Multiple markets may be
+// combined ("EU,CH,GB" — max 4).
+const COUNTRY_WHITELIST = new Set([
+  "GLOBAL", "US", "EU", "CA", "GB", "DE", "FR", "AU", "NL", "CH", "ES", "IT",
+  "SE", "DK", "NO", "FI", "BE", "AT", "PT", "IE", "JP",
+]);
+// Sanctioned / untradeable listings never enter the pool.
+const BLOCKED_COUNTRIES = new Set(["RU"]);
+const isBlocked = (r: { symbol: string; country: string | null }) =>
+  BLOCKED_COUNTRIES.has(r.country ?? "") || r.symbol.endsWith(".ME");
 
-async function buildUniverse(country: string): Promise<GenInstrument[]> {
-  const cc = COUNTRY_WHITELIST.has(country) ? country : "GLOBAL";
+async function buildUniverse(countryParam: string): Promise<GenInstrument[]> {
+  const codes = countryParam
+    .split(",")
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => COUNTRY_WHITELIST.has(c))
+    .slice(0, 4);
+  const ccList = codes.length === 0 || codes.includes("GLOBAL") ? ["GLOBAL"] : codes;
+  const isGlobal = ccList[0] === "GLOBAL";
   const sleeveSymbols = [...ETF_SLEEVE.map((e) => e[0]), ...BOND_SLEEVE.map((b) => b[0])];
 
-  const [pool, sleeveRows] = await Promise.all([
-    // EVERY dividend payer above the cap floor in the chosen market gets
-    // scanned and ranked; the composite rating decides who makes the pool.
-    listStocks({
-      country: cc === "GLOBAL" ? "ALL" : cc,
-      minMarketCap: cc === "GLOBAL" ? 5e9 : 1e9,
-      minDividend: 0.01,
-      limit: 1500,
-    }),
+  // EVERY dividend payer above the cap floor in the chosen market(s) gets
+  // scanned and ranked; the composite rating decides who makes the pool.
+  const [pools, sleeveRows] = await Promise.all([
+    Promise.all(
+      ccList.map((cc) =>
+        listStocks({
+          country: cc === "GLOBAL" ? "ALL" : cc,
+          minMarketCap: cc === "GLOBAL" ? 5e9 : 1e9,
+          minDividend: 0.01,
+          limit: isGlobal ? 1500 : 800,
+        }).catch(() => [])
+      )
+    ),
     listStocks({ symbols: sleeveSymbols, excludeEtfs: false, limit: sleeveSymbols.length }),
   ]);
+  const seenPool = new Set<string>();
+  const pool = pools.flat().filter((r) => (seenPool.has(r.symbol) ? false : (seenPool.add(r.symbol), true)));
 
   const bySym = new Map(sleeveRows.map((r) => [r.symbol, r]));
 
   // For the US, also require a clean primary-exchange listing; foreign markets
   // use suffixed symbols (SAP.DE, …) so those filters don't apply.
+  const usOnly = ccList.length === 1 && ccList[0] === "US";
   const cands = pool.filter(
-    (r) => r.sector && (cc !== "US" || (isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "")))
+    (r) => r.sector && !isBlocked(r) && (!usOnly || (isUsTicker(r.symbol) && US_EXCH.has(r.exchange ?? "")))
   );
   // Ratings lookup CHUNKED: a single .in() with 1500 symbols exceeds the
   // query limit and fails silently — which left GLOBAL with zero rated names.

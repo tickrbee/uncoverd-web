@@ -7,6 +7,9 @@ export type GenInstrument = {
   cls: "eq" | "bond" | "cash";
   kind: "broad" | "div" | "sector" | "stock" | "bond" | "cash";
   sector: string;
+  // ISO country of the listing (stocks) — lets the engine honor geographic
+  // goal language ("primarily European stocks").
+  country?: string;
   yield: number;
   beta: number;
   vol: number; // est. annual volatility %
@@ -25,7 +28,8 @@ export type GenOptions = {
   amount: number;
   // Display currency code (USD/EUR/GBP/…). Formatting only — no FX conversion.
   currency: string;
-  // Optional market focus (ISO country code, e.g. "US", "DE"). Empty = US default.
+  // Market focus: "GLOBAL" (no preference, default) or a comma-separated list
+  // of up to 4 codes ("EU,CH,GB").
   country: string;
   // Re-roll seed: bumping it on Regenerate jitters the candidate scores
   // deterministically so the user gets a fresh-but-sensible build.

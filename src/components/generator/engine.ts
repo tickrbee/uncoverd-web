@@ -115,6 +115,15 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
   const ner = normRange(eqPool.map((u) => u.er));
   const nq = normRange(eqPool.map((u) => u.q));
   const g = (goal || "").toLowerCase();
+  // Geography from plain language: "primarily European stocks" must actually
+  // steer the pool. Matching names get boosted; when a region is explicitly
+  // asked for, non-matching stocks get penalized so they can't dominate.
+  const EUROPE = new Set(["DE", "FR", "NL", "CH", "GB", "ES", "IT", "SE", "DK", "NO", "FI", "BE", "AT", "PT", "IE", "LU", "PL", "GR", "CZ", "HU"]);
+  const ASIA = new Set(["JP", "KR", "TW", "HK", "SG", "CN", "IN", "ID", "MY", "TH", "PH", "VN"]);
+  const wantsEurope = /(europe|european|europä|europe[oa]|européen)/.test(g);
+  const wantsAsia = /(asia|asian|japan|japon)/.test(g);
+  const wantsUs = /(america|american|usa|u\.s\.|us stocks|wall street)/.test(g);
+  const wantsUpside = /(start.?up|startup|upside|venture|moonshot|disruptive)/.test(g);
   const goalBonus = (u: GenInstrument) => {
     let b = 0;
     if (/(dividend|income|yield|cash.?flow)/.test(g)) b += ny(u.yield) * 0.6 + (u.kind === "div" ? 0.3 : 0);
@@ -122,7 +131,14 @@ function selectCandidates(universe: GenInstrument[], o: Required<GenOptions>) {
     if (/(tech|a\.?i\.?|innovation|semi|software)/.test(g) && u.sector === "Technology") b += 0.55;
     if (/(international|global|ex.?us|emerging|overseas|abroad)/.test(g) && /VXUS|VWO|VEA|SCHY/.test(u.tk)) b += 0.7;
     if (/(retire|retirement|long.?term|nest egg|decades?)/.test(g) && (u.kind === "broad" || u.q >= 85)) b += 0.22;
-    if (/(safe|preserv|capital preservation|ballast|low.?risk|protect)/.test(g)) b += 0.45 - u.vol * 0.016;
+    if (/(safe|preserv|capital preservation|ballast|low.?risk|protect|secure)/.test(g)) b += 0.45 - u.vol * 0.016;
+    if (u.kind === "stock" && u.country) {
+      if (wantsEurope) b += EUROPE.has(u.country) ? 0.8 : -0.6;
+      if (wantsAsia) b += ASIA.has(u.country) ? 0.8 : -0.6;
+      if (wantsUs) b += u.country === "US" ? 0.8 : -0.6;
+    }
+    // "Some startups for upside": tilt a slice toward higher-vol growth names.
+    if (wantsUpside && u.kind === "stock") b += clamp((u.vol - 18) * 0.02, 0, 0.4) + Math.max(0, u.beta - 1) * 0.15;
     return b;
   };
   const scoreOf = (u: GenInstrument) => {
@@ -389,6 +405,8 @@ function richMetrics(holdings: Holding[], amount: number, A0: Cand["A0"], o: Req
     stress, survived, worst, riskContrib, maxRc, corr,
     // Real growth-of-100 backtest curve vs SPY — filled by applyReal().
     curve: null as { i: number; port: number; bench: number }[] | null,
+    // True when the forward projection had to cap a hot measured return.
+    projCapped: false,
     // Flipped to true by applyReal() once price-history metrics replace the
     // model estimates.
     measured: false,
@@ -419,7 +437,6 @@ export function applyReal(
   const alpha = b && b.cagr != null && b.benchCagr != null ? +(b.cagr - b.benchCagr).toFixed(1) : m.alpha;
   const divR = p.diversificationRatio ?? m.divR;
   const yld = p.blendedYield ?? m.yield;
-  const totalReturn = (Math.pow(1 + er / 100, inputs.years) - 1) * 100;
   const income = Math.round((inputs.amount * yld) / 100);
 
   // Real pairwise correlations (price history) replace the structural model.
@@ -446,10 +463,18 @@ export function applyReal(
     }
   }
 
-  const proj = simulatePaths(inputs.amount, inputs.monthlyDCA, inputs.years, er, vol);
+  // Projection sanity: a hot ~1.5y backtest (40-50%/yr) must NOT compound for
+  // a decade — $10k would "become" $700k+. Forward paths cap the expected
+  // return at a defensible long-run ceiling; the measured number still shows
+  // (clearly labeled) in the stats and backtest chart.
+  const erProj = clamp(er, -5, 15);
+  const projCapped = er > 15;
+  const proj = simulatePaths(inputs.amount, inputs.monthlyDCA, inputs.years, erProj, vol);
+  const totalReturn2 = (Math.pow(1 + erProj / 100, inputs.years) - 1) * 100;
 
   return {
     ...m,
+    projCapped,
     vol: +(+vol).toFixed(1),
     er: +(+er).toFixed(1),
     yield: +(+yld).toFixed(2),
@@ -459,7 +484,7 @@ export function applyReal(
     beta: +(+beta).toFixed(2),
     alpha,
     divR: +(+divR).toFixed(2),
-    totalReturn: +totalReturn.toFixed(1),
+    totalReturn: +totalReturn2.toFixed(1),
     income,
     corr,
     riskContrib,
@@ -469,7 +494,7 @@ export function applyReal(
     projEnd: proj[proj.length - 1],
     curve: (b?.curve as { i: number; port: number; bench: number }[] | undefined) ?? null,
     stats: [
-      { k: "Total Return", v: "+" + totalReturn.toFixed(0) + "%", sub: "over " + inputs.years + "y", pos: totalReturn > 0 },
+      { k: "Total Return", v: "+" + totalReturn2.toFixed(0) + "%", sub: `over ${inputs.years}y${projCapped ? ", capped" : ""}`, pos: totalReturn2 > 0 },
       { k: "Annualized", v: (er > 0 ? "+" : "") + (+er).toFixed(1) + "%", sub: "real, ~1.5y closes", pos: er > 0 },
       { k: "Volatility", v: (+vol).toFixed(1) + "%", sub: "annual std-dev" },
       { k: "Sharpe", v: (+sharpe).toFixed(2), sub: "risk-adjusted", pos: sharpe >= 1 },

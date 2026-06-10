@@ -162,55 +162,101 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
   );
 }
 
-/* market focus picker — designed popup (not a native select) */
+/* market focus picker — modal multi-select (like the holdings picker).
+   "GLOBAL" = no preference; otherwise up to 4 markets combine. */
 const MARKETS: [string, string, string][] = [
   ["GLOBAL", "🌍", "No preference · Global"],
   ["US", "🇺🇸", "United States"],
-  ["EU", "🇪🇺", "European Union"],
-  ["CA", "🇨🇦", "Canada"],
+  ["EU", "🇪🇺", "European Union (bloc)"],
   ["GB", "🇬🇧", "United Kingdom"],
+  ["CA", "🇨🇦", "Canada"],
   ["DE", "🇩🇪", "Germany"],
   ["FR", "🇫🇷", "France"],
   ["NL", "🇳🇱", "Netherlands"],
   ["CH", "🇨🇭", "Switzerland"],
   ["ES", "🇪🇸", "Spain"],
   ["IT", "🇮🇹", "Italy"],
+  ["SE", "🇸🇪", "Sweden"],
+  ["DK", "🇩🇰", "Denmark"],
+  ["NO", "🇳🇴", "Norway"],
+  ["FI", "🇫🇮", "Finland"],
+  ["BE", "🇧🇪", "Belgium"],
+  ["AT", "🇦🇹", "Austria"],
+  ["PT", "🇵🇹", "Portugal"],
+  ["IE", "🇮🇪", "Ireland"],
+  ["JP", "🇯🇵", "Japan"],
   ["AU", "🇦🇺", "Australia"],
 ];
+const MAX_MARKETS = 4;
 
 function MarketPicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
   const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const selected = value === "GLOBAL" ? [] : value.split(",").filter(Boolean);
+  const summary = selected.length === 0
+    ? "🌍 No preference · Global"
+    : selected.map((c) => MARKETS.find((m) => m[0] === c)?.[1] ?? c).join(" ") + "  " +
+      selected.map((c) => MARKETS.find((m) => m[0] === c)?.[2].split(" (")[0] ?? c).join(", ");
+
+  const toggle = (code: string) => {
+    if (code === "GLOBAL") { onChange("GLOBAL"); return; }
+    const next = selected.includes(code)
+      ? selected.filter((c) => c !== code)
+      : selected.length < MAX_MARKETS ? [...selected, code] : selected;
+    onChange(next.length === 0 ? "GLOBAL" : next.join(","));
+  };
+
   React.useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-  const cur = MARKETS.find((m) => m[0] === value) ?? MARKETS[0];
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [open]);
+
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button onClick={() => setOpen((o) => !o)} className="gen-input" aria-haspopup="listbox" aria-expanded={open}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: T.bg, border: `1px solid ${open ? T.green : T.line2}`, borderRadius: 11, padding: "11px 13px", color: T.ink, fontFamily: body, fontSize: 13.5, cursor: "pointer", boxShadow: open ? `0 0 0 3px ${T.green}22` : "none" }}>
-        <span style={{ fontSize: 16, lineHeight: 1 }}>{cur[1]}</span>
-        <span style={{ flex: 1, textAlign: "left", fontWeight: 600 }}>{cur[2]}{cur[0] === "GLOBAL" ? "  ·  default" : ""}</span>
-        <Icon name="chevron" size={14} color={T.faint} style={{ transform: open ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform .15s" }} />
+    <>
+      <button onClick={() => setOpen(true)} className="gen-input"
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px 13px", color: T.ink, fontFamily: body, fontSize: 13.5, cursor: "pointer" }}>
+        <span style={{ flex: 1, textAlign: "left", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</span>
+        <Icon name="chevron" size={14} color={T.faint} style={{ transform: "rotate(90deg)" }} />
       </button>
       {open && (
-        <div role="listbox" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 70, background: T.panel2, border: `1px solid ${T.line2}`, borderRadius: 13, boxShadow: "0 22px 54px -12px rgba(0,0,0,.7)", padding: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          {MARKETS.map(([code, flag, label]) => {
-            const on = code === value;
-            return (
-              <button key={code} role="option" aria-selected={on} onClick={() => { onChange(code); setOpen(false); }} className="gen-segBtn"
-                style={{ display: "flex", alignItems: "center", gap: 9, background: on ? T.green + "16" : "transparent", border: `1px solid ${on ? T.green : T.line}`, borderRadius: 10, padding: "9px 11px", cursor: "pointer", textAlign: "left" }}>
-                <span style={{ fontSize: 15, lineHeight: 1 }}>{flag}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: on ? T.green : T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
-                {on && <Icon name="check" size={13} color={T.green} style={{ marginLeft: "auto", flexShrink: 0 }} />}
+        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(4,8,15,0.72)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10vh 16px 16px" }}>
+          <div role="dialog" aria-modal="true" aria-label="Market focus" onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 540, background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, boxShadow: "0 30px 80px -20px rgba(0,0,0,.8)", padding: "20px 22px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontFamily: display, fontSize: 19, fontWeight: 800, color: T.ink }}>Market focus</span>
+              <button onClick={() => setOpen(false)} aria-label="Close" style={{ display: "flex", padding: 5, background: "transparent", border: "none", cursor: "pointer", color: T.faint, borderRadius: 7 }}>
+                <Icon name="x" size={17} />
               </button>
-            );
-          })}
+            </div>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: T.faint }}>Pick up to {MAX_MARKETS} markets — or leave it global. Core ETFs stay global either way.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, maxHeight: 360, overflowY: "auto" }}>
+              {MARKETS.map(([code, flag, label]) => {
+                const on = code === "GLOBAL" ? selected.length === 0 : selected.includes(code);
+                const full = !on && code !== "GLOBAL" && selected.length >= MAX_MARKETS;
+                return (
+                  <button key={code} onClick={() => toggle(code)} disabled={full} className="gen-segBtn"
+                    style={{ display: "flex", alignItems: "center", gap: 9, background: on ? T.green + "16" : T.bg, border: `1px solid ${on ? T.green : T.line}`, borderRadius: 10, padding: "10px 12px", cursor: full ? "default" : "pointer", textAlign: "left", opacity: full ? 0.45 : 1 }}>
+                    <span style={{ fontSize: 15, lineHeight: 1 }}>{flag}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: on ? T.green : T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+                    {on && <Icon name="check" size={13} color={T.green} style={{ marginLeft: "auto", flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
+              <span style={{ fontSize: 12.5, color: T.muted }}>{selected.length === 0 ? "Global" : `${selected.length} selected · max ${MAX_MARKETS}`}</span>
+              <button onClick={() => setOpen(false)}
+                style={{ background: T.green, color: T.bg, border: "none", borderRadius: 11, padding: "11px 24px", cursor: "pointer", fontFamily: body, fontSize: 14, fontWeight: 700 }}>
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -417,7 +463,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
       }}>
         {ready
           ? <><Icon name={dirty ? "zap" : "repeat"} size={18} /> {dirty ? "Generate my portfolio" : "Regenerate"} <Icon name="arrowRight" size={17} /></>
-          : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={17} /></span> Fetching live market data…</>}
+          : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={17} /></span> Building — pulling live market data…</>}
       </button>
     </div>
   );
