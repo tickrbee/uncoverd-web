@@ -3,6 +3,8 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { getAppUrl } from "@/lib/env";
+import { useLocale } from "@/lib/use-locale";
+import { GOPRO_STR, type GoProStr } from "@/components/go-pro-strings";
 
 /* ============================== theme (self-contained, ported from prototype) ============================== */
 const T = {
@@ -40,15 +42,7 @@ function Icon({ name, size = 16, color = "currentColor", style, strokeWidth = 2,
   });
 }
 
-const PLAN = { label: "Annual", price: 100, unit: "/year", monthlyEq: "$8.33/mo", renew: "$100/year", badge: "BEST VALUE", note: "Billed once a year" };
-const INCLUDED = [
-  "A–F dividend rating on every stock",
-  "Model portfolios & curated best-of lists",
-  "Portfolio Healthcheck — full holdings & weights",
-  "Dividend watchlist with alerts",
-  "CSV exports & advanced screener filters",
-  "Completely ad-free",
-];
+const PLAN = { price: 100, unit: "/year", monthlyEq: "$8.33/mo" };
 const money = (n: number) => "$" + n.toFixed(2);
 const inputStyle: React.CSSProperties = {
   width: "100%", minWidth: 0, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11,
@@ -81,10 +75,9 @@ function PwInput({ id, value, onChange, placeholder, show, onToggle, error }: { 
     </div>
   );
 }
-function PwMeter({ pw }: { pw: string }) {
+function PwMeter({ pw, labels }: { pw: string; labels: GoProStr["pwMeter"] }) {
   if (!pw) return null;
   const score = Math.min(4, (pw.length >= 6 ? 1 : 0) + (/[A-Z]/.test(pw) ? 1 : 0) + (/[0-9]/.test(pw) ? 1 : 0) + (/[^A-Za-z0-9]/.test(pw) ? 1 : 0));
-  const labels = ["Too short", "Weak", "Okay", "Good", "Strong"];
   const cols = [T.red, T.red, T.amber, T.green, T.green];
   return (
     <div style={{ marginTop: 9 }}>
@@ -95,8 +88,8 @@ function PwMeter({ pw }: { pw: string }) {
     </div>
   );
 }
-function Stepper({ step }: { step: number }) {
-  const steps: [string, string][] = [["Account", "1"], ["Payment", "2"]];
+function Stepper({ step, t }: { step: number; t: GoProStr }) {
+  const steps: [string, string][] = [[t.stepAccount, "1"], [t.stepPayment, "2"]];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
       {steps.map(([lbl, n], i) => {
@@ -116,7 +109,7 @@ function Stepper({ step }: { step: number }) {
     </div>
   );
 }
-function CkNav() {
+function CkNav({ t }: { t: GoProStr }) {
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,11,19,0.86)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.line}` }}>
       <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", alignItems: "center", gap: 16, padding: "0 24px", height: 56 }}>
@@ -126,28 +119,28 @@ function CkNav() {
         </a>
         <div style={{ flex: 1 }} />
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: mono, fontSize: 11.5, color: T.muted }}>
-          <Icon name="lock" size={13} color={T.green} /> Secure checkout
+          <Icon name="lock" size={13} color={T.green} /> {t.secure}
         </span>
-        <a href="/pricing" className="navlink" style={{ fontSize: 13, color: T.faint, textDecoration: "none", marginLeft: 10 }}>← Back to pricing</a>
+        <a href="/pricing" className="navlink" style={{ fontSize: 13, color: T.faint, textDecoration: "none", marginLeft: 10 }}>{t.back}</a>
       </div>
     </header>
   );
 }
 
 /* ---------- account step ---------- */
-function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso, nextEnc = NEXT }: {
+function AccountStep({ email, password, confirm, setEmail, setPassword, setConfirm, onSubmit, onSso, t, nextEnc = NEXT }: {
   email: string; password: string; confirm: string;
   setEmail: (v: string) => void; setPassword: (v: string) => void; setConfirm: (v: string) => void;
-  onSubmit: () => void; onSso: (p: string) => void; nextEnc?: string;
+  onSubmit: () => void; onSso: (p: string) => void; t: GoProStr; nextEnc?: string;
 }) {
   const [showPw, setShowPw] = React.useState(false);
   const [err, setErr] = React.useState<{ email?: string; password?: string; confirm?: string }>({});
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const ne: { email?: string; password?: string; confirm?: string } = {};
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ne.email = "Enter a valid email address";
-    if (password.length < 6) ne.password = "At least 6 characters";
-    if (confirm !== password) ne.confirm = "Passwords don't match";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ne.email = t.emailErr;
+    if (password.length < 6) ne.password = t.pwErr;
+    if (confirm !== password) ne.confirm = t.pw2Err;
     setErr(ne);
     if (!Object.keys(ne).length) onSubmit();
   };
@@ -155,8 +148,8 @@ function AccountStep({ email, password, confirm, setEmail, setPassword, setConfi
   const ssoIcon: Record<string, string> = { google: "google", facebook: "facebook", linkedin_oidc: "linkedin", twitter: "twitter" };
   return (
     <form onSubmit={submit} noValidate>
-      <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Create your account</h1>
-      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>This is how you&apos;ll sign in and manage your subscription. One minute, then straight to secure payment — no email confirmation needed.</p>
+      <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>{t.acctTitle}</h1>
+      <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>{t.acctSub}</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
         {sso.map(([prov, lbl]) => (
           <button type="button" key={prov} className="ckSso" onClick={() => onSso(prov)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.raised, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "11px", cursor: "pointer", color: T.ink, fontFamily: body, fontSize: 13.5, fontWeight: 600 }}>
@@ -166,29 +159,29 @@ function AccountStep({ email, password, confirm, setEmail, setPassword, setConfi
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 18px" }}>
         <span style={{ flex: 1, height: 1, background: T.line }} />
-        <span style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, letterSpacing: "0.08em" }}>OR WITH EMAIL</span>
+        <span style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, letterSpacing: "0.08em" }}>{t.orEmail}</span>
         <span style={{ flex: 1, height: 1, background: T.line }} />
       </div>
       <div style={{ display: "grid", gap: 16 }}>
-        <Field label="Email address" htmlFor="ck-email">
-          <input id="ck-email" type="email" value={email} placeholder="you@example.com" autoComplete="email" autoFocus
+        <Field label={t.emailLabel} htmlFor="ck-email">
+          <input id="ck-email" type="email" value={email} placeholder={t.emailPh} autoComplete="email" autoFocus
             onChange={(e) => setEmail(e.target.value)} className="ckInput" style={{ ...inputStyle, borderColor: err.email ? T.red : T.line2 }} />
           {err.email && <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.email}</div>}
         </Field>
-        <Field label="Password" hint="min. 6 characters" htmlFor="ck-pw">
-          <PwInput id="ck-pw" value={password} onChange={setPassword} placeholder="Create a password" show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.password} />
-          {err.password ? <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.password}</div> : <PwMeter pw={password} />}
+        <Field label={t.pwLabel} hint={t.pwHint} htmlFor="ck-pw">
+          <PwInput id="ck-pw" value={password} onChange={setPassword} placeholder={t.pwPh} show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.password} />
+          {err.password ? <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.password}</div> : <PwMeter pw={password} labels={t.pwMeter} />}
         </Field>
-        <Field label="Confirm password" htmlFor="ck-pw2">
-          <PwInput id="ck-pw2" value={confirm} onChange={setConfirm} placeholder="Re-enter your password" show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.confirm} />
+        <Field label={t.pw2Label} htmlFor="ck-pw2">
+          <PwInput id="ck-pw2" value={confirm} onChange={setConfirm} placeholder={t.pw2Ph} show={showPw} onToggle={() => setShowPw((s) => !s)} error={!!err.confirm} />
           {err.confirm && <div style={{ fontSize: 11.5, color: T.red, marginTop: 6 }}>{err.confirm}</div>}
         </Field>
       </div>
       <button type="submit" className="ckPrimary" style={{ width: "100%", marginTop: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-        Continue to secure payment <Icon name="arrowRight" size={17} color={T.bg} />
+        {t.acctCta} <Icon name="arrowRight" size={17} color={T.bg} />
       </button>
       <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
-        Already have an account? <a href={`/login?next=${nextEnc}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>Sign in</a>
+        {t.haveAccount} <a href={`/login?next=${nextEnc}`} style={{ color: T.green, fontWeight: 700, textDecoration: "none" }}>{t.signIn}</a>
       </div>
     </form>
   );
@@ -203,7 +196,7 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
     </div>
   );
 }
-function OrderSummary({ promo }: { promo?: string }) {
+function OrderSummary({ promo, t }: { promo?: string; t: GoProStr }) {
   return (
     <div style={{ position: "sticky", top: 76 }}>
       <Panel pad={0} style={{ overflow: "hidden" }}>
@@ -215,52 +208,52 @@ function OrderSummary({ promo }: { promo?: string }) {
             </span>
             <div>
               <div style={{ fontFamily: display, fontSize: 17, fontWeight: 800, color: T.ink }}>uncoverd Premium</div>
-              <div style={{ fontSize: 12.5, color: T.muted }}>Everything uncoverd, one flat price</div>
+              <div style={{ fontSize: 12.5, color: T.muted }}>{t.productTagline}</div>
             </div>
           </div>
         </div>
         <div style={{ padding: "20px 24px 22px" }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 13, background: T.green + "12", border: `1.5px solid ${T.green}`, borderRadius: 12, padding: "14px 15px", marginBottom: 20 }}>
-            <span style={{ position: "absolute", top: -8, right: 12, background: T.green, color: T.bg, fontFamily: mono, fontSize: 8, fontWeight: 700, borderRadius: 10, padding: "2px 7px" }}>{PLAN.badge}</span>
+            <span style={{ position: "absolute", top: -8, right: 12, background: T.green, color: T.bg, fontFamily: mono, fontSize: 8, fontWeight: 700, borderRadius: 10, padding: "2px 7px" }}>{t.badge}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.green, marginBottom: 4 }}>{PLAN.label} plan</div>
-              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint }}>{PLAN.note} · ≈ {PLAN.monthlyEq}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.green, marginBottom: 4 }}>{t.planLabel}</div>
+              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint }}>{t.planNote} · ≈ {PLAN.monthlyEq}</div>
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
               <span style={{ fontFamily: display, fontSize: 24, fontWeight: 800, color: T.ink }}>${PLAN.price}</span>
               <span style={{ fontSize: 12, color: T.faint }}>{PLAN.unit}</span>
             </div>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.faint, marginBottom: 12 }}>What&apos;s included</div>
+          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: T.faint, marginBottom: 12 }}>{t.includedHead}</div>
           <div style={{ display: "grid", gap: 9, marginBottom: 20 }}>
-            {INCLUDED.map((f) => (
+            {t.included.map((f) => (
               <div key={f} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: T.muted, lineHeight: 1.4 }}>
                 <Icon name="check" size={15} color={T.green} style={{ flexShrink: 0, marginTop: 1 }} /> {f}
               </div>
             ))}
           </div>
           <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 16, display: "grid", gap: 9 }}>
-            <Row label="Premium annual" value={money(PLAN.price)} />
-            <Row label="VAT" value="Included" muted />
+            <Row label={t.rowAnnual} value={money(PLAN.price)} />
+            <Row label={t.rowVat} value={t.rowVatVal} muted />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: `1px solid ${T.line}`, paddingTop: 13, marginTop: 3 }}>
-              <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>Total due today</span>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>{t.total}</span>
               <span style={{ fontFamily: display, fontSize: 24, fontWeight: 800, color: T.ink, letterSpacing: "-0.02em" }}>{money(PLAN.price)}</span>
             </div>
             {promo ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.green + "12", border: `1px dashed ${T.green}66`, borderRadius: 9, padding: "8px 11px", fontSize: 12, color: T.green, fontWeight: 600 }}>
-                <Icon name="check" size={13} color={T.green} /> Promo code {promo.toUpperCase()} will be applied at checkout
+                <Icon name="check" size={13} color={T.green} /> {t.promoApplied(promo.toUpperCase())}
               </div>
             ) : (
-              <div style={{ fontSize: 11.5, color: T.faint, lineHeight: 1.5 }}>Renews at {PLAN.renew}. Cancel anytime. Have a promo code? Enter it at checkout.</div>
+              <div style={{ fontSize: 11.5, color: T.faint, lineHeight: 1.5 }}>{t.renews}</div>
             )}
           </div>
         </div>
       </Panel>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
-        {([["lock", "Secured by Stripe"], ["shield", "Encrypted in transit"], ["repeat", "Cancel anytime"], ["zap", "Instant access"]] as [string, string][]).map(([ic, t]) => (
-          <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, background: T.panel, border: `1px solid ${T.line}`, borderRadius: 11, padding: "11px 12px" }}>
+        {([["lock", t.trust[0]], ["shield", t.trust[1]], ["repeat", t.trust[2]], ["zap", t.trust[3]]] as [string, string][]).map(([ic, lbl]) => (
+          <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 8, background: T.panel, border: `1px solid ${T.line}`, borderRadius: 11, padding: "11px 12px" }}>
             <Icon name={ic} size={15} color={T.green} />
-            <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{t}</span>
+            <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>{lbl}</span>
           </div>
         ))}
       </div>
@@ -278,8 +271,9 @@ function CenterStatus({ children }: { children: React.ReactNode }) {
 
 /* ============================== app ============================== */
 export function GoProClient({ signedInEmail }: { signedInEmail: string | null }) {
+  const t = GOPRO_STR[useLocale()];
   const [phase, setPhase] = React.useState<"account" | "review" | "redirecting" | "error">(signedInEmail ? "review" : "account");
-  const [msg, setMsg] = React.useState("Redirecting to secure payment…");
+  const [msg, setMsg] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
@@ -295,7 +289,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("error")) {
-      setFormErr("We couldn't start checkout — please try again.");
+      setFormErr(t.errCheckout);
     }
     const p = (params.get("promo") ?? "").trim();
     if (/^[A-Za-z0-9_-]{3,40}$/.test(p)) setPromo(p);
@@ -307,14 +301,14 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
   // Logged in → server reads the cookie session and starts checkout.
   async function continuePay() {
     setFormErr("");
-    setPhase("redirecting"); setMsg("Redirecting to secure payment…");
+    setPhase("redirecting"); setMsg(t.msgRedirect);
     try {
       const res = await fetch(CHECKOUT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(promo ? { promo } : {}) });
       const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (out.url) { window.location.href = out.url; return; }
-      setFormErr(out.error === "not_authenticated" ? "Your session expired — please sign in again." : (out.error || "Could not start checkout.")); setPhase("review");
+      setFormErr(out.error === "not_authenticated" ? t.errSession : (out.error || t.errGeneric)); setPhase("review");
     } catch {
-      setFormErr("Could not start checkout. Please try again."); setPhase("review");
+      setFormErr(t.errGeneric); setPhase("review");
     }
   }
 
@@ -339,7 +333,7 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await supabase.auth.signInWithOAuth({ provider: provider as any, options });
     } catch {
-      setFormErr("Couldn't start social sign-in. Try email instead.");
+      setFormErr(t.errSso);
     }
   }
 
@@ -347,18 +341,18 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
   // logging the buyer in (no cookie). They sign in themselves after paying.
   async function createAndPay() {
     setFormErr("");
-    setPhase("redirecting"); setMsg("Creating your account…");
+    setPhase("redirecting"); setMsg(t.msgCreating);
     try {
       const res = await fetch(CHECKOUT, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password, ...(promo ? { promo } : {}) }),
       });
       const out = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (out.error === "account_exists") { setFormErr("That email already has an account — please sign in to upgrade."); setPhase("account"); return; }
-      if (out.url) { setMsg("Redirecting to secure payment…"); window.location.href = out.url; return; }
-      setFormErr(out.error || "Could not start checkout."); setPhase("account");
+      if (out.error === "account_exists") { setFormErr(t.errExists); setPhase("account"); return; }
+      if (out.url) { setMsg(t.msgRedirect); window.location.href = out.url; return; }
+      setFormErr(out.error || t.errGeneric); setPhase("account");
     } catch {
-      setFormErr("Something went wrong. Please try again."); setPhase("account");
+      setFormErr(t.errStart); setPhase("account");
     }
   }
 
@@ -375,51 +369,51 @@ export function GoProClient({ signedInEmail }: { signedInEmail: string | null })
         .navlink:hover{color:${T.ink} !important}
         @media (max-width:880px){.ckGrid{grid-template-columns:1fr !important}.ckGrid>div:last-child>div{position:static !important}}
       ` }} />
-      <CkNav />
+      <CkNav t={t} />
 
       {phase === "account" || phase === "review" ? (
         <div className="ckGrid" style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 24px 70px", display: "grid", gridTemplateColumns: "1fr 400px", gap: 30, alignItems: "start" }}>
           <div style={{ minWidth: 0 }}>
-            <Stepper step={phase === "review" ? 2 : 1} />
+            <Stepper step={phase === "review" ? 2 : 1} t={t} />
             <Panel pad={30}>
               {formErr && <div style={{ background: T.red + "14", border: `1px solid ${T.red}55`, color: T.red, borderRadius: 11, padding: "10px 13px", fontSize: 13, marginBottom: 18 }}>{formErr}</div>}
               {phase === "review" ? (
                 <div>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.green + "14", border: `1px solid ${T.green}44`, borderRadius: 999, padding: "5px 12px", fontSize: 12, color: T.green, fontWeight: 700, marginBottom: 16 }}>
-                    <Icon name="check" size={13} color={T.green} /> Signed in
+                    <Icon name="check" size={13} color={T.green} /> {t.signedIn}
                   </div>
-                  <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Review &amp; pay</h1>
+                  <h1 style={{ fontFamily: display, fontSize: 26, fontWeight: 800, color: T.ink, margin: "0 0 6px", letterSpacing: "-0.02em" }}>{t.reviewTitle}</h1>
                   <p style={{ fontSize: 14, color: T.muted, margin: "0 0 24px", lineHeight: 1.5 }}>
-                    You&apos;re signed in as <b style={{ color: T.ink }}>{signedInEmail || "your account"}</b>. One click and you&apos;ll complete the upgrade on Stripe&apos;s secure checkout.
+                    {t.reviewPre}<b style={{ color: T.ink }}>{signedInEmail || "—"}</b>{t.reviewPost}
                   </p>
                   <button onClick={continuePay} className="ckPrimary" style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-                    <Icon name="lock" size={16} color={T.bg} /> Continue to secure payment — {money(PLAN.price)}/yr
+                    <Icon name="lock" size={16} color={T.bg} /> {t.payCta}
                   </button>
                   <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: T.faint }}>
-                    Not you? <button onClick={useAnotherAccount} style={{ background: "transparent", border: "none", color: T.green, fontWeight: 700, cursor: "pointer", fontFamily: body, fontSize: 13, padding: 0 }}>Use another account</button>
+                    {t.notYou} <button onClick={useAnotherAccount} style={{ background: "transparent", border: "none", color: T.green, fontWeight: 700, cursor: "pointer", fontFamily: body, fontSize: 13, padding: 0 }}>{t.otherAccount}</button>
                   </div>
                 </div>
               ) : (
-                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} nextEnc={encodeURIComponent(nextPath)} />
+                <AccountStep email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} onSubmit={createAndPay} onSso={sso} t={t} nextEnc={encodeURIComponent(nextPath)} />
               )}
             </Panel>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16, fontSize: 11.5, color: T.faint }}>
-              <Icon name="lock" size={13} color={T.faint} /> Payment is processed securely by Stripe. We never see or store your card.
+              <Icon name="lock" size={13} color={T.faint} /> {t.stripeFoot}
             </div>
           </div>
-          <OrderSummary promo={promo} />
+          <OrderSummary promo={promo} t={t} />
         </div>
       ) : phase === "error" ? (
         <CenterStatus>
-          <h1 style={{ fontFamily: display, fontSize: 22, fontWeight: 800, color: T.ink, margin: "0 0 10px" }}>Couldn&apos;t start checkout</h1>
+          <h1 style={{ fontFamily: display, fontSize: 22, fontWeight: 800, color: T.ink, margin: "0 0 10px" }}>{t.errTitle}</h1>
           <p style={{ color: T.muted, marginBottom: 22, fontSize: 14.5 }}>{msg}</p>
-          <a href="/go-pro" className="ckPrimary" style={{ textDecoration: "none", background: T.green, color: T.bg, borderRadius: 12, padding: "12px 22px", fontWeight: 700 }}>Try again</a>
+          <a href="/go-pro" className="ckPrimary" style={{ textDecoration: "none", background: T.green, color: T.bg, borderRadius: 12, padding: "12px 22px", fontWeight: 700 }}>{t.tryAgain}</a>
         </CenterStatus>
       ) : (
         <CenterStatus>
           <div style={{ width: 38, height: 38, border: `3px solid ${T.line2}`, borderTopColor: T.green, borderRadius: "50%", margin: "0 auto 18px", animation: "ckSpin 0.8s linear infinite" }} />
-          <h1 style={{ fontFamily: display, fontSize: 20, fontWeight: 800, color: T.ink, margin: "0 0 8px" }}>{msg}</h1>
-          <p style={{ color: T.muted, fontSize: 14 }}>One moment — taking you to Stripe&apos;s secure checkout.</p>
+          <h1 style={{ fontFamily: display, fontSize: 20, fontWeight: 800, color: T.ink, margin: "0 0 8px" }}>{msg || t.msgRedirect}</h1>
+          <p style={{ color: T.muted, fontSize: 14 }}>{t.redirectSub}</p>
         </CenterStatus>
       )}
     </div>
