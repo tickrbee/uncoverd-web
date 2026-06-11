@@ -2265,6 +2265,89 @@ export async function latestNews(limit = 50): Promise<NewsRow[]> {
   return (data as NewsRow[]) ?? [];
 }
 
+// Recent dividend INCREASES: regular payers whose newest declared dividend is
+// higher than the one before. Powers the /dividend-increases service page
+// ("recent dividend increases" / "dividend increases this week" keywords).
+export type DividendIncrease = {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  prevAmount: number;
+  amount: number;
+  pctIncrease: number;
+  exDate: string;
+  paymentDate: string | null;
+  price: number | null;
+  grade: string | null;
+};
+
+export async function recentDividendIncreases(days = 30, max = 40): Promise<DividendIncrease[]> {
+  const sb = getBackendClient();
+  const since = new Date(Date.now() - days * 86400e3).toISOString().slice(0, 10);
+  const until = new Date(Date.now() + 75 * 86400e3).toISOString().slice(0, 10);
+  const { data: rows, error } = await sb
+    .from("dividends")
+    .select("symbol,date,declaration_date,payment_date,adj_dividend,dividend")
+    .gte("date", since)
+    .lte("date", until)
+    .order("date", { ascending: false })
+    .limit(5000);
+  if (error || !rows?.length) return [];
+
+  // Latest dividend per symbol within the window.
+  type DivRow = { symbol: string; date: string; declaration_date: string | null; payment_date: string | null; adj_dividend: number | null; dividend: number | null };
+  const latest = new Map<string, DivRow>();
+  for (const r of rows as DivRow[]) if (!latest.has(r.symbol)) latest.set(r.symbol, r);
+  const syms = [...latest.keys()].filter((s) => /^[A-Z]{1,5}$/.test(s)).slice(0, 600);
+  if (!syms.length) return [];
+
+  // Previous dividend per symbol (the payment before the latest one).
+  const { data: hist } = await sb
+    .from("dividends")
+    .select("symbol,date,adj_dividend,dividend")
+    .in("symbol", syms)
+    .order("date", { ascending: false })
+    .limit(syms.length * 6);
+  const prevBy = new Map<string, number>();
+  for (const h of (hist ?? []) as { symbol: string; date: string; adj_dividend: number | null; dividend: number | null }[]) {
+    const cur = latest.get(h.symbol);
+    if (!cur || prevBy.has(h.symbol) || h.date >= cur.date) continue;
+    const amt = h.adj_dividend ?? h.dividend;
+    if (amt != null && amt > 0) prevBy.set(h.symbol, amt);
+  }
+
+  // Liquid US-listed common stock only; raise between +2% and +100% (filters
+  // variable shippers' noise and special-dividend doublings).
+  const meta = await listStocks({ symbols: syms, limit: syms.length }).catch(() => []);
+  const out: DividendIncrease[] = [];
+  for (const m of meta) {
+    const cur = latest.get(m.symbol);
+    const prev = prevBy.get(m.symbol);
+    if (!cur || !prev) continue;
+    const amt = cur.adj_dividend ?? cur.dividend;
+    if (amt == null || amt <= prev * 1.02 || amt >= prev * 2) continue;
+    if (m.currency !== "USD" || m.is_etf || m.is_fund) continue;
+    if ((m.market_cap ?? 0) < 1e9 || ((m.volume ?? 0) as number) * (m.price ?? 0) < 2e6) continue;
+    out.push({
+      symbol: m.symbol,
+      name: m.name ?? null,
+      sector: m.sector ?? null,
+      prevAmount: prev,
+      amount: amt,
+      pctIncrease: +((amt / prev - 1) * 100).toFixed(1),
+      exDate: cur.date,
+      paymentDate: cur.payment_date,
+      price: m.price ?? null,
+      grade: null,
+    });
+  }
+  out.sort((a, b) => b.pctIncrease - a.pctIncrease);
+  const top = out.slice(0, max);
+  const ratings = await getStockRatings(top.map((t) => t.symbol)).catch(() => new Map());
+  for (const t of top) t.grade = ratings.get(t.symbol)?.composite_grade ?? null;
+  return top;
+}
+
 // Ratings snapshot AS OF a given computed_date — powers the live walk-forward
 // validation of the generator (top-rated names on a past date, no lookahead).
 export async function topRatedAsOf(
