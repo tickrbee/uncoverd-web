@@ -511,10 +511,11 @@ export default async function EtfDetailPage({
               <strong>Expense ratio:</strong>{" "}
               {etf.expense_ratio != null ? formatPercent(etf.expense_ratio) : "—"}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.8)" }}>
-              <strong>Rating:</strong>{" "}
-              <span style={{ fontWeight: 700 }}>{rating.grade}</span>
-              {rating.composite != null && ` (${rating.composite.toFixed(2)} / 5)`}
+            <div style={{ color: "rgba(255,255,255,0.8)", display: "inline-flex", alignItems: "center", gap: "0.45rem" }}>
+              <strong>Rating:</strong>
+              {/* Grade only — the composite breakdown is part of the gated
+                  Rating tab and shouldn't leak into the public banner. */}
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: "1.9rem", padding: "0.1rem 0.45rem", borderRadius: "0.5rem", background: "rgba(47,227,160,0.16)", border: "1px solid rgba(47,227,160,0.45)", color: "#2fe3a0", fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.4 }}>{rating.grade}</span>
             </div>
           </div>
         </section>
