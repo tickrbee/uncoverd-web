@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Local design prototype (not shipped)
 .prototype-health/
+
+articles_extracted.csv
+selected_keywords.csv
