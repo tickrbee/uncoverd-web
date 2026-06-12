@@ -12,6 +12,8 @@ import type { GenInstrument, GenOptions, ParsedGoal } from "./types";
 import { GenForm } from "./form";
 import { ResultsView } from "./results";
 import { FreeResultsView, PremiumBanner } from "./free";
+import { GEN_STR } from "./strings";
+import { useLocale } from "@/lib/use-locale";
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -61,10 +63,11 @@ const DEFAULT_STATE: GenOptions = {
 // LLM goal read, Black–Litterman optimization, 10y measurement. Each stage is
 // genuine latency, not theatre.
 function PipelinePanel({ stage, goalActive }: { stage: number; goalActive: boolean }) {
+  const t = GEN_STR[useLocale()];
   const steps = [
-    ...(goalActive ? [["AI reading your goal & selecting candidates", "queries the rated universe with your constraints"]] : [["Screening the rated universe", "every liquid payer, ranked by composite grade"]]),
-    ["Black–Litterman optimization", "equilibrium prior + rating & analyst views → solved weights"],
-    ["Measuring against 10 years of real closes", "backtest, crisis replays, correlations, factor exposures"],
+    ...(goalActive ? [[t.pipeGoal, t.pipeGoalSub]] : [[t.pipeScreen, t.pipeScreenSub]]),
+    [t.pipeOpt, t.pipeOptSub],
+    [t.pipeMeasure, t.pipeMeasureSub],
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 460, padding: 30 }}>
@@ -89,23 +92,24 @@ function PipelinePanel({ stage, goalActive }: { stage: number; goalActive: boole
           );
         })}
       </div>
-      <div style={{ marginTop: 26, fontFamily: mono, fontSize: 10.5, letterSpacing: "0.1em", color: T.faint }}>COMPUTED LIVE — NOTHING IS PREMADE</div>
+      <div style={{ marginTop: 26, fontFamily: mono, fontSize: 10.5, letterSpacing: "0.1em", color: T.faint }}>{t.pipeFooter}</div>
     </div>
   );
 }
 
 function EmptyState() {
+  const t = GEN_STR[useLocale()];
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", height: "100%", minHeight: 460, padding: 30 }}>
       <span style={{ display: "flex", width: 62, height: 62, borderRadius: 17, background: T.green + "16", border: `1px solid ${T.green}44`, alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
         <Icon name="sparkles" size={28} color={T.green} />
       </span>
-      <h3 style={{ fontFamily: display, fontSize: 21, fontWeight: 800, color: T.ink, margin: "0 0 10px", maxWidth: 340 }}>Set your preferences, then generate</h3>
+      <h3 style={{ fontFamily: display, fontSize: 21, fontWeight: 800, color: T.ink, margin: "0 0 10px", maxWidth: 340 }}>{t.emptyTitle}</h3>
       <p style={{ fontSize: 14, color: T.muted, margin: 0, maxWidth: 360, lineHeight: 1.6 }}>
-        We'll build a diversified, top-rated portfolio — optimised for the best risk-adjusted return, sized to your amount, and built around any holdings you pin.
+        {t.emptySub}
       </p>
       <div style={{ display: "flex", gap: 18, marginTop: 26, flexWrap: "wrap", justifyContent: "center" }}>
-        {([["bars", "Rated holdings"], ["pie", "Smart weighting"], ["line", "Monte Carlo projection"]] as const).map(([ic, tx]) => (
+        {([["bars", t.emptyChips[0]], ["pie", t.emptyChips[1]], ["line", t.emptyChips[2]]] as const).map(([ic, tx]) => (
           <div key={tx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: T.faint }}>
             <Icon name={ic} size={15} color={T.green} /> {tx}
           </div>
@@ -116,6 +120,7 @@ function EmptyState() {
 }
 
 export function PortfolioGeneratorApp() {
+  const t = GEN_STR[useLocale()];
   const [universe, setUniverse] = React.useState<GenInstrument[] | null>(null);
   // Instruments resolved on demand when the user pins a ticker outside the
   // curated universe (e.g. QQQI) — merged into the pool for this session.
@@ -361,13 +366,13 @@ export function PortfolioGeneratorApp() {
 
       {/* hero */}
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "40px 24px 8px", textAlign: "center" }}>
-        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: T.green, marginBottom: 14 }}>Tools{isPremium ? "" : " · Free"}</div>
-        <h1 style={{ fontFamily: display, fontSize: 40, fontWeight: 800, color: T.ink, margin: "0 0 14px", letterSpacing: "-0.03em" }}>Portfolio generator</h1>
+        <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: T.green, marginBottom: 14 }}>{t.heroKicker}{isPremium ? "" : t.heroFree}</div>
+        <h1 style={{ fontFamily: display, fontSize: 40, fontWeight: 800, color: T.ink, margin: "0 0 14px", letterSpacing: "-0.03em" }}>{t.heroTitle}</h1>
         <p style={{ fontSize: 16, color: T.muted, margin: "0 auto", maxWidth: 620, lineHeight: 1.6 }}>
-          Answer a few questions — or pin the stocks and ETFs you already love — and we'll build a diversified, top-rated portfolio sized to your amount.
+          {t.heroSub}
         </p>
         <a href="/tools/portfolio-generator/validation" style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 12, fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: T.green, textDecoration: "none", letterSpacing: "0.04em" }}>
-          <Icon name="check" size={13} color={T.green} /> Does it work? See the live walk-forward track record →
+          <Icon name="check" size={13} color={T.green} /> {t.heroValidation}
         </a>
       </div>
 
@@ -378,7 +383,7 @@ export function PortfolioGeneratorApp() {
           <Panel pad={26}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
               <span style={{ display: "flex", width: 30, height: 30, borderRadius: 9, background: T.green + "18", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="zap" size={16} color={T.green} /></span>
-              <span style={{ fontFamily: display, fontSize: 16, fontWeight: 800, color: T.ink, whiteSpace: "nowrap" }}>Build your portfolio</span>
+              <span style={{ fontFamily: display, fontSize: 16, fontWeight: 800, color: T.ink, whiteSpace: "nowrap" }}>{t.panelTitle}</span>
             </div>
             {/* The form renders immediately — live market data hydrates in the
                 background and only the Generate button waits for it. */}
@@ -386,7 +391,7 @@ export function PortfolioGeneratorApp() {
               ready={!pendingGen}
               feasibility={state.target > 0 && result ? result.feasibility : null} />
             {loadErr && !pool && (
-              <div style={{ color: T.red, fontSize: 12.5, marginTop: 12 }}>Could not load live market data — refresh to try again.</div>
+              <div style={{ color: T.red, fontSize: 12.5, marginTop: 12 }}>{t.loadErr}</div>
             )}
           </Panel>
         </div>

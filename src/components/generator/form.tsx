@@ -9,6 +9,8 @@ import { T, display, body, mono, Icon } from "@/components/healthcheck/theme";
 import { GEN_SECTORS, type Feasibility } from "./engine";
 import { GEN_CURRENCIES, curSym, fmtCurShort } from "./currency";
 import type { GenInstrument, GenOptions } from "./types";
+import { GEN_STR } from "./strings";
+import { useLocale } from "@/lib/use-locale";
 
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
@@ -44,6 +46,7 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
   universe: GenInstrument[]; anchors: string[]; setAnchors: (a: string[]) => void;
   onExtra: (inst: GenInstrument) => void;
 }) {
+  const ts = GEN_STR[useLocale()];
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [hi, setHi] = React.useState(0);
@@ -127,7 +130,7 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
           );
         })}
         <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={key}
-          placeholder={anchors.length ? "Add another…" : "Search a stock or ETF — e.g. AAPL, SCHD, O"}
+          placeholder={anchors.length ? ts.anchorsPhMore : ts.anchorsPh}
           style={{ flex: 1, minWidth: 160, background: "transparent", border: "none", outline: "none", color: T.ink, fontFamily: body, fontSize: 13.5, padding: "4px 2px" }} />
       </div>
       {open && total > 0 && (
@@ -142,7 +145,7 @@ function AnchorSearch({ universe, anchors, setAnchors, onExtra }: {
             </div>
           ))}
           {remote.length > 0 && (
-            <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.faint, padding: "8px 11px 4px" }}>All tickers</div>
+            <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.faint, padding: "8px 11px 4px" }}>{ts.allTickers}</div>
           )}
           {remote.map((u, j) => {
             const i = local.length + j;
@@ -190,10 +193,11 @@ const MARKETS: [string, string, string][] = [
 const MAX_MARKETS = 4;
 
 function MarketPicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const t = GEN_STR[useLocale()];
   const [open, setOpen] = React.useState(false);
   const selected = value === "GLOBAL" ? [] : value.split(",").filter(Boolean);
   const summary = selected.length === 0
-    ? "🌍 No preference · Global"
+    ? `🌍 ${t.marketGlobal}`
     : selected.map((c) => MARKETS.find((m) => m[0] === c)?.[1] ?? c).join(" ") + "  " +
       selected.map((c) => MARKETS.find((m) => m[0] === c)?.[2].split(" (")[0] ?? c).join(", ");
 
@@ -226,12 +230,12 @@ function MarketPicker({ value, onChange }: { value: string; onChange: (code: str
           <div role="dialog" aria-modal="true" aria-label="Market focus" onClick={(e) => e.stopPropagation()}
             style={{ width: "100%", maxWidth: 540, background: T.panel, border: `1px solid ${T.line2}`, borderRadius: 18, boxShadow: "0 30px 80px -20px rgba(0,0,0,.8)", padding: "20px 22px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontFamily: display, fontSize: 19, fontWeight: 800, color: T.ink }}>Market focus</span>
+              <span style={{ fontFamily: display, fontSize: 19, fontWeight: 800, color: T.ink }}>{t.marketModalTitle}</span>
               <button onClick={() => setOpen(false)} aria-label="Close" style={{ display: "flex", padding: 5, background: "transparent", border: "none", cursor: "pointer", color: T.faint, borderRadius: 7 }}>
                 <Icon name="x" size={17} />
               </button>
             </div>
-            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: T.faint }}>Pick up to {MAX_MARKETS} markets — or leave it global. Core ETFs stay global either way.</p>
+            <p style={{ margin: "0 0 14px", fontSize: 12.5, color: T.faint }}>{t.marketModalSub}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, maxHeight: 360, overflowY: "auto" }}>
               {MARKETS.map(([code, flag, label]) => {
                 const on = code === "GLOBAL" ? selected.length === 0 : selected.includes(code);
@@ -247,10 +251,10 @@ function MarketPicker({ value, onChange }: { value: string; onChange: (code: str
               })}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
-              <span style={{ fontSize: 12.5, color: T.muted }}>{selected.length === 0 ? "Global" : `${selected.length} selected · max ${MAX_MARKETS}`}</span>
+              <span style={{ fontSize: 12.5, color: T.muted }}>{t.marketSelected(selected.length, MAX_MARKETS)}</span>
               <button onClick={() => setOpen(false)}
                 style={{ background: T.green, color: T.bg, border: "none", borderRadius: 11, padding: "11px 24px", cursor: "pointer", fontFamily: body, fontSize: 14, fontWeight: 700 }}>
-                Done
+                {t.marketDone}
               </button>
             </div>
           </div>
@@ -293,12 +297,13 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
   ready?: boolean;
 }) {
   const sym = curSym(state.currency);
+  const t = GEN_STR[useLocale()];
   return (
     <div style={{ display: "grid", gap: 24 }}>
-      <FormSection n="01" title="The basics" first>
+      <FormSection n="01" title={t.s1} first>
         {/* amount + currency */}
         <div>
-          <FieldLabel>How much do you want to invest?</FieldLabel>
+          <FieldLabel>{t.amountLabel}</FieldLabel>
           <div className="gen-input" style={{ display: "flex", alignItems: "center", gap: 0, background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "0 8px 0 6px", height: 50 }}>
             <select value={state.currency} onChange={(e) => set({ currency: e.target.value })} aria-label="Currency"
               style={{ background: "transparent", border: "none", outline: "none", color: T.faint, fontFamily: mono, fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "0 2px" }}>
@@ -323,47 +328,47 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
 
         {/* risk */}
         <div>
-          <FieldLabel>Risk tolerance</FieldLabel>
+          <FieldLabel>{t.riskLabel}</FieldLabel>
           <Seg value={state.risk} onChange={(v) => set({ risk: v as GenOptions["risk"] })} options={[
-            { id: "conservative", label: "Conservative", sub: "Lower swings, ballast" },
-            { id: "balanced", label: "Balanced", sub: "A middle path" },
-            { id: "aggressive", label: "Aggressive", sub: "More risk for return" },
+            { id: "conservative", ...t.risk[0] },
+            { id: "balanced", ...t.risk[1] },
+            { id: "aggressive", ...t.risk[2] },
           ]} />
         </div>
 
         {/* objective */}
         <div>
-          <FieldLabel>What matters more?</FieldLabel>
+          <FieldLabel>{t.objLabel}</FieldLabel>
           <Seg value={state.objective} onChange={(v) => set({ objective: v as GenOptions["objective"] })} options={[
-            { id: "income", label: "Income", sub: "Higher dividend yield" },
-            { id: "balanced", label: "Balanced", sub: "Income + growth" },
-            { id: "growth", label: "Growth", sub: "Capital appreciation" },
+            { id: "income", ...t.obj[0] },
+            { id: "balanced", ...t.obj[1] },
+            { id: "growth", ...t.obj[2] },
           ]} />
         </div>
 
         {/* horizon */}
         <div>
-          <FieldLabel>Time horizon</FieldLabel>
+          <FieldLabel>{t.horizonLabel}</FieldLabel>
           <Seg value={state.horizon} onChange={(v) => set({ horizon: v as GenOptions["horizon"] })} options={[
-            { id: "short", label: "< 5 yrs", sub: "More ballast" },
-            { id: "medium", label: "5–15 yrs", sub: "Balanced" },
-            { id: "long", label: "15+ yrs", sub: "More equity" },
+            { id: "short", ...t.horizon[0] },
+            { id: "medium", ...t.horizon[1] },
+            { id: "long", ...t.horizon[2] },
           ]} />
         </div>
       </FormSection>
 
-      <FormSection n="02" title="Your goal" hint="optional">
+      <FormSection n="02" title={t.s2} hint={t.s2hint}>
         {/* goal in plain english */}
         <div>
-          <FieldLabel hint="we read this and tilt the picks">Describe your goal</FieldLabel>
+          <FieldLabel hint={t.goalHint}>{t.goalLabel}</FieldLabel>
           <div style={{ position: "relative" }}>
             <textarea className="gen-input" value={state.goal} maxLength={500} onChange={(e) => set({ goal: e.target.value })} rows={3}
-              placeholder="e.g. Retirement nest egg for a 45-year-old. Broad equity with bond ballast and some international. Comfortable through a 25% drawdown, not 40%."
+              placeholder={t.goalPh}
               style={{ width: "100%", resize: "none", display: "block", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "12px 13px 26px", color: T.ink, fontFamily: body, fontSize: 13, lineHeight: 1.5, outline: "none" }} />
             <span style={{ position: "absolute", bottom: 10, left: 13, fontFamily: mono, fontSize: 10, color: T.faint }}>{state.goal.length} / 500</span>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-            {["dividend income", "tech innovation", "international", "capital preservation"].map((tag) => (
+            {t.goalChips.map((tag) => (
               <button key={tag} onClick={() => set({ goal: (state.goal ? state.goal.trim() + " " : "") + tag })} className="gen-quickAmt" style={{
                 background: T.panel2, border: `1px dashed ${T.line2}`, color: T.muted, borderRadius: 7, padding: "4px 9px", fontSize: 11, cursor: "pointer",
               }}>+ {tag}</button>
@@ -374,7 +379,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         {/* target + monthly */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <FieldLabel hint="what you want to end up with">Target wealth</FieldLabel>
+            <FieldLabel hint={t.targetHint}>{t.targetLabel}</FieldLabel>
             <div className="gen-input" style={{ display: "flex", alignItems: "center", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "0 12px", height: 44 }}>
               <span style={{ fontFamily: display, fontSize: 15, color: T.faint, fontWeight: 700 }}>{sym}</span>
               <input type="text" inputMode="numeric" value={state.target ? state.target.toLocaleString("en-US") : ""} placeholder="e.g. 100,000"
@@ -384,7 +389,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
             </div>
           </div>
           <div>
-            <FieldLabel hint="added every month">Monthly top-up</FieldLabel>
+            <FieldLabel hint={t.monthlyHint}>{t.monthlyLabel}</FieldLabel>
             <div className="gen-input" style={{ display: "flex", alignItems: "center", background: T.bg, border: `1px solid ${T.line2}`, borderRadius: 11, padding: "0 12px", height: 44 }}>
               <span style={{ fontFamily: display, fontSize: 15, color: T.faint, fontWeight: 700 }}>{sym}</span>
               <input type="text" inputMode="numeric" value={state.monthlyDCA ? state.monthlyDCA.toLocaleString("en-US") : ""} placeholder="e.g. 100"
@@ -409,16 +414,16 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         )}
       </FormSection>
 
-      <FormSection n="03" title="Refine the build">
+      <FormSection n="03" title={t.s3}>
         {/* market focus */}
         <div>
-          <FieldLabel hint="stocks from this market; core ETFs stay global">Market focus</FieldLabel>
+          <FieldLabel hint={t.marketHint}>{t.marketLabel}</FieldLabel>
           <MarketPicker value={state.country} onChange={(code) => set({ country: code })} />
         </div>
 
         {/* sectors */}
         <div>
-          <FieldLabel hint="leave blank for all">Favour any sectors?</FieldLabel>
+          <FieldLabel hint={t.sectorsHint}>{t.sectorsLabel}</FieldLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {GEN_SECTORS.map((s) => {
               const on = state.sectors.includes(s);
@@ -434,7 +439,7 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
 
         {/* anchors */}
         <div>
-          <FieldLabel hint="we'll build the rest around them">Build around specific holdings?</FieldLabel>
+          <FieldLabel hint={t.anchorsHint}>{t.anchorsLabel}</FieldLabel>
           <AnchorSearch universe={universe} anchors={state.anchors} setAnchors={(a) => set({ anchors: a })} onExtra={onExtra} />
           {state.anchors.length > 0 && (
             <div style={{ marginTop: 9, fontSize: 11.5, color: T.green, display: "flex", alignItems: "center", gap: 6 }}>
@@ -446,13 +451,13 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         {/* holdings count */}
         <div>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 11 }}>
-            <span style={{ fontFamily: display, fontSize: 13.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>Number of holdings</span>
+            <span style={{ fontFamily: display, fontSize: 13.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{t.countLabel}</span>
             <span style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: T.green }}>{state.count}</span>
           </div>
           <input type="range" min={5} max={20} step={1} value={state.count} onChange={(e) => set({ count: +e.target.value })} className="gen-range" aria-label="Number of holdings"
             style={{ width: "100%", ["--p" as any]: `${((state.count - 5) / 15) * 100}%` }} />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontFamily: mono, fontSize: 10.5, color: T.faint }}>
-            <span>5 · focused</span><span>20 · spread out</span>
+            <span>{t.countFocused}</span><span>{t.countSpread}</span>
           </div>
         </div>
       </FormSection>
@@ -462,8 +467,8 @@ export function GenForm({ universe, state, set, onGenerate, onExtra, dirty, feas
         border: "none", borderRadius: 12, padding: "15px", fontFamily: body, fontSize: 15, fontWeight: 700, cursor: ready ? "pointer" : "default",
       }}>
         {ready
-          ? <><Icon name={dirty ? "zap" : "repeat"} size={18} /> {dirty ? "Generate my portfolio" : "Regenerate"} <Icon name="arrowRight" size={17} /></>
-          : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={17} /></span> Building — pulling live market data…</>}
+          ? <><Icon name={dirty ? "zap" : "repeat"} size={18} /> {dirty ? t.generate : t.regenerate} <Icon name="arrowRight" size={17} /></>
+          : <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={17} /></span> {t.building}</>}
       </button>
     </div>
   );

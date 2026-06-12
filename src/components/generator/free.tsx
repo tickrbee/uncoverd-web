@@ -13,6 +13,8 @@ import { curSym, fmtCur, fmtCurShort } from "./currency";
 import { Donut, AllocBars, MonteCarlo } from "./charts";
 import { ThesisCard, RiskContribution, CorrelationMatrix, LegendaryComparison } from "./cards";
 import { FrontierGrid, StatGrid, StressTests, Rationale, GradePill, MeasuredBadge, BacktestChart } from "./results";
+import { GEN_STR } from "./strings";
+import { useLocale } from "@/lib/use-locale";
 import { genTypeColor, genTypeLabel } from "./form";
 
 /* blur a ticker/name so free users can't read the actual picks */
@@ -31,17 +33,18 @@ function ThesisBlurred({ text, tickers }: { text: string; tickers: string[] }) {
 
 /* slim upsell banner under the hero */
 export function PremiumBanner({ signedIn }: { signedIn: boolean }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Link href={signedIn ? "/go-pro" : "/pricing"} style={{ textDecoration: "none", display: "block", background: "linear-gradient(90deg, #11202f, #0d1722)", border: `1px solid ${T.green}33`, borderRadius: 13, marginBottom: 20 }}>
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.gold, background: T.gold + "1c", border: `1px solid ${T.gold}55`, borderRadius: 16, padding: "3px 9px" }}>
-          <Icon name="crown" size={11} color={T.gold} /> FREE PREVIEW
+          <Icon name="crown" size={11} color={T.gold} /> {t.freePreview}
         </span>
         <span style={{ fontSize: 13, color: T.muted, flex: 1, minWidth: 200 }}>
-          You can generate freely — <span style={{ color: T.ink, fontWeight: 600 }}>Pro</span> reveals every holding and unlocks stress tests, correlation & the full rationale.
+          {t.bannerLineA}<span style={{ color: T.ink, fontWeight: 600 }}>Pro</span>{t.bannerLineB}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: body, fontSize: 13, fontWeight: 700, color: T.green }}>
-          See plans <Icon name="arrowRight" size={15} color={T.green} />
+          {t.seePlans} <Icon name="arrowRight" size={15} color={T.green} />
         </span>
       </div>
     </Link>
@@ -52,6 +55,7 @@ export function PremiumBanner({ signedIn }: { signedIn: boolean }) {
 function LockedCard({ eyebrow, icon, title, blurb, bullets, previewHeight = 200, ctaHref, children }: {
   eyebrow: string; icon: string; title: string; blurb: string; bullets?: string[]; previewHeight?: number; ctaHref: string; children?: React.ReactNode;
 }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Panel pad={0} style={{ overflow: "hidden" }}>
       <div style={{ padding: "20px 20px 0" }}>
@@ -81,7 +85,7 @@ function LockedCard({ eyebrow, icon, title, blurb, bullets, previewHeight = 200,
             </div>
           )}
           <Link href={ctaHref} className="gen-btnPrimary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, background: T.green, color: T.bg, borderRadius: 11, padding: "11px 20px", fontFamily: body, fontSize: 13.5, fontWeight: 700 }}>
-            <Icon name="crown" size={15} /> Unlock with Pro
+            <Icon name="crown" size={15} /> {t.unlockPro}
           </Link>
         </div>
       </div>
@@ -136,6 +140,7 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
   signedIn: boolean;
   realLoading?: boolean;
 }) {
+  const t = GEN_STR[useLocale()];
   const variant = result.variants.find((v) => v.id === selected) || result.variants.find((v) => v.rec) || result.variants[0];
   const m = variant.metrics;
   const holdings = variant.holdings;
@@ -249,8 +254,8 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
 
       {/* LOCKED: stress tests */}
       <div style={{ marginBottom: 20 }}>
-        <LockedCard eyebrow="Historical stress tests" icon="alert" previewHeight={210} ctaHref={ctaHref}
-          title="Stress-test against every modern crisis"
+        <LockedCard eyebrow={t.stress} icon="alert" previewHeight={210} ctaHref={ctaHref}
+          title={t.lockedStressTitle}
           blurb="See exactly how this portfolio would have held up in 2008, the 2020 COVID crash and the 2022 stocks-and-bonds bear — drawdown depth and recovery, versus the S&P."
           bullets={["Crisis-by-crisis drawdowns", "Worst-case vs benchmark", "Survival vs your risk ceiling"]}>
           <StressTests metrics={m} />
@@ -259,14 +264,14 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
 
       {/* LOCKED: risk contribution + correlation */}
       <div className="gen-twoCol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20, alignItems: "start" }}>
-        <LockedCard eyebrow="Risk contribution" icon="network" previewHeight={230} ctaHref={ctaHref}
-          title="Find your hidden risk drivers"
+        <LockedCard eyebrow={t.riskContrib} icon="network" previewHeight={230} ctaHref={ctaHref}
+          title={t.lockedRiskTitle}
           blurb="See which holdings carry more risk than their weight suggests — the positions that really move your portfolio."
           bullets={["Risk vs weight per holding", "Concentration flags"]}>
           <RiskContribution metrics={m} />
         </LockedCard>
-        <LockedCard eyebrow="Correlation matrix" icon="grid" previewHeight={230} ctaHref={ctaHref}
-          title="See what really diversifies"
+        <LockedCard eyebrow={t.corr} icon="grid" previewHeight={230} ctaHref={ctaHref}
+          title={t.lockedCorrTitle}
           blurb="A full pairwise correlation heatmap plus your diversification ratio — the volatility you save by combining these holdings."
           bullets={["Pairwise correlations", "Diversification ratio"]}>
           <CorrelationMatrix corr={m.corr} divR={m.divR} />
@@ -278,8 +283,8 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
 
       {/* LOCKED: rationale */}
       <div style={{ marginBottom: 22 }}>
-        <LockedCard eyebrow="Holding rationale" icon="sparkles" previewHeight={240} ctaHref={ctaHref}
-          title="See the full per-holding reasoning"
+        <LockedCard eyebrow={t.picksWhy} icon="sparkles" previewHeight={240} ctaHref={ctaHref}
+          title={t.lockedWhyTitle}
           blurb="Why each holding was chosen, the role it plays, and how the engine balanced risk versus return across the book."
           bullets={["Per-asset thesis", "Role of each holding", "Exact weights & dollars"]}>
           <Rationale holdings={holdings} />
@@ -291,7 +296,7 @@ export function FreeResultsView({ result, selected, onSelect, signedIn, realLoad
         <Link href={ctaHref} className="gen-btnPrimary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, background: T.green, color: T.bg, borderRadius: 11, padding: "14px 22px", fontFamily: body, fontSize: 14, fontWeight: 700 }}>
           <Icon name="crown" size={16} /> Get Pro — reveal every holding
         </Link>
-        <span style={{ fontSize: 12, color: T.faint }}>Unlock every holding, stress tests, correlation & the full rationale.</span>
+        <span style={{ fontSize: 12, color: T.faint }}>{t.unlockFooter}</span>
       </div>
     </div>
   );
