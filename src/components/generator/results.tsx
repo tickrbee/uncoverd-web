@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 // Portfolio Generator — full results view (premium / paying users).
@@ -7,6 +7,8 @@ import React from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { T, display, body, mono, Icon, Panel, Eyebrow, ScoreBar, gradeOf, scoreColor } from "@/components/healthcheck/theme";
 import { RISK_ALLOC, OBJ_W, thesisOf, rationaleOf, legendaryComparison, legendaryWindowYears, autoNotes, type GenResult, type Variant, type Holding, type Metrics } from "./engine";
+import { GEN_STR } from "./strings";
+import { useLocale } from "@/lib/use-locale";
 import { curSym, fmtCur, fmtCurShort } from "./currency";
 import { Donut, AllocBars, MonteCarlo } from "./charts";
 import { ThesisCard, RiskContribution, CorrelationMatrix, LegendaryComparison } from "./cards";
@@ -28,17 +30,18 @@ export function GradePill({ grade }: { grade: string }) {
 /* Measured-vs-modelled status: once the price-history analysis lands, the
    risk numbers are real; until then they're model estimates. */
 export function MeasuredBadge({ measured, loading }: { measured: boolean; loading: boolean }) {
+  const bt = GEN_STR[useLocale()];
   if (measured) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.green, background: T.green + "14", border: `1px solid ${T.green}44`, borderRadius: 999, padding: "4px 10px" }}>
-        <Icon name="check" size={12} color={T.green} /> MEASURED · REAL PRICE HISTORY
+        <Icon name="check" size={12} color={T.green} /> {bt.measured}
       </span>
     );
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.amber, background: T.amber + "14", border: `1px solid ${T.amber}44`, borderRadius: 999, padding: "4px 10px" }}>
       {loading && <span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={12} color={T.amber} /></span>}
-      {loading ? "MEASURING REAL DATA…" : "MODEL ESTIMATES"}
+      {loading ? bt.measuring : bt.modelled}
     </span>
   );
 }
@@ -64,6 +67,7 @@ export function openInHealthcheck(holdings: Holding[], name: string, amount: num
 
 /* ---------- REAL historical backtest (growth of 100 vs SPY) ---------- */
 export function BacktestChart({ curve, er }: { curve: { i: number; port: number; bench: number }[]; er: number }) {
+  const t = GEN_STR[useLocale()];
   const W = 1000, H = 240, padL = 4, padR = 56, padT = 12, padB = 10;
   const all = curve.flatMap((p) => [p.port, p.bench]);
   let lo = Math.min(...all), hi = Math.max(...all);
@@ -87,7 +91,7 @@ export function BacktestChart({ curve, er }: { curve: { i: number; port: number;
   return (
     <Panel pad={20} style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-        <Eyebrow icon="line" style={{ marginBottom: 0 }}>Historical backtest · real daily closes</Eyebrow>
+        <Eyebrow icon="line" style={{ marginBottom: 0 }}>{t.backtest}</Eyebrow>
         <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
           {hp ? (
             <>
@@ -134,9 +138,10 @@ export function BacktestChart({ curve, er }: { curve: { i: number; port: number;
 
 /* ---------- factor exposures (real, vs S&P 500) ---------- */
 export function FactorPanel({ factors }: { factors: { factor: string; port: number; bench: number }[] }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Panel pad={20} style={{ marginBottom: 20 }}>
-      <Eyebrow icon="layers">Factor exposure · vs S&P 500</Eyebrow>
+      <Eyebrow icon="layers">{t.factor}</Eyebrow>
       <div style={{ display: "grid", gap: 11 }}>
         {factors.map((f) => (
           <div key={f.factor}>
@@ -158,6 +163,8 @@ export function FactorPanel({ factors }: { factors: { factor: string; port: numb
 
 /* ---------- AI audit (tool-using: queries ratings + news per pick) ---------- */
 export function AuditCard({ result, variant }: { result: GenResult; variant: Variant }) {
+  const locale = useLocale();
+  const t = GEN_STR[locale];
   const [audit, setAudit] = React.useState<{ summary: string; flags: { symbol: string; severity: string; note: string }[] } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -176,7 +183,7 @@ export function AuditCard({ result, variant }: { result: GenResult; variant: Var
       try {
         const supabase = createClient();
         const holdings = variant.holdings.filter((h) => h.cls !== "cash").map((h) => ({ symbol: h.tk, weight: +(h.w * 100).toFixed(1) }));
-        const { data, error } = await supabase.functions.invoke("portfolio-audit", { body: { holdings, goal: result.inputs.goal } });
+        const { data, error } = await supabase.functions.invoke("portfolio-audit", { body: { holdings, goal: result.inputs.goal, locale } });
         if (!alive) return;
         if (error || data?.error) setErr("Audit unavailable right now.");
         else setAudit({ summary: data?.summary ?? "", flags: data?.flags ?? [] });
@@ -193,7 +200,7 @@ export function AuditCard({ result, variant }: { result: GenResult; variant: Var
   return (
     <Panel pad={20} style={{ marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: audit || err || busy ? 12 : 0 }}>
-        <Eyebrow icon="shield" style={{ marginBottom: 0 }}>AI audit · live ratings &amp; news</Eyebrow>
+        <Eyebrow icon="shield" style={{ marginBottom: 0 }}>{t.audit}</Eyebrow>
         {busy && <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: mono, fontSize: 10.5, color: T.faint }}><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={13} /></span> AUDITING EVERY PICK…</span>}
       </div>
       {err && <div style={{ fontSize: 12.5, color: T.faint }}>{err}</div>}
@@ -222,6 +229,8 @@ export function AuditCard({ result, variant }: { result: GenResult; variant: Var
 
 /* ---------- AI analysis (LLM layer, premium) ---------- */
 function AiAnalysis({ result, variant, auto = false }: { result: GenResult; variant: Variant; auto?: boolean }) {
+  const locale = useLocale();
+  const t = GEN_STR[locale];
   const [answer, setAnswer] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -252,7 +261,7 @@ function AiAnalysis({ result, variant, auto = false }: { result: GenResult; vari
       };
       const question =
         "Write the investment thesis for this generated portfolio: why this mix fits the stated inputs, what drives its risk and income, the concentration to watch, and the role of the largest holdings.";
-      const { data, error } = await supabase.functions.invoke("portfolio-analyst", { body: { question, portfolio } });
+      const { data, error } = await supabase.functions.invoke("portfolio-analyst", { body: { question, portfolio, locale } });
       if (error) throw error;
       const a = (data as { answer?: string; error?: string }) ?? {};
       if (a.answer) setAnswer(a.answer);
@@ -277,7 +286,7 @@ function AiAnalysis({ result, variant, auto = false }: { result: GenResult; vari
   return (
     <Panel pad={20}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: answer || err ? 12 : 0 }}>
-        <Eyebrow icon="sparkles" style={{ marginBottom: 0 }}>AI analysis</Eyebrow>
+        <Eyebrow icon="sparkles" style={{ marginBottom: 0 }}>{t.analysis}</Eyebrow>
         <button onClick={run} disabled={busy} className="gen-btnPrimary" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: busy ? T.raised : T.green, color: busy ? T.muted : T.bg, border: "none", borderRadius: 10, padding: "9px 16px", fontFamily: body, fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
           {busy
             ? <><span style={{ display: "inline-flex", animation: "gen-spin 1s linear infinite" }}><Icon name="loader" size={14} /></span> Analysing…</>
@@ -297,9 +306,10 @@ function AiAnalysis({ result, variant, auto = false }: { result: GenResult; vari
 
 /* ---------- six frontier portfolios grid ---------- */
 export function FrontierGrid({ variants, selected, onSelect }: { variants: Variant[]; selected: string; onSelect: (id: string) => void }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Panel pad={20}>
-      <Eyebrow icon="zap">Six frontier portfolios</Eyebrow>
+      <Eyebrow icon="zap">{t.frontier}</Eyebrow>
       <div className="gen-frontierGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {variants.map((v) => {
           const on = selected === v.id;
@@ -351,9 +361,10 @@ export function StatGrid({ stats }: { stats: Metrics["stats"] }) {
 
 /* ---------- historical stress tests ---------- */
 export function StressTests({ metrics }: { metrics: Metrics }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Panel pad={20}>
-      <Eyebrow icon="alert" accent={T.amber}>Historical stress tests</Eyebrow>
+      <Eyebrow icon="alert" accent={T.amber}>{t.stress}</Eyebrow>
       <div style={{ display: "grid", gap: 10 }}>
         {metrics.stress.map((s) => (
           <div key={s.name} className="gen-stressRow" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr auto", gap: 12, alignItems: "center", background: T.bg, border: `1px solid ${T.line}`, borderRadius: 11, padding: "12px 15px" }}>
@@ -399,9 +410,10 @@ export function StressTests({ metrics }: { metrics: Metrics }) {
 
 /* ---------- per-holding rationale ---------- */
 export function Rationale({ holdings }: { holdings: Holding[] }) {
+  const t = GEN_STR[useLocale()];
   return (
     <Panel pad={20}>
-      <Eyebrow icon="sparkles">Why these picks</Eyebrow>
+      <Eyebrow icon="sparkles">{t.picksWhy}</Eyebrow>
       <div style={{ display: "grid", gap: 0 }}>
         {holdings.slice(0, 7).map((h, i) => (
           <div key={h.tk} style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
@@ -491,6 +503,7 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
   onRemove: (tk: string) => void;
   realLoading?: boolean;
 }) {
+  const t = GEN_STR[useLocale()];
   const variant = result.variants.find((v) => v.id === selected) || result.variants.find((v) => v.rec) || result.variants[0];
   const m = variant.metrics;
   const holdings = variant.holdings;
@@ -506,22 +519,22 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
       {/* header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap", marginBottom: 20 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 9 }}>Your generated portfolio</div>
+          <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 9 }}>{t.yourPortfolio}</div>
           <h2 style={{ fontFamily: display, fontSize: 28, fontWeight: 800, color: T.ink, margin: 0, letterSpacing: "-0.02em" }}>{name}</h2>
-          <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>{variant.label} optimization · {holdings.length} holdings · sized to {fmtCur(result.inputs.amount, sym)}</div>
+          <div style={{ fontSize: 13, color: T.muted, marginTop: 6 }}>{t.optimizationMeta(variant.label, holdings.length, fmtCur(result.inputs.amount, sym))}</div>
           <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <MeasuredBadge measured={!!m.measured} loading={realLoading} />
             {variant.optimized && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", color: "#7aa7ff", background: "#7aa7ff14", border: "1px solid #7aa7ff44", borderRadius: 7, padding: "4px 9px" }}>
-                <Icon name="zap" size={11} color="#7aa7ff" /> BLACK–LITTERMAN OPTIMIZED
+                <Icon name="zap" size={11} color="#7aa7ff" /> {t.blOptimized}
               </span>
             )}
             {variant.optimized && variant.costBps != null && (
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>est. cost to implement ~{variant.costBps} bps</span>
+              <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{t.costToImplement(variant.costBps)}</span>
             )}
             {result.inputs.parsed?.summary && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: mono, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: T.amber, background: T.amber + "12", border: `1px solid ${T.amber}44`, borderRadius: 7, padding: "4px 9px" }}>
-                <Icon name="sparkles" size={11} color={T.amber} /> AI READ: {result.inputs.parsed.summary.toUpperCase()}
+                <Icon name="sparkles" size={11} color={T.amber} /> {t.aiRead} {result.inputs.parsed.summary.toUpperCase()}
               </span>
             )}
           </div>
@@ -558,7 +571,7 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
       {/* allocation: donut + holdings (holdings get the wide column) */}
       <div className="gen-twoColWide" style={{ display: "grid", gridTemplateColumns: "0.65fr 1.35fr", gap: 16, marginBottom: 20 }}>
         <Panel pad={20}>
-          <Eyebrow icon="pie">Asset mix</Eyebrow>
+          <Eyebrow icon="pie">{t.assetMix}</Eyebrow>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
             <Donut data={m.classAlloc} centerTop={Math.round(m.eqW * 100) + "%"} centerBottom="EQUITY" />
             <div style={{ display: "grid", gap: 9, width: "100%" }}>
@@ -574,7 +587,7 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
         </Panel>
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <Eyebrow icon="building" style={{ marginBottom: 0 }}>Recommended allocation · {holdings.length}</Eyebrow>
+            <Eyebrow icon="building" style={{ marginBottom: 0 }}>{t.allocation} · {holdings.length}</Eyebrow>
             <span style={{ fontSize: 11.5, color: T.faint, display: "inline-flex", alignItems: "center", gap: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="sparkles" size={12} color={T.green} /> pin</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="x" size={12} /> re-roll</span>
@@ -586,14 +599,14 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
 
       {/* eight stats */}
       <div style={{ marginBottom: 20 }}>
-        <Eyebrow icon="bars">The eight stats that matter</Eyebrow>
+        <Eyebrow icon="bars">{t.stats}</Eyebrow>
         <StatGrid stats={m.stats} />
       </div>
 
       {/* monte carlo */}
       <Panel pad={20} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
-          <Eyebrow icon="line" style={{ marginBottom: 0 }}>Monte Carlo projection · {m.years} years</Eyebrow>
+          <Eyebrow icon="line" style={{ marginBottom: 0 }}>{t.monteCarlo} · {m.years}y</Eyebrow>
           <span style={{ fontFamily: mono, fontSize: 11, color: beat >= 0 ? T.green : T.red }}>{beat >= 0 ? "+" : ""}{fmtCurShort(beat, sym)} vs S&P median</span>
         </div>
         <MonteCarlo proj={m.proj} amount={result.inputs.amount} sym={sym} />
@@ -632,11 +645,11 @@ export function ResultsView({ result, selected, onSelect, onPin, onRemove, realL
       {/* sectors + scores */}
       <div className="gen-twoCol" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <Panel pad={20}>
-          <Eyebrow icon="layers">Sector exposure</Eyebrow>
+          <Eyebrow icon="layers">{t.sectorExposure}</Eyebrow>
           <AllocBars data={m.sectorAlloc} />
         </Panel>
         <Panel pad={20}>
-          <Eyebrow icon="gauge">Why this grade</Eyebrow>
+          <Eyebrow icon="gauge">{t.whyGrade}</Eyebrow>
           {m.subscores.map((s) => <ScoreBar key={s.k} label={s.k} s={s.s} note={s.note} />)}
         </Panel>
       </div>

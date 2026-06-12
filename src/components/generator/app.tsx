@@ -1,4 +1,4 @@
-/* eslint-disable react/no-unescaped-entities */
+﻿/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 // Portfolio Generator — app shell. Loads the real instrument universe, detects
@@ -120,7 +120,8 @@ function EmptyState() {
 }
 
 export function PortfolioGeneratorApp() {
-  const t = GEN_STR[useLocale()];
+  const locale = useLocale();
+  const t = GEN_STR[locale];
   const [universe, setUniverse] = React.useState<GenInstrument[] | null>(null);
   // Instruments resolved on demand when the user pins a ticker outside the
   // curated universe (e.g. QQQI) — merged into the pool for this session.
@@ -239,7 +240,7 @@ export function PortfolioGeneratorApp() {
           .slice(0, 80)
           .map((u) => ({ tk: u.tk, name: u.name, sector: u.sector, country: u.country ?? null, yieldPct: u.yield, grade: u.rate, capUsd: u.capUsd ?? null, vol: u.vol }));
         const { data } = await supabase.functions.invoke("goal-parser", {
-          body: { goal, candidates, count: Math.min(12, Math.max(6, state.count - 3)) },
+          body: { goal, candidates, count: Math.min(12, Math.max(6, state.count - 3)), locale },
         });
         parsed = (data?.parsed ?? null) as ParsedGoal | null;
       } catch { /* parse unavailable — constraints fall back to regex */ }
