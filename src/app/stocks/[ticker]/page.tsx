@@ -21,24 +21,12 @@ import {
   jsonLdScript,
 } from "@/lib/structured-data";
 import {
-  getStock,
-  getCompanyListings,
-  dividendHistoryBySymbol,
-  newsForSymbol,
-  historicalPrices,
-  incomeStatementAnnual,
-  incomeStatementQuarterly,
-  balanceSheetAnnual,
-  balanceSheetQuarterly,
-  cashFlowAnnual,
-  cashFlowQuarterly,
-  ratiosLatest,
-  getPeerStocksInSector,
-  getTopEtfHoldersPreview,
+  getStockDetail,
   formatCurrency,
   formatPercent,
   formatDate,
 } from "@/lib/data";
+import type { StockRow, DividendEvent, RatiosRow } from "@/lib/data";
 import { pickTitle, metaDescription } from "@/lib/seo";
 import { isFundSymbol } from "@/lib/format";
 import { unstable_cache } from "next/cache";
@@ -59,68 +47,14 @@ export function generateStaticParams() {
   return [];
 }
 
-const getStockCore = unstable_cache(
-  async (symbol: string) => {
-    const [
-      stock,
-      dividends,
-      news,
-      prices,
-      incomeAnnual,
-      incomeQuarterly,
-      balanceAnnual,
-      balanceQuarterly,
-      cashFlowAnnualRows,
-      cashFlowQuarterlyRows,
-      ratios,
-    ] = await Promise.all([
-      getStock(symbol),
-      dividendHistoryBySymbol(symbol, 40),
-      newsForSymbol(symbol, 12),
-      historicalPrices(symbol, 365 * 10),
-      incomeStatementAnnual(symbol, 5),
-      incomeStatementQuarterly(symbol, 8),
-      balanceSheetAnnual(symbol, 5),
-      balanceSheetQuarterly(symbol, 8),
-      cashFlowAnnual(symbol, 5),
-      cashFlowQuarterly(symbol, 8),
-      ratiosLatest(symbol),
-    ]);
-    return {
-      stock,
-      dividends,
-      news,
-      prices,
-      incomeAnnual,
-      incomeQuarterly,
-      balanceAnnual,
-      balanceQuarterly,
-      cashFlowAnnualRows,
-      cashFlowQuarterlyRows,
-      ratios,
-    };
-  },
-  ["stock-detail-core"],
-  { revalidate: 600 },
-);
-
-// All listings of the same company (multi-listing switcher + canonical). Keyed
-// by company name; cheap query, cached like the rest.
-const getListings = unstable_cache(
-  async (name: string | null) => getCompanyListings(name),
-  ["stock-company-listings"],
-  { revalidate: 600 },
-);
-
-const getStockRelated = unstable_cache(
-  async (symbol: string, sector: string | null) => {
-    const [peerStocks, topEtfHolders] = await Promise.all([
-      getPeerStocksInSector(symbol, sector, 6),
-      getTopEtfHoldersPreview(symbol, 6),
-    ]);
-    return { peerStocks, topEtfHolders };
-  },
-  ["stock-detail-related"],
+// One RPC returns the entire page payload — stock, dividends, news, prices, all
+// financial statements, ratios, multi-listing siblings, sector peers and ETF
+// holders — replacing the ~15 separate Supabase queries this page used to fire
+// on every cold render. Cached (revalidate matches the route's 600s) so the
+// metadata pass and the body share a single round-trip.
+const getDetail = unstable_cache(
+  async (symbol: string) => getStockDetail(symbol),
+  ["stock-detail-v2"],
   { revalidate: 600 },
 );
 
@@ -148,7 +82,8 @@ export async function generateMetadata({
   // Live-data-enriched titles + descriptions dramatically improve SERP CTR
   // because the snippet shows the actual yield + ex-div date, not a generic
   // template. Fetch the bare-minimum row to avoid extra work.
-  const stock = await getStock(upper).catch(() => null);
+  const detail = await getDetail(upper).catch(() => null);
+  const stock = detail?.stock ?? null;
   if (!stock) {
     return {
       title: pickTitle([`${upper} Dividend — Yield, Payout & History`, `${upper} Dividend`]),
@@ -166,7 +101,7 @@ export async function generateMetadata({
   // Multi-listing canonical: every variation of a company points at the primary
   // listing (highest-volume sibling) so Google consolidates them into one page
   // instead of indexing dozens of thin cross-listing duplicates.
-  const listings = await getListings(stock.name).catch(() => []);
+  const listings = detail?.listings ?? [];
   const primary = listings[0]?.symbol ?? upper;
   const canonical = `/stocks/${primary}`;
   const yld = stock.dividend_yield != null ? `${stock.dividend_yield.toFixed(2)}%` : null;
@@ -213,17 +148,18 @@ export default async function StockPage({
   const requested = ticker.toUpperCase();
   let symbol = requested;
 
-  let core = await getStockCore(symbol);
+  let core = await getDetail(symbol);
 
-  if (!core.stock) notFound();
+  if (!core || !core.stock) notFound();
   // ETFs & funds must NOT exist under /stocks — they're the wrong URL type and
   // inflate the indexable page count. 404 them so Google drops them. This also
   // catches US mutual funds mis-flagged as common stocks (5-letter …X symbols
   // like WFEMX/VFIAX). The real fund page lives at /etfs/symbol/[symbol].
   if (core.stock.is_etf || core.stock.is_fund || isFundSymbol(symbol)) notFound();
 
-  // All listings of this company (TradingView-style switcher in the header).
-  const listings = await getListings(core.stock.name).catch(() => []);
+  // All listings of this company (TradingView-style switcher in the header) —
+  // bundled in the same RPC payload.
+  const listings = core.listings;
   const primarySymbol = listings[0]?.symbol ?? symbol;
 
   // Multi-listing v2: a thin secondary listing (US grey-market shells like
@@ -234,8 +170,8 @@ export default async function StockPage({
   // we can show a "secondary listing" note.
   const usablePrices = core.prices.filter((p) => p.close != null).length >= 2;
   if (primarySymbol !== symbol && !usablePrices && core.stock.annual_dividend == null) {
-    const primaryCore = await getStockCore(primarySymbol);
-    if (primaryCore.stock && !primaryCore.stock.is_etf && !primaryCore.stock.is_fund) {
+    const primaryCore = await getDetail(primarySymbol);
+    if (primaryCore?.stock && !primaryCore.stock.is_etf && !primaryCore.stock.is_fund) {
       core = primaryCore;
       symbol = primarySymbol;
     }
@@ -246,7 +182,7 @@ export default async function StockPage({
   // with full price history) keeps its own quote/chart but showed an empty
   // Financials tab — borrow the primary's statements instead.
   if (primarySymbol !== symbol && core.incomeAnnual.length === 0 && core.balanceAnnual.length === 0) {
-    const primaryCore = await getStockCore(primarySymbol).catch(() => null);
+    const primaryCore = await getDetail(primarySymbol).catch(() => null);
     if (primaryCore?.stock) {
       core = {
         ...core,
@@ -279,8 +215,9 @@ export default async function StockPage({
   const isPositive = (stock.change_percent ?? 0) >= 0;
   const isSecondaryRedirect = requested !== symbol;
 
-  // Related-content for the bottom-of-page widget (internal linking + UX).
-  const { peerStocks, topEtfHolders } = await getStockRelated(symbol, stock.sector ?? null);
+  // Related-content for the bottom-of-page widget (internal linking + UX) —
+  // sector peers + top ETF holders come bundled in the same RPC payload.
+  const { peerStocks, topEtfHolders } = core;
 
   // Build the JSON-LD payloads for SEO + GEO (AI search). These render as
   // <script type="application/ld+json"> tags in the <head>-equivalent slot
@@ -573,9 +510,9 @@ function PayoutsTab({
   ratios,
 }: {
   symbol: string;
-  dividends: Awaited<ReturnType<typeof dividendHistoryBySymbol>>;
-  stock: NonNullable<Awaited<ReturnType<typeof getStock>>>;
-  ratios: Awaited<ReturnType<typeof ratiosLatest>>;
+  dividends: DividendEvent[];
+  stock: StockRow;
+  ratios: RatiosRow | null;
 }) {
   const lastDiv = dividends[0];
   // Use adj_dividend (split-adjusted) for TTM total — raw `dividend` stores
@@ -641,8 +578,8 @@ function DivGrowthTab({
   currency,
 }: {
   symbol: string;
-  dividends: Awaited<ReturnType<typeof dividendHistoryBySymbol>>;
-  ratios: Awaited<ReturnType<typeof ratiosLatest>>;
+  dividends: DividendEvent[];
+  ratios: RatiosRow | null;
   currency: string | null;
 }) {
   // Group dividends by year and sum. Use adj_dividend so a stock split
@@ -730,7 +667,7 @@ function ProfileTab({
   financialsContent,
 }: {
   symbol: string;
-  stock: NonNullable<Awaited<ReturnType<typeof getStock>>>;
+  stock: StockRow;
   financialsContent: React.ReactNode;
 }) {
   return (

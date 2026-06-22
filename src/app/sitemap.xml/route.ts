@@ -304,9 +304,17 @@ export async function GET(): Promise<NextResponse> {
       .limit(45000);
 
     const SAFE_SYMBOL = /^[A-Za-z0-9.\-]{1,12}$/;
+    // Foreign-exchange-suffixed tickers (TOU.TO, 3329.T, TRENT.BO, …) make up the
+    // bulk of the catalog and have little SEO value for an English dividend site,
+    // yet a `changefreq: daily` sitemap entry invites crawlers to re-render all
+    // ~45k of them — the dominant driver of ISR-write + serverless cost. Drop the
+    // dotted (foreign) symbols from the sitemap; keep a tiny allowlist of US
+    // class-share tickers that legitimately contain a dot.
+    const US_DOTTED_ALLOW = new Set(["BRK.A", "BRK.B", "BF.A", "BF.B"]);
     type R = { symbol: string; is_etf: boolean | null; is_fund: boolean | null; updated_at: string | null };
     for (const r of (stocks as R[] | null) ?? []) {
       if (!r.symbol || !SAFE_SYMBOL.test(r.symbol)) continue;
+      if (r.symbol.includes(".") && !US_DOTTED_ALLOW.has(r.symbol.toUpperCase())) continue;
       // ETFs, funds, and mutual-fund symbols (5-letter …X, often mis-flagged as
       // stocks) belong under /etfs/symbol — never /stocks (which 404s for them).
       const isFundLike = r.is_etf || r.is_fund || /^[A-Z]{4}X$/.test(r.symbol);
@@ -314,7 +322,7 @@ export async function GET(): Promise<NextResponse> {
       entries.push({
         loc: `${BASE}${path}`,
         lastmod: r.updated_at ?? now,
-        changefreq: "daily",
+        changefreq: "weekly",
         priority: 0.6,
       });
     }

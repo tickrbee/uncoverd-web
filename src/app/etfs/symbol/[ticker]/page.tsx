@@ -8,15 +8,8 @@ import { ListingSwitcher } from "@/components/listing-switcher";
 import { Stat } from "@/components/stat";
 import { EtfDetailTabs, type TabDef } from "@/components/etf-detail-tabs";
 import {
-  getEtfDetail,
+  getEtfDetailFull,
   computeEtfRating,
-  dividendHistoryBySymbol,
-  newsForSymbol,
-  historicalPrices,
-  getEtfHoldings,
-  getEtfSectorWeights,
-  getEtfCountryWeights,
-  getCompanyListings,
   formatCurrency,
   formatPercent,
   formatDate,
@@ -42,28 +35,13 @@ export function generateStaticParams() {
   return [];
 }
 
-const getEtfCore = unstable_cache(
-  async (symbol: string) => {
-    const [etf, dividends, news, prices, holdings, sectorWeights, countryWeights] =
-      await Promise.all([
-        getEtfDetail(symbol),
-        dividendHistoryBySymbol(symbol, 60),
-        newsForSymbol(symbol, 12),
-        historicalPrices(symbol, 365 * 5),
-        getEtfHoldings(symbol, 50),
-        getEtfSectorWeights(symbol),
-        getEtfCountryWeights(symbol),
-      ]);
-    return { etf, dividends, news, prices, holdings, sectorWeights, countryWeights };
-  },
-  ["etf-detail-core"],
-  { revalidate: 600 },
-);
-
-// Listings of the same fund/ETF across exchanges (multi-listing switcher).
-const getFundListings = unstable_cache(
-  async (name: string | null) => getCompanyListings(name, { funds: true }),
-  ["etf-company-listings"],
+// One RPC returns the entire ETF page payload — profile row, distributions,
+// news, prices, holdings, sector/country weights and multi-listing siblings —
+// replacing the ~7 separate Supabase queries this page used to fire on every
+// cold render. Cached so the metadata pass and the body share one round-trip.
+const getDetail = unstable_cache(
+  async (symbol: string) => getEtfDetailFull(symbol),
+  ["etf-detail-v2"],
   { revalidate: 600 },
 );
 
@@ -83,7 +61,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
-  const etf = await getEtfDetail(upper).catch(() => null);
+  const detail = await getDetail(upper).catch(() => null);
+  const etf = detail?.etf ?? null;
   if (!etf) {
     return {
       title: pickTitle([`${upper} ETF — Yield, Holdings & Expense Ratio`, `${upper} ETF Profile`]),
@@ -95,7 +74,7 @@ export async function generateMetadata({
   }
   const name = etf.name ?? upper;
   // Canonicalize multi-listing funds to the primary (highest-volume) listing.
-  const listings = await getFundListings(etf.name).catch(() => []);
+  const listings = detail?.listings ?? [];
   const canonical = `/etfs/symbol/${listings[0]?.symbol ?? upper}`;
   const yld = etf.dividend_yield != null ? `${etf.dividend_yield.toFixed(2)}%` : null;
   const exp = etf.expense_ratio != null ? `${etf.expense_ratio.toFixed(2)}%` : null;
@@ -132,12 +111,12 @@ export default async function EtfDetailPage({
   const { ticker } = await params;
   const symbol = ticker.toUpperCase();
 
-  const { etf, dividends, news, prices, holdings, sectorWeights, countryWeights } =
-    await getEtfCore(symbol);
-
-  if (!etf) notFound();
-  // Sibling listings of this fund/ETF (multi-listing switcher in the header).
-  const listings = await getFundListings(etf.name).catch(() => []);
+  const detail = await getDetail(symbol);
+  if (!detail || !detail.etf) notFound();
+  // Sibling listings of this fund/ETF (multi-listing switcher in the header) —
+  // bundled in the same RPC payload.
+  const { dividends, news, prices, holdings, sectorWeights, countryWeights, listings } = detail;
+  const etf = detail.etf;
   // ETFs, flagged funds, AND mutual funds mis-flagged as stocks (5-letter …X
   // symbols like VSMPX/VITSX) all render here as their canonical fund/ETF page.
   // Only a genuine common stock bounces to /stocks.

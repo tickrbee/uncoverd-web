@@ -728,6 +728,164 @@ export async function getEtfHoldersOf(symbol: string, limit = 50000): Promise<Et
   });
 }
 
+// ============================================================
+// Single-RPC detail loaders (Vercel cost optimization)
+// ------------------------------------------------------------
+// One supabase.rpc round-trip returns the ENTIRE /stocks/[ticker] or
+// /etfs/symbol/[ticker] payload, replacing the ~15–17 separate queries each
+// cold (mostly crawler-driven) render used to fire. The JSON is mapped back
+// into the exact shapes the pages already consume — toStockRow still applies
+// the >30% yield cap — so no downstream component changes. The old granular
+// functions above stay in place for the many other callers.
+// ============================================================
+
+// Raw JSON shape returned by backend.get_stock_detail.
+type StockDetailPayload = {
+  stock: TickerRow | null;
+  dividends: DividendEvent[];
+  news: NewsRow[];
+  prices: HistoricalPriceRow[];
+  incomeAnnual: IncomeStatementRow[];
+  incomeQuarterly: IncomeStatementRow[];
+  balanceAnnual: BalanceSheetRow[];
+  balanceQuarterly: BalanceSheetRow[];
+  cashFlowAnnual: CashFlowRow[];
+  cashFlowQuarterly: CashFlowRow[];
+  ratios: RatiosRow | null;
+  listings: CompanyListing[];
+  peers: { symbol: string; name: string | null; price: number | null; last_div: number | null }[];
+  etfHolders: { etf_symbol: string; etf_name: string | null; weight_percentage: number | null }[];
+};
+
+export type StockDetail = {
+  stock: StockRow | null;
+  dividends: DividendEvent[];
+  news: NewsRow[];
+  prices: HistoricalPriceRow[];
+  incomeAnnual: IncomeStatementRow[];
+  incomeQuarterly: IncomeStatementRow[];
+  balanceAnnual: BalanceSheetRow[];
+  balanceQuarterly: BalanceSheetRow[];
+  cashFlowAnnualRows: CashFlowRow[];
+  cashFlowQuarterlyRows: CashFlowRow[];
+  ratios: RatiosRow | null;
+  listings: CompanyListing[];
+  peerStocks: PeerStockRow[];
+  topEtfHolders: { etf_symbol: string; etf_name: string | null; weight_percentage: number | null }[];
+};
+
+export async function getStockDetail(symbol: string): Promise<StockDetail | null> {
+  const sb = getBackendClient();
+  const { data, error } = await sb.rpc("get_stock_detail", { p_symbol: symbol });
+  if (error) {
+    console.error("[data.getStockDetail]", error.message ?? error);
+    return null;
+  }
+  if (!data) return null;
+  const p = data as StockDetailPayload;
+  return {
+    stock: p.stock ? toStockRow(p.stock) : null,
+    dividends: p.dividends ?? [],
+    news: p.news ?? [],
+    prices: p.prices ?? [],
+    incomeAnnual: p.incomeAnnual ?? [],
+    incomeQuarterly: p.incomeQuarterly ?? [],
+    balanceAnnual: p.balanceAnnual ?? [],
+    balanceQuarterly: p.balanceQuarterly ?? [],
+    cashFlowAnnualRows: p.cashFlowAnnual ?? [],
+    cashFlowQuarterlyRows: p.cashFlowQuarterly ?? [],
+    ratios: p.ratios ?? null,
+    listings: p.listings ?? [],
+    // Mirror getPeerStocksInSector's yield math exactly.
+    peerStocks: (p.peers ?? []).map((r) => ({
+      symbol: r.symbol,
+      name: r.name,
+      dividend_yield:
+        r.price && r.price > 0 && r.last_div != null ? (r.last_div / r.price) * 100 : null,
+    })),
+    topEtfHolders: p.etfHolders ?? [],
+  };
+}
+
+// Raw JSON shape returned by backend.get_etf_detail.
+type EtfDetailPayload = {
+  etf: (TickerRow & { is_adr: boolean | null }) | null;
+  dividends: DividendEvent[];
+  news: NewsRow[];
+  prices: HistoricalPriceRow[];
+  holdings: EtfHolding[];
+  sectorWeights: EtfSectorWeight[];
+  countryWeights: EtfCountryWeight[];
+  listings: CompanyListing[];
+};
+
+export type EtfDetailFull = {
+  etf: EtfDetailRow | null;
+  dividends: DividendEvent[];
+  news: NewsRow[];
+  prices: HistoricalPriceRow[];
+  holdings: EtfHolding[];
+  sectorWeights: EtfSectorWeight[];
+  countryWeights: EtfCountryWeight[];
+  listings: CompanyListing[];
+};
+
+export async function getEtfDetailFull(symbol: string): Promise<EtfDetailFull | null> {
+  const sb = getBackendClient();
+  const { data, error } = await sb.rpc("get_etf_detail", { p_symbol: symbol });
+  if (error) {
+    console.error("[data.getEtfDetailFull]", error.message ?? error);
+    return null;
+  }
+  if (!data) return null;
+  const p = data as EtfDetailPayload;
+  let etf: EtfDetailRow | null = null;
+  if (p.etf) {
+    const base = toStockRow(p.etf);
+    // Mirror enrichEtfYieldsFromDividends — but from the distributions already
+    // in this payload, so no extra round-trip. When the tickers row carries no
+    // usable yield, derive a TTM yield from the last 12 months of split-
+    // adjusted distributions.
+    if (base.dividend_yield == null && base.price != null && base.price > 0) {
+      const cutoff = Date.now() - 365 * 86400 * 1000;
+      let ttm = 0;
+      for (const d of p.dividends ?? []) {
+        if (!d.date || new Date(d.date).getTime() < cutoff) continue;
+        const val = d.adj_dividend != null ? Number(d.adj_dividend) : Number(d.dividend);
+        if (!Number.isFinite(val) || val <= 0) continue;
+        ttm += val;
+      }
+      if (ttm > 0) {
+        base.dividend_yield = (ttm / base.price) * 100;
+        base.annual_dividend = ttm;
+      }
+    }
+    // Re-assert the ETF-only columns from the raw row so the result satisfies
+    // EtfDetailRow (StockRow types them as optional). Mirrors getEtfDetail.
+    etf = {
+      ...base,
+      expense_ratio: p.etf.expense_ratio,
+      aum: p.etf.aum,
+      holdings_count: p.etf.holdings_count,
+      etf_category: p.etf.etf_category,
+      asset_class: p.etf.asset_class,
+      nav: p.etf.nav,
+      etf_company: p.etf.etf_company,
+      is_adr: p.etf.is_adr ?? null,
+    };
+  }
+  return {
+    etf,
+    dividends: p.dividends ?? [],
+    news: p.news ?? [],
+    prices: p.prices ?? [],
+    holdings: p.holdings ?? [],
+    sectorWeights: p.sectorWeights ?? [],
+    countryWeights: p.countryWeights ?? [],
+    listings: p.listings ?? [],
+  };
+}
+
 // Aggregate: which stocks are held by the most ETFs (basket exposure).
 // Used by the heatmap / "top held by ETFs" page.
 export type MostHeldRow = {
