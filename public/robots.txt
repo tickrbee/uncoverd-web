@@ -50,4 +50,16 @@ Disallow: /reset-password
 Disallow: /signup
 Disallow: /login
 
+# Foreign-exchange-suffixed ticker/ETF pages (TOU.TO, 3329.T, TRENT.BO, …) are
+# the bulk of the ~79k auto-generated detail pages and add little SEO value for
+# an English dividend site, but crawling them all drives the majority of our
+# render/ISR cost. Block the dotted (foreign) symbols; plain US tickers are
+# unaffected. US class-shares that contain a dot are explicitly re-allowed.
+Disallow: /stocks/*.
+Disallow: /etfs/symbol/*.
+Allow: /stocks/BRK.A
+Allow: /stocks/BRK.B
+Allow: /stocks/BF.A
+Allow: /stocks/BF.B
+
 Sitemap: https://uncoverd.org/sitemap.xml
