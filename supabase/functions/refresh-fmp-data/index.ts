@@ -14,6 +14,10 @@
 // What it refreshes:
 //   - backend.tickers: prices/mkt_cap/change for ALL active tickers worldwide
 //   - backend.tickers: ETF metadata for ALL ETFs in FMP's /etf-list
+//   - backend.tickers: company PROFILES (sector/ipo_date/beta/...) for newly
+//     added stocks (daily, last-14-days) — full backfill via ?stage=profiles
+//   - backend.tickers: DELISTINGS (is_actively_trading=false + delisted_date)
+//     from FMP /delisted-companies — recent daily, deep backfill via ?stage=delisted
 //   - backend.dividends: upcoming dividend events for the next 60 days
 //   - backend.company_news: latest news for top US dividend payers
 //
@@ -1398,6 +1402,147 @@ async function refreshNewsPerSymbol(shard: number, shards: number, scope = "stoc
   return { newsInserted: inserted, symbolsProcessed, shardSize: subset.length, totalSymbols: candidates.length, scope, errors: errors.slice(0, 3) };
 }
 
+// 0b) Sync FMP's /delisted-companies → mark matching tickers inactive + stamp
+//     delisted_date. The survivorship-bias foundation: instead of silently
+//     keeping only survivors, we record WHEN names leave the market. UPDATE-only
+//     (never inserts), so unknown delisted symbols are simply skipped. `pages`
+//     bounds how deep we walk the (recent-first) delisting feed.
+async function syncDelisted(pages = 3) {
+  type DelistedItem = { symbol?: string; companyName?: string; delistedDate?: string };
+  const collected = new Map<string, string>(); // symbol -> delistedDate (yyyy-mm-dd)
+  for (let page = 0; page < pages; page++) {
+    const items = await fmp<DelistedItem[]>(`/delisted-companies?page=${page}&limit=100`).catch(() => null);
+    if (!items || !Array.isArray(items) || items.length === 0) break;
+    for (const it of items) {
+      if (!it.symbol) continue;
+      const d = it.delistedDate && /^\d{4}-\d{2}-\d{2}$/.test(it.delistedDate) ? it.delistedDate : null;
+      collected.set(it.symbol, d ?? new Date().toISOString().slice(0, 10));
+    }
+    if (items.length < 100) break;
+  }
+  if (collected.size === 0) return { delistedMarked: 0, delistedSeen: 0 };
+
+  // Group by delistedDate so each UPDATE stamps the correct date. Only touch
+  // rows not already flagged (delisted_date IS NULL) so daily recent-page walks
+  // stay cheap and don't churn long-settled delistings.
+  const byDate = new Map<string, string[]>();
+  for (const [sym, date] of collected) {
+    const arr = byDate.get(date) ?? [];
+    arr.push(sym);
+    byDate.set(date, arr);
+  }
+  let marked = 0;
+  const errors: string[] = [];
+  for (const [date, syms] of byDate) {
+    for (let i = 0; i < syms.length; i += 200) {
+      const batch = syms.slice(i, i + 200);
+      const { data, error } = await sb
+        .from("tickers")
+        .update({ is_actively_trading: false, delisted_date: date, delisted_reason: "fmp_delisted", updated_at: new Date().toISOString() })
+        .in("symbol", batch)
+        .is("delisted_date", null)
+        .select("symbol");
+      if (error) errors.push(error.message);
+      else marked += (data as unknown[] | null)?.length ?? 0;
+    }
+  }
+  return { delistedMarked: marked, delistedSeen: collected.size, errors: errors.slice(0, 3) };
+}
+
+// 0c) Fill company profiles for stocks missing sector / ipo_date. NOTHING else
+//     in the pipeline pulls FMP /profile, so newly-added listings arrive as
+//     name+price only (no sector → unscreenable, no IPO date, weak rating).
+//     This stamps sector/industry/ipo_date/beta/description/etc. `recentOnly`
+//     restricts to symbols added in the last 14 days — that's the in-"all"
+//     daily pass so brand-new IPOs get profiled within a day; the full sharded
+//     backfill of the long tail runs via ?stage=profiles&shards=N.
+async function refreshProfiles(shard: number, shards: number, recentOnly = false) {
+  const candidates: string[] = [];
+  let offset = 0;
+  const recentCutoff = new Date(Date.now() - 14 * 864e5).toISOString();
+  while (true) {
+    let q = sb
+      .from("tickers")
+      .select("symbol")
+      .eq("is_actively_trading", true)
+      .eq("is_etf", false)
+      .eq("is_fund", false)
+      .or("sector.is.null,ipo_date.is.null")
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .range(offset, offset + 999);
+    if (recentOnly) q = q.gte("created_at", recentCutoff);
+    const { data, error } = await q;
+    if (error || !data) break;
+    const rows = data as { symbol: string }[];
+    for (const r of rows) candidates.push(r.symbol);
+    if (rows.length < 1000) break;
+    offset += 1000;
+    if (recentOnly && candidates.length >= 400) break; // bound the daily pass
+    if (offset > 200000) break;
+  }
+  const subset = shardSlice(candidates, shard, shards);
+
+  type Profile = {
+    symbol?: string; sector?: string; industry?: string; ipoDate?: string;
+    beta?: number; description?: string; ceo?: string; website?: string;
+    country?: string; image?: string; isin?: string; city?: string; state?: string;
+    zip?: string; phone?: string; address?: string; range?: string;
+    exchange?: string; exchangeFullName?: string;
+  };
+
+  const CONCURRENCY = 5;
+  let next = 0;
+  let updated = 0;
+  let symbolsProcessed = 0;
+  const errors: string[] = [];
+
+  const setIf = (out: Record<string, unknown>, key: string, val: unknown) => {
+    if (val !== undefined && val !== null && val !== "") out[key] = val;
+  };
+
+  async function worker() {
+    while (next < subset.length) {
+      const idx = next++;
+      const sym = subset[idx];
+      try {
+        const data = await fmp<Profile[]>(`/profile?symbol=${encodeURIComponent(sym)}`).catch(() => null);
+        symbolsProcessed++;
+        if (!data || !Array.isArray(data) || data.length === 0) continue;
+        const p = data[0];
+        const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        setIf(upd, "sector", p.sector);
+        setIf(upd, "industry", p.industry);
+        if (p.ipoDate && /^\d{4}-\d{2}-\d{2}$/.test(p.ipoDate)) upd.ipo_date = p.ipoDate;
+        if (typeof p.beta === "number" && isFinite(p.beta)) upd.beta = p.beta;
+        setIf(upd, "description", p.description);
+        setIf(upd, "ceo", p.ceo);
+        setIf(upd, "website", p.website);
+        setIf(upd, "country", p.country);
+        setIf(upd, "image", p.image);
+        setIf(upd, "isin", p.isin);
+        setIf(upd, "city", p.city);
+        setIf(upd, "state", p.state);
+        setIf(upd, "zip", p.zip);
+        setIf(upd, "phone", p.phone);
+        setIf(upd, "address", p.address);
+        setIf(upd, "range", p.range);
+        setIf(upd, "exchange", p.exchangeFullName);
+        setIf(upd, "exchange_short", p.exchange);
+        if (Object.keys(upd).length <= 1) continue; // nothing beyond updated_at
+        const { error } = await sb.from("tickers").update(upd).eq("symbol", sym);
+        if (error) errors.push(`${sym}: ${error.message}`);
+        else updated++;
+      } catch (e) {
+        errors.push(`${sym}: ${String(e)}`);
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.min(CONCURRENCY, subset.length) }, () => worker());
+  await Promise.all(workers);
+
+  return { profilesUpdated: updated, symbolsProcessed, shardSize: subset.length, totalMissing: candidates.length, recentOnly, errors: errors.slice(0, 3) };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "GET" && req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -1443,6 +1588,15 @@ Deno.serve(async (req) => {
       tasks.push(refreshNews());
       labels.push("news");
     }
+    if (stage === "all" && shard === 0) {
+      // Survivorship tracking + brand-new-listing profiles, folded into the
+      // daily pass so freshly-IPO'd names (e.g. SpaceX) become screenable
+      // (sector + ipo_date) within a day rather than arriving as name+price only.
+      tasks.push(syncDelisted(3));
+      labels.push("delisted");
+      tasks.push(refreshProfiles(0, 1, true));
+      labels.push("profilesRecent");
+    }
     if (stage === "recovery") {
       // Stand-alone heavy job; never run in `all` mode. Schedule via ?stage=recovery&shards=N.
       tasks.push(refreshRecoveryDays(shard, shards));
@@ -1487,6 +1641,20 @@ Deno.serve(async (req) => {
       // (annual + quarterly) for every active stock with mkt_cap > $50M.
       tasks.push(refreshFinancials(shard, shards));
       labels.push("financials");
+    }
+    if (stage === "profiles") {
+      // Stand-alone: full sharded backfill of company profiles
+      // (sector/industry/ipo_date/beta/description/...) for the long tail of
+      // stocks that never had a /profile pull. ~27K missing as of mid-2026.
+      tasks.push(refreshProfiles(shard, shards, false));
+      labels.push("profiles");
+    }
+    if (stage === "delisted") {
+      // Stand-alone: deep walk of FMP's delisting feed for backfill.
+      // `?pages=N` (default 100) bounds the depth.
+      const pages = parseInt(url.searchParams.get("pages") ?? "100", 10) || 100;
+      tasks.push(syncDelisted(pages));
+      labels.push("delisted");
     }
 
     const settled = await Promise.allSettled(tasks);
